@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon
+  id="inputstream.mpd"
+  version="1.0.0"
+  name="Input Stream"
+  provider-name="unknown">
+  <requires>
+    <import addon="kodi.inputstream" version="1.0.0"/>
+  </requires>
+  <extension
+    point="kodi.inputstream"
+    name="mpd"
+    extension=".mpd"
+    tags="true"
+    library_@PLATFORM@="@LIBRARY_FILENAME@"/>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en">bla bla </summary>
+    <description lang="en">bla bla</description>
+    <platform>@PLATFORM@</platform>
+  </extension>
+</addon>
