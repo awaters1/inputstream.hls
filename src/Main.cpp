@@ -57,4 +57,78 @@ void ADDON_Destroy()
   XBMC=NULL;
 }
 
+bool OpenStream(const char*)
+{
+  return false;
+}
+
+void CloseStream(void)
+{
+}
+
+int ReadStream(unsigned char* pBuffer, unsigned int iBufferSize)
+{
+  return 0;
+}
+
+long long SeekStream(long long iPosition, int iWhence)
+{
+  return 0;
+}
+
+long long PositionStream(void)
+{
+  return 0;
+}
+
+long long LengthStream(void)
+{
+  return 0;
+}
+
+void DemuxReset(void)
+{
+}
+
+void DemuxAbort(void)
+{
+}
+
+void DemuxFlush(void)
+{
+}
+
+DemuxPacket* DemuxRead(void)
+{
+  return nullptr;
+}
+
+bool CanPauseStream()
+{
+  return false;
+}
+
+bool CanSeekStream()
+{
+  return false;
+}
+
+void PauseStream(bool bPaused)
+{
+}
+
+bool SeekTime(int time, bool backwards, double *startpts)
+{
+  return false;
+}
+
+void SetSpeed(int speed)
+{
+}
+
+bool IsRealTimeStream()
+{
+  return false;
+}
+
 }
