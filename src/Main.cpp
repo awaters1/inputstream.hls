@@ -41,51 +41,51 @@ class FragmentedSampleReader : public AP4_LinearReader
 {
 public:
 
-	FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId)
-		: AP4_LinearReader(*movie, input)
-		, m_Track(track)
-		, m_ts(0.0)
-		, m_eos(false)
-		, m_StreamId(streamId)
-	{
-		EnableTrack(m_Track->GetId());
-	}
+  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId)
+    : AP4_LinearReader(*movie, input)
+    , m_Track(track)
+    , m_ts(0.0)
+    , m_eos(false)
+    , m_StreamId(streamId)
+  {
+    EnableTrack(m_Track->GetId());
+  }
 
-	~FragmentedSampleReader()
-	{
-	}
+  ~FragmentedSampleReader()
+  {
+  }
 
-	AP4_Result ReadSample()
-	{
-		AP4_Result result;
-		if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_sample_data_)))
-		{
-			if (result == AP4_ERROR_EOS) {
-				m_eos = true;
-			}
-			else {
-				return result;
-			}
-		}
-		m_ts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
-		return AP4_SUCCESS;
-	};
+  AP4_Result ReadSample()
+  {
+    AP4_Result result;
+    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_sample_data_)))
+    {
+      if (result == AP4_ERROR_EOS) {
+        m_eos = true;
+      }
+      else {
+        return result;
+      }
+    }
+    m_ts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
+    return AP4_SUCCESS;
+  };
 
-	bool EOS()const{ return m_eos; };
-	double DTS()const{ return m_ts; };
-	const AP4_Sample &Sample()const { return m_sample_; };
-	AP4_UI32 GetStreamId()const{ return m_StreamId; };
-	AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
-	const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
+  bool EOS()const{ return m_eos; };
+  double DTS()const{ return m_ts; };
+  const AP4_Sample &Sample()const { return m_sample_; };
+  AP4_UI32 GetStreamId()const{ return m_StreamId; };
+  AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
+  const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
 
 private:
-	AP4_Track *m_Track;
-	AP4_UI32 m_StreamId;
-	bool m_eos;
-	double m_ts;
+  AP4_Track *m_Track;
+  AP4_UI32 m_StreamId;
+  bool m_eos;
+  double m_ts;
 
-	AP4_Sample     m_sample_;
-	AP4_DataBuffer m_sample_data_;
+  AP4_Sample     m_sample_;
+  AP4_DataBuffer m_sample_data_;
 };
 
 /*******************************************************
@@ -94,31 +94,31 @@ Main class Session
 class Session
 {
 public:
-	Session();
-	~Session();
-	bool initialize();
-	void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
-	FragmentedSampleReader *GetNextSample();
+  Session();
+  ~Session();
+  bool initialize();
+  void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
+  FragmentedSampleReader *GetNextSample();
   INPUTSTREAM_INFO &GetStreamInfo(unsigned int sid){ return sid == 1 ? audio_info_ : sid == 2 ? video_info_ : dummy_info_; };
 private:
-	AP4_ByteStream *video_input_, *audio_input_;
-	AP4_File *video_input_file_, *audio_input_file_;
+  AP4_ByteStream *video_input_, *audio_input_;
+  AP4_File *video_input_file_, *audio_input_file_;
   INPUTSTREAM_INFO video_info_, audio_info_, dummy_info_;
 
-	uint16_t width_, height_;
-	std::string language_;
-	uint32_t fixed_bandwidth_;
+  uint16_t width_, height_;
+  std::string language_;
+  uint32_t fixed_bandwidth_;
 
-	FragmentedSampleReader *audio_reader_, *video_reader_;
+  FragmentedSampleReader *audio_reader_, *video_reader_;
 } *session = 0;
 
 Session::Session()
-	: video_input_(NULL)
-	, audio_input_(NULL)
-	, video_input_file_(NULL)
-	, audio_input_file_(NULL)
-	, audio_reader_(NULL)
-	, video_reader_(NULL)
+  : video_input_(NULL)
+  , audio_input_(NULL)
+  , video_input_file_(NULL)
+  , audio_input_file_(NULL)
+  , audio_reader_(NULL)
+  , video_reader_(NULL)
 {
   memset(&audio_info_, 0, sizeof(audio_info_));
   memset(&video_info_, 0, sizeof(video_info_));
@@ -133,11 +133,11 @@ Session::Session()
 
 Session::~Session()
 {
-	delete video_input_;
-	delete video_reader_;
+  delete video_input_;
+  delete video_reader_;
 
-	delete audio_input_;
-	delete audio_reader_;
+  delete audio_input_;
+  delete audio_reader_;
 }
 
 /*----------------------------------------------------------------------
@@ -159,26 +159,26 @@ static bool copyLang(char* dest, const char* src)
 
 bool Session::initialize()
 {
-	AP4_Result result;
-	/************ VIDEO INITIALIZATION ******/
-	result = AP4_FileByteStream::Create("video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
-	if (AP4_FAILED(result)) {
-		xbmc->Log(ADDON::LOG_ERROR, "Cannot open video.mov!");
-		return false;
-	}
-	video_input_file_ = new AP4_File(*video_input_, AP4_DefaultAtomFactory::Instance, true);
-	AP4_Movie* movie = video_input_file_->GetMovie();
-	if (movie == NULL)
-	{
-		xbmc->Log(ADDON::LOG_ERROR, "No MOOV in video stream!");
-		return false;
-	}
-	AP4_Track *track = movie->GetTrack(AP4_Track::TYPE_VIDEO);
-	if (!track)
-	{
-		xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in video stream");
-		return false;
-	}
+  AP4_Result result;
+  /************ VIDEO INITIALIZATION ******/
+  result = AP4_FileByteStream::Create("video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
+  if (AP4_FAILED(result)) {
+    xbmc->Log(ADDON::LOG_ERROR, "Cannot open video.mov!");
+    return false;
+  }
+  video_input_file_ = new AP4_File(*video_input_, AP4_DefaultAtomFactory::Instance, true);
+  AP4_Movie* movie = video_input_file_->GetMovie();
+  if (movie == NULL)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "No MOOV in video stream!");
+    return false;
+  }
+  AP4_Track *track = movie->GetTrack(AP4_Track::TYPE_VIDEO);
+  if (!track)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in video stream");
+    return false;
+  }
 
   AP4_SampleDescription *desc = track->GetSampleDescription(0);
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
@@ -216,28 +216,28 @@ bool Session::initialize()
 
   video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
 
-	if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
-		return false;
+  if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
+    return false;
 
-	/************ AUDIO INITIALIZATION ******/
-	result = AP4_FileByteStream::Create("audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
-	if (AP4_FAILED(result)) {
-		xbmc->Log(ADDON::LOG_ERROR, "Cannot open audio.mov!");
-		return false;
-	}
-	audio_input_file_ = new AP4_File(*audio_input_, AP4_DefaultAtomFactory::Instance, true);
-	movie = audio_input_file_->GetMovie();
-	if (movie == NULL)
-	{
-		xbmc->Log(ADDON::LOG_ERROR, "No MOOV in audio stream!");
-		return false;
-	}
-	track = movie->GetTrack(AP4_Track::TYPE_AUDIO);
-	if (!track)
-	{
-		xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in audio stream!");
-		return false;
-	}
+  /************ AUDIO INITIALIZATION ******/
+  result = AP4_FileByteStream::Create("audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
+  if (AP4_FAILED(result)) {
+    xbmc->Log(ADDON::LOG_ERROR, "Cannot open audio.mov!");
+    return false;
+  }
+  audio_input_file_ = new AP4_File(*audio_input_, AP4_DefaultAtomFactory::Instance, true);
+  movie = audio_input_file_->GetMovie();
+  if (movie == NULL)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "No MOOV in audio stream!");
+    return false;
+  }
+  track = movie->GetTrack(AP4_Track::TYPE_AUDIO);
+  if (!track)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in audio stream!");
+    return false;
+  }
 
   if (!copyLang(audio_info_.m_language, track->GetTrackLanguage()))
     return false;
@@ -273,52 +273,52 @@ bool Session::initialize()
 
   audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 0);
 
-	if (!AP4_SUCCEEDED(audio_reader_->ReadSample()))
-		return false;
+  if (!AP4_SUCCEEDED(audio_reader_->ReadSample()))
+    return false;
 
-	return true;
+  return true;
 }
 
 FragmentedSampleReader *Session::GetNextSample()
 {
-	FragmentedSampleReader *stack[2];
-	unsigned int numReader(0);
+  FragmentedSampleReader *stack[2];
+  unsigned int numReader(0);
 
-	if (!video_reader_->EOS())
-		stack[numReader++] = video_reader_;
-	if (!audio_reader_->EOS())
-		stack[numReader++] = audio_reader_;
+  if (!video_reader_->EOS())
+    stack[numReader++] = video_reader_;
+  if (!audio_reader_->EOS())
+    stack[numReader++] = audio_reader_;
 
-	FragmentedSampleReader *res(0);
+  FragmentedSampleReader *res(0);
 
-	while (numReader--)
-		if (!res || stack[numReader]->DTS() < res->DTS())
-			res = stack[numReader];
+  while (numReader--)
+    if (!res || stack[numReader]->DTS() < res->DTS())
+      res = stack[numReader];
 
-	return res;
+  return res;
 }
 
 /***************************  Interface *********************************/
 
 extern "C" {
 
-	#include "kodi_inputstream_dll.h"
+#include "kodi_inputstream_dll.h"
 
-	/***********************************************************
-	* Standart AddOn related public library functions
-	***********************************************************/
+  /***********************************************************
+  * Standart AddOn related public library functions
+  ***********************************************************/
 
-	ADDON_STATUS ADDON_Create(void* hdl, void* props)
-	{
-		if (!hdl || !props)
-			return ADDON_STATUS_UNKNOWN;
+  ADDON_STATUS ADDON_Create(void* hdl, void* props)
+  {
+    if (!hdl || !props)
+      return ADDON_STATUS_UNKNOWN;
 
-		xbmc = new ADDON::CHelper_libXBMC_addon;
-		if (!xbmc->RegisterMe(hdl))
-		{
-			delete xbmc, xbmc= nullptr;
-			return ADDON_STATUS_PERMANENT_FAILURE;
-		}
+    xbmc = new ADDON::CHelper_libXBMC_addon;
+    if (!xbmc->RegisterMe(hdl))
+    {
+      delete xbmc, xbmc = nullptr;
+      return ADDON_STATUS_PERMANENT_FAILURE;
+    }
 
     ipsh = new CHelper_libKODI_inputstream;
     if (!ipsh->RegisterMe(hdl))
@@ -330,70 +330,70 @@ extern "C" {
 
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Create()");
 
-		curAddonStatus = ADDON_STATUS_UNKNOWN;
+    curAddonStatus = ADDON_STATUS_UNKNOWN;
 
-		//if (XBMC->GetSetting("host", buffer))
+    //if (XBMC->GetSetting("host", buffer))
 
-		curAddonStatus = ADDON_STATUS_OK;
-		return curAddonStatus;
-	}
+    curAddonStatus = ADDON_STATUS_OK;
+    return curAddonStatus;
+  }
 
-	ADDON_STATUS ADDON_GetStatus()
-	{
-		return curAddonStatus;
-	}
+  ADDON_STATUS ADDON_GetStatus()
+  {
+    return curAddonStatus;
+  }
 
-	void ADDON_Destroy()
-	{
+  void ADDON_Destroy()
+  {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Destroy()");
     delete xbmc, xbmc = nullptr;
-		delete session;
-	}
+    delete session;
+  }
 
-	bool ADDON_HasSettings()
-	{
-		return false;
-	}
+  bool ADDON_HasSettings()
+  {
+    return false;
+  }
 
-	unsigned int ADDON_GetSettings(ADDON_StructSetting ***sSet)
-	{
-		return 0;
-	}
+  unsigned int ADDON_GetSettings(ADDON_StructSetting ***sSet)
+  {
+    return 0;
+  }
 
-	ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
-	{
-		return ADDON_STATUS_OK;
-	}
+  ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
+  {
+    return ADDON_STATUS_OK;
+  }
 
-	void ADDON_Stop()
-	{
-	}
+  void ADDON_Stop()
+  {
+  }
 
-	void ADDON_FreeSettings()
-	{
-	}
+  void ADDON_FreeSettings()
+  {
+  }
 
-	void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
-	{
-	}
+  void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
+  {
+  }
 
-	/***********************************************************
-	* InputSteam Client AddOn specific public library functions
-	***********************************************************/
+  /***********************************************************
+  * InputSteam Client AddOn specific public library functions
+  ***********************************************************/
 
   bool Open(INPUTSTREAM& props)
   {
-		xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream()");
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream()");
 
-		session = new Session();
-		if (!session->initialize())
-		{
-			delete session;
-			session = 0;
-			return false;
-		}
-		return true;
-	}
+    session = new Session();
+    if (!session->initialize())
+    {
+      delete session;
+      session = 0;
+      return false;
+    }
+    return true;
+  }
 
   void Close(void)
   {
@@ -432,62 +432,62 @@ extern "C" {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: EnableStream(%d, %d)", streamid, (int)enable);
   }
 
-	int ReadStream(unsigned char*, unsigned int)
-	{
-		return -1;
-	}
+  int ReadStream(unsigned char*, unsigned int)
+  {
+    return -1;
+  }
 
-	long long SeekStream(long long, int)
-	{
-		return -1;
-	}
+  long long SeekStream(long long, int)
+  {
+    return -1;
+  }
 
-	long long PositionStream(void)
-	{
-		return -1;
-	}
+  long long PositionStream(void)
+  {
+    return -1;
+  }
 
-	long long LengthStream(void)
-	{
-		return -1;
-	}
+  long long LengthStream(void)
+  {
+    return -1;
+  }
 
-	void DemuxReset(void)
-	{
-	}
+  void DemuxReset(void)
+  {
+  }
 
-	void DemuxAbort(void)
-	{
-	}
+  void DemuxAbort(void)
+  {
+  }
 
-	void DemuxFlush(void)
-	{
-	}
+  void DemuxFlush(void)
+  {
+  }
 
-	DemuxPacket* __cdecl DemuxRead(void)
-	{
-		if (!session)
-			return NULL;
+  DemuxPacket* __cdecl DemuxRead(void)
+  {
+    if (!session)
+      return NULL;
 
-		FragmentedSampleReader *sr(session->GetNextSample());
+    FragmentedSampleReader *sr(session->GetNextSample());
 
-		if (sr)
-		{
-			const AP4_Sample &s(sr->Sample());
+    if (sr)
+    {
+      const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
-			p->dts = sr->DTS();
-			p->pts = p->dts;
-			p->duration = s.GetDuration();
-			p->iStreamId = sr->GetStreamId();
-			p->iGroupId = 0;
-			p->iSize = sr->GetSampleDataSize();
-			memcpy(p->pData, sr->GetSampleData(), p->iSize);
+      p->dts = sr->DTS();
+      p->pts = p->dts;
+      p->duration = s.GetDuration();
+      p->iStreamId = sr->GetStreamId();
+      p->iGroupId = 0;
+      p->iSize = sr->GetSampleDataSize();
+      memcpy(p->pData, sr->GetSampleData(), p->iSize);
 
-			sr->ReadSample();
-			return p;
-		}
-		return NULL;
-	}
+      sr->ReadSample();
+      return p;
+    }
+    return NULL;
+  }
 
   bool DemuxSeekTime(int time, bool backwards, double *startpts)
   {
@@ -510,31 +510,31 @@ extern "C" {
   }
 
   bool CanPauseStream(void)
-	{
-		return true;
-	}
+  {
+    return true;
+  }
 
-	void PauseStream(bool)
-	{
-	}
+  void PauseStream(bool)
+  {
+  }
 
-	bool CanSeekStream(void)
-	{
-		return false;
-	}
+  bool CanSeekStream(void)
+  {
+    return false;
+  }
 
-	bool SeekTime(int)
-	{
-		return false;
-	}
+  bool SeekTime(int)
+  {
+    return false;
+  }
 
-	void SetSpeed(int)
-	{
-	}
+  void SetSpeed(int)
+  {
+  }
 
-	bool IsRealTimeStream(void)
-	{
-		return false;
-	}
+  bool IsRealTimeStream(void)
+  {
+    return false;
+  }
 
 }//extern "C"
