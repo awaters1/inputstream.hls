@@ -1,5 +1,5 @@
 /*
- *      Copyright (C) 2008-2013 Team XBMC
+ *      Copyright (C) 2008-2016 Team XBMC
  *      http://xbmc.org
  *
  *  This Program is free software; you can redistribute it and/or modify
@@ -18,31 +18,21 @@
  *
  */
 
-#include "xbmc_addon_types.h"
-#include "libXBMC_addon.h"
-
 #include <iostream>
 #include <string.h>
 #include <sstream>
 
-#include "Core/Ap4.h"
-
+#include "xbmc_addon_types.h"
+#include "libXBMC_addon.h"
+#include "libKODI_inputstream.h "
 #include "kodi_inputstream_types.h"
+
+#include "Core/Ap4.h"
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
 ADDON_STATUS curAddonStatus = ADDON_STATUS_UNKNOWN;
+CHelper_libKODI_inputstream *ipsh = 0;
 
-class P
-{
-public:
-	DemuxPacket *AllocateDemuxPacket(size_t size)
-	{
-		static DemuxPacket p;
-		static uint8_t *buffer = (uint8_t*)malloc(1024 * 1024);
-		p.pData = buffer;
-		return &p;
-	};
-}pvr;
 
 /*******************************************************
 |   FragmentedSampleReader
@@ -223,7 +213,7 @@ bool Session::initialize()
 
   if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
     return false;
-  
+
   video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
 
 	if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
@@ -330,7 +320,15 @@ extern "C" {
 			return ADDON_STATUS_PERMANENT_FAILURE;
 		}
 
-		xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Create()");
+    ipsh = new CHelper_libKODI_inputstream;
+    if (!ipsh->RegisterMe(hdl))
+    {
+      delete xbmc, xbmc = nullptr;
+      delete ipsh, ipsh = nullptr;
+      return ADDON_STATUS_PERMANENT_FAILURE;
+    }
+
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Create()");
 
 		curAddonStatus = ADDON_STATUS_UNKNOWN;
 
@@ -386,7 +384,7 @@ extern "C" {
   bool Open(INPUTSTREAM& props)
   {
 		xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream()");
-		
+
 		session = new Session();
 		if (!session->initialize())
 		{
@@ -410,8 +408,17 @@ extern "C" {
     iids.m_streamCount = 2;
     iids.m_streamIds[0] = 1;
     iids.m_streamIds[1] = 2;
-    
+
     return iids;
+  }
+
+  struct INPUTSTREAM_CAPABILITIES GetCapabilities()
+  {
+    INPUTSTREAM_CAPABILITIES caps;
+    caps.m_supportsIDemux = true;
+    caps.m_supportsISeekTime = true;
+    caps.m_supportsIDisplayTime = true;
+    return caps;
   }
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
@@ -467,7 +474,7 @@ extern "C" {
 		if (sr)
 		{
 			const AP4_Sample &s(sr->Sample());
-			DemuxPacket *p = pvr.AllocateDemuxPacket(sr->GetSampleDataSize());
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
 			p->dts = sr->DTS();
 			p->pts = p->dts;
 			p->duration = s.GetDuration();
@@ -494,14 +501,14 @@ extern "C" {
 
   int GetTotalTime()
   {
-    return 0;
+    return 20;
   }
 
   int GetTime()
   {
     return 0;
   }
-  
+
   bool CanPauseStream(void)
 	{
 		return true;
