@@ -21,7 +21,11 @@ endif()
 include_directories(${INCLUDES}
                     ${kodiplatform_INCLUDE_DIRS}
                     ${p8-platform_INCLUDE_DIRS}
-                    ${KODI_INCLUDE_DIR})
+                    ${KODI_INCLUDE_DIR}
+                    lib/libbento4)
+                    
+add_subdirectory(lib/libbento4)
+list(APPEND DEPLIBS bento4)
 					
 build_addon(inputstream.mpd MPD DEPLIBS)
 

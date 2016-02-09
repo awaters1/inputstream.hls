@@ -3,7 +3,7 @@
   id="inputstream.mpd"
   version="1.0.0"
   name="Input Stream"
-  provider-name="unknown">
+  provider-name="peak3d">
   <requires>
     <import addon="kodi.inputstream" version="1.0.0"/>
   </requires>
@@ -12,10 +12,10 @@
     name="mpd"
     extension=".mpd"
     tags="true"
-    library_@PLATFORM@="@LIBRARY_FILENAME@"/>
+    library_@PLATFORM@="@LIBRARY_FILENAME@" />
   <extension point="xbmc.addon.metadata">
-    <summary lang="en">bla bla </summary>
-    <description lang="en">bla bla</description>
+    <summary lang="en">InputStream Client for mpd DASH files</summary>
+    <description lang="en">InputStream Client for mpd DASH files</description>
     <platform>@PLATFORM@</platform>
   </extension>
 </addon>
