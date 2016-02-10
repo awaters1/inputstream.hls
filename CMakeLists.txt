@@ -22,7 +22,7 @@ include_directories(${INCLUDES}
                     ${kodiplatform_INCLUDE_DIRS}
                     ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
-                    lib/libbento4)
+                    lib/libbento4/Core)
                     
 add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
