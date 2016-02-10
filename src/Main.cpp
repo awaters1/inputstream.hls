@@ -20,10 +20,13 @@
 #include <string.h>
 #include <sstream>
 
+#include "xbmc_addon_types.h"
+#include "libXBMC_addon.h"
 #include "kodi_inputstream_types.h"
 
 #include "Ap4.h"
 
+ADDON::CHelper_libXBMC_addon *xbmc = 0;
 
 /*******************************************************
 |   FragmentedSampleReader
@@ -291,14 +294,11 @@ FragmentedSampleReader *Session::GetNextSample()
 
 /***************************  Interface *********************************/
 
-extern "C" {
-
 #include "kodi_inputstream_dll.h"
-#include "xbmc_addon_types.h"
-#include "libXBMC_addon.h"
 #include "libKODI_inputstream.h"
 
-  ADDON::CHelper_libXBMC_addon *xbmc = 0;
+extern "C" {
+  
   ADDON_STATUS curAddonStatus = ADDON_STATUS_UNKNOWN;
   CHelper_libKODI_inputstream *ipsh = 0;
 
