@@ -296,7 +296,7 @@ extern "C" {
 #include "kodi_inputstream_dll.h"
 #include "xbmc_addon_types.h"
 #include "libXBMC_addon.h"
-#include "libKODI_inputstream.h "
+#include "libKODI_inputstream.h"
 
   ADDON::CHelper_libXBMC_addon *xbmc = 0;
   ADDON_STATUS curAddonStatus = ADDON_STATUS_UNKNOWN;
