@@ -26,6 +26,8 @@
 
 #include "Ap4.h"
 
+#define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
+
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
 
 /*******************************************************
@@ -321,8 +323,8 @@ extern "C" {
     ipsh = new CHelper_libKODI_inputstream;
     if (!ipsh->RegisterMe(hdl))
     {
-      delete xbmc, xbmc = nullptr;
-      delete ipsh, ipsh = nullptr;
+      SAFE_DELETE(xbmc);
+      SAFE_DELETE(ipsh);
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
 
@@ -344,9 +346,9 @@ extern "C" {
   void ADDON_Destroy()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Destroy()");
-    delete xbmc, xbmc = nullptr;
-    // FIXME: segfaults here
-    // delete session;
+    SAFE_DELETE(session);
+    SAFE_DELETE(xbmc);
+    SAFE_DELETE(ipsh);
   }
 
   bool ADDON_HasSettings()
@@ -387,8 +389,7 @@ extern "C" {
     session = new Session();
     if (!session->initialize())
     {
-      delete session;
-      session = 0;
+      SAFE_DELETE(session);
       return false;
     }
     return true;
@@ -396,8 +397,7 @@ extern "C" {
 
   void Close(void)
   {
-    delete session;
-    session = 0;
+    SAFE_DELETE(session);
   }
 
   const char* GetPath(void)

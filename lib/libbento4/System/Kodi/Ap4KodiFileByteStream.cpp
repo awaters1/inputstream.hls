@@ -41,9 +41,9 @@
 
 #include "Ap4FileByteStream.h"
 
-#include "libXBMC_addon.h"
+#include "libxbmc_addon.h"
 
-extern ADDON::CHelper_libXBMC_addon *XBMC;
+extern ADDON::CHelper_libXBMC_addon *xbmc;
 
 /*----------------------------------------------------------------------
 |   compatibility wrappers
@@ -94,7 +94,7 @@ private:
     // members
     AP4_ByteStream* m_Delegator;
     AP4_Cardinal    m_ReferenceCount;
-    FILE*           m_File;
+    void*           m_File;
     AP4_Position    m_Position;
     AP4_LargeSize   m_Size;
 };
@@ -119,15 +119,15 @@ AP4_KodiFileByteStream::Create(AP4_FileByteStream*      delegator,
     AP4_Position size = 0;
     switch (mode) {
         case AP4_FileByteStream::STREAM_MODE_READ:
-            file = XBMC->OpenFile(name, 0);
+            file = xbmc->OpenFile(name, 0);
             break;
 
         case AP4_FileByteStream::STREAM_MODE_WRITE:
-            file = XBMC->OpenForWrite(name, true);
+            file = xbmc->OpenFileForWrite(name, true);
             break;
 
         case AP4_FileByteStream::STREAM_MODE_READ_WRITE:
-            file = XBMC->OpenForWrite(name, false);
+            file = xbmc->OpenFileForWrite(name, false);
             break;                                  
 
         default:
@@ -138,7 +138,7 @@ AP4_KodiFileByteStream::Create(AP4_FileByteStream*      delegator,
         return AP4_ERROR_CANNOT_OPEN_FILE;
     }
 
-    size = XBMC->FileLength(file);
+    size = xbmc->GetFileLength(file);
 
     stream = new AP4_KodiFileByteStream(delegator, file, size);
     return AP4_SUCCESS;
@@ -164,7 +164,7 @@ AP4_KodiFileByteStream::AP4_KodiFileByteStream(AP4_FileByteStream* delegator,
 AP4_KodiFileByteStream::~AP4_KodiFileByteStream()
 {
     if (m_File) {
-        XBMC->CloseFile(m_File);
+        xbmc->CloseFile(m_File);
     }
 }
 
@@ -202,7 +202,7 @@ AP4_KodiFileByteStream::ReadPartial(void*     buffer,
 {
     size_t nbRead;
 
-    nbRead = XBMC->ReadFile(m_File, buffer, bytestoRead);
+    nbRead = xbmc->ReadFile(m_File, buffer, bytesToRead);
 
     if (nbRead > 0) {
         bytesRead = (AP4_Size)nbRead;
@@ -228,7 +228,7 @@ AP4_KodiFileByteStream::WritePartial(const void* buffer,
     size_t nbWritten;
 
     if (bytesToWrite == 0) return AP4_SUCCESS;
-    nbWritten = XBMC->WriteFile(m_File, buffer, bytesToWrite);
+    nbWritten = xbmc->WriteFile(m_File, buffer, bytesToWrite);
     
     if (nbWritten > 0) {
         bytesWritten = (AP4_Size)nbWritten;
@@ -250,7 +250,7 @@ AP4_KodiFileByteStream::Seek(AP4_Position position)
     if (position == m_Position) return AP4_SUCCESS;
     
     size_t result;
-    result = XBMC->SeekFile(m_File, position, SEEK_SET);
+    result = xbmc->SeekFile(m_File, position, SEEK_SET);
     if (result == 0) {
         m_Position = position;
         return AP4_SUCCESS;
@@ -286,7 +286,7 @@ AP4_Result
 AP4_KodiFileByteStream::Flush()
 {
     int ret_val = 0;
-    XBMC->FlushFile(m_File);
+    xbmc->FlushFile(m_File);
 	AP4_Result result((ret_val > 0) ? AP4_FAILURE : AP4_SUCCESS);
 	if (AP4_SUCCEEDED(result) && GetObserver())
 		return GetObserver()->OnFlush(this);
