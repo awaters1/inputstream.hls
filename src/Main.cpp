@@ -400,9 +400,9 @@ extern "C" {
     SAFE_DELETE(session);
   }
 
-  const char* GetPath(void)
+  const char* GetPathList(void)
   {
-    const char* test = "http://blabla";
+    static const char* test = "http://blabla";
     return test;
   }
 
