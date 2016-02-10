@@ -12,7 +12,8 @@
     name="mpd"
     extension=".mpd"
     tags="true"
-    library_@PLATFORM@="@LIBRARY_FILENAME@" />
+    listitemprops="item1, item2"
+    library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="en">InputStream Client for mpd DASH files</summary>
     <description lang="en">InputStream Client for mpd DASH files</description>

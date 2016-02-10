@@ -308,7 +308,7 @@ extern "C" {
 
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
   {
-    if (!hdl || !props)
+    if (!hdl)
       return ADDON_STATUS_UNKNOWN;
 
     xbmc = new ADDON::CHelper_libXBMC_addon;
@@ -345,7 +345,8 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Destroy()");
     delete xbmc, xbmc = nullptr;
-    delete session;
+    // FIXME: segfaults here
+    // delete session;
   }
 
   bool ADDON_HasSettings()
@@ -397,6 +398,12 @@ extern "C" {
   {
     delete session;
     session = 0;
+  }
+
+  const char* GetPath(void)
+  {
+    const char* test = "http://blabla";
+    return test;
   }
 
   struct INPUTSTREAM_IDS GetStreamIds()
