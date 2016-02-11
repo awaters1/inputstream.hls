@@ -19,11 +19,58 @@
 #include <iostream>
 #include <string.h>
 #include <sstream>
+#include <list>
 
 #include "kodi_inputstream_types.h"
 
 #include "Ap4.h"
 
+/*******************************************************
+Bento4 Streams
+********************************************************/
+
+class AP4_DASHStream : public AP4_ByteStream
+{
+public:
+  // Constructor
+  AP4_DASHStream(dash::DASHStream *dashStream) :dash_stream_(dashStream){};
+
+  // AP4_ByteStream methods
+  AP4_Result ReadPartial(void*    buffer,
+    AP4_Size  bytesToRead,
+    AP4_Size& bytesRead) override
+  {
+    bytesRead = dash_stream_->read(buffer, bytesToRead);
+    return bytesRead > 0 ? AP4_SUCCESS : AP4_ERROR_READ_FAILED;
+  };
+  AP4_Result WritePartial(const void* buffer,
+    AP4_Size    bytesToWrite,
+    AP4_Size&   bytesWritten) override
+  {
+    /* unimplemented */
+    return AP4_ERROR_NOT_SUPPORTED;
+  };
+  AP4_Result Seek(AP4_Position position) override
+  {
+    return dash_stream_->seek(position) ? AP4_SUCCESS : AP4_ERROR_NOT_SUPPORTED;
+  };
+  AP4_Result Tell(AP4_Position& position) override
+  {
+    position = dash_stream_->tell();
+    return AP4_SUCCESS;
+  };
+  AP4_Result GetSize(AP4_LargeSize& size) override
+  {
+    /* unimplemented */
+    return AP4_ERROR_NOT_SUPPORTED;
+  };
+  // AP4_Referenceable methods
+  void AddReference() override {};
+  void Release()override      {};
+protected:
+  // members
+  dash::DASHStream *dash_stream_;
+};
 
 /*******************************************************
 |   FragmentedSampleReader
@@ -32,24 +79,33 @@ class FragmentedSampleReader : public AP4_LinearReader
 {
 public:
 
-  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId)
+  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track,
+    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
     , m_ts(0.0)
     , m_eos(false)
     , m_StreamId(streamId)
+    , m_SingleSampleDecryptor(ssd)
+    , m_Decrypter(0)
+    , m_Protected_desc(0)
   {
     EnableTrack(m_Track->GetId());
+
+    AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
+    if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
+      m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
   }
 
   ~FragmentedSampleReader()
   {
+    delete m_Decrypter;
   }
 
   AP4_Result ReadSample()
   {
     AP4_Result result;
-    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_sample_data_)))
+    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_Decrypter ? m_encrypted : m_sample_data_)))
     {
       if (result == AP4_ERROR_EOS) {
         m_eos = true;
@@ -58,6 +114,12 @@ public:
         return result;
       }
     }
+    if (m_Decrypter && AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
+    {
+      xbmc.Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!\n");
+      return result;
+    }
+
     m_ts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
     return AP4_SUCCESS;
   };
@@ -69,6 +131,35 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
 
+protected:
+  virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
+    AP4_Position       moof_offset,
+    AP4_Position       mdat_payload_offset)
+  {
+    if (m_Protected_desc)
+    {
+      //Setup the decryption
+      AP4_Result result;
+      AP4_CencSampleInfoTable *sample_table;
+      AP4_UI32 algorithm_id = 0;
+
+      delete m_Decrypter;
+      m_Decrypter = 0;
+
+      AP4_ContainerAtom *traf = AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
+
+      if (!m_Protected_desc || !traf)
+        return AP4_ERROR_INVALID_FORMAT;
+
+      if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_Protected_desc, traf, algorithm_id, *m_FragmentStream, moof_offset, sample_table)))
+        return result;
+
+      if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
+        return result;
+    }
+    return AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset);
+  }
+
 private:
   AP4_Track *m_Track;
   AP4_UI32 m_StreamId;
@@ -76,7 +167,11 @@ private:
   double m_ts;
 
   AP4_Sample     m_sample_;
-  AP4_DataBuffer m_sample_data_;
+  AP4_DataBuffer m_encrypted, m_sample_data_;
+
+  AP4_ProtectedSampleDescription *m_Protected_desc;
+  AP4_CencSingleSampleDecrypter *m_SingleSampleDecryptor;
+  AP4_CencSampleDecrypter *m_Decrypter;
 };
 
 /*******************************************************
@@ -92,43 +187,48 @@ public:
   FragmentedSampleReader *GetNextSample();
   INPUTSTREAM_INFO &GetStreamInfo(unsigned int sid){ return sid == 1 ? audio_info_ : sid == 2 ? video_info_ : dummy_info_; };
 private:
-  AP4_ByteStream *video_input_, *audio_input_;
-  AP4_File *video_input_file_, *audio_input_file_;
-  INPUTSTREAM_INFO video_info_, audio_info_, dummy_info_;
+  std::string mpdFileURL_;
+
+  dash::DASHTree dashtree_;
+
+  struct STREAM
+  {
+    STREAM() :input_(0), reader_(0), file_(0){ memset(&info_, 0, sizeof(info_)); };
+    ~STREAM()
+    {
+      if (enabled())
+      {
+        stream_.stop();
+        SAFE_DELETE(input_);
+        SAFE_DELETE(reader_);
+        SAFE_DELETE(file_);
+        enabled = false;
+      }
+    };
+    bool enabled;
+    dash::DASHStream stream_;
+    AP4_ByteStream *input_;
+    AP4_File *input_file_;
+    INPUTSTREAM_INFO info_;
+    FragmentedSampleReader *reader_;
+  };
+  std::list<STREAM> streams_;
+
+  INPUTSTREAM_INFO dummy_info_;
 
   uint16_t width_, height_;
   std::string language_;
   uint32_t fixed_bandwidth_;
-
-  FragmentedSampleReader *audio_reader_, *video_reader_;
 } *session = 0;
 
 Session::Session()
-  : video_input_(NULL)
-  , audio_input_(NULL)
-  , video_input_file_(NULL)
-  , audio_input_file_(NULL)
-  , audio_reader_(NULL)
-  , video_reader_(NULL)
 {
-  memset(&audio_info_, 0, sizeof(audio_info_));
-  memset(&video_info_, 0, sizeof(video_info_));
   memset(&dummy_info_, 0, sizeof(dummy_info_));
-
-  audio_info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
-  audio_info_.m_pID = 1;
-
-  video_info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-  video_info_.m_pID = 2;
 }
 
 Session::~Session()
 {
-  delete video_input_;
-  delete video_reader_;
-
-  delete audio_input_;
-  delete audio_reader_;
+  streams_.clear();
 }
 
 /*----------------------------------------------------------------------
