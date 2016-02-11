@@ -450,8 +450,12 @@ extern "C" {
 
   const char* GetPathList(void)
   {
-    static const char* test = "http://blabla";
-    return test;
+    static char buffer[1024];
+
+    if (!xbmc->GetSetting("URL", buffer))
+      buffer[0] = 0;
+
+    return buffer;
   }
 
   struct INPUTSTREAM_IDS GetStreamIds()
