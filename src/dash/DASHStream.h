@@ -30,14 +30,14 @@ namespace dash
     DASHStream(DASHTree &tree, DASHTree::StreamType type);
     ~DASHStream();
     void set_observer(DASHStreamObserver *observer){ observer_ = observer; };
-    bool prepare_stream(const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth);
+    bool prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth);
     bool start_stream(const uint32_t seg_offset);
-    bool select_stream(bool force = false);
+    bool select_stream(bool force = false, bool justInit = false);
     void stop(){ stopped_ = true; };
     void clear();
     void info(std::ostream &s);
 
-    void set_bandwidth(uint32_t fixed_bandwidth){ fixed_bandwidth_ = fixed_bandwidth; };
+    void set_bandwidth(uint32_t fixed_bandwidth){ bandwidth_ = fixed_bandwidth; };
 
     unsigned int get_type()const{ return type_; };
 
@@ -66,9 +66,8 @@ namespace dash
 
     uint16_t width_, height_;
     std::string language_;
-    uint32_t fixed_bandwidth_;
+    uint32_t bandwidth_;
     double download_speed_;
-
     bool stopped_;
   };
 };

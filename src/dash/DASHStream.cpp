@@ -22,10 +22,10 @@ DASHStream::DASHStream(DASHTree &tree, DASHTree::StreamType type)
   :tree_(tree)
   , type_(type)
   , observer_(0)
-  , current_period_(0)
+  , current_period_(tree_.periods_.empty() ? 0 : tree_.periods_[0])
   , current_adp_(0)
   , current_rep_(0)
-  , download_speed_(0)
+  , download_speed_(tree.get_download_speed())
   , curl_handle_(0)
 {
 }
@@ -79,22 +79,23 @@ bool DASHStream::download_segment()
   return false;
 }
 
-bool DASHStream::prepare_stream(const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth)
+bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth)
 {
-  language_ = lang ? lang : "";
-  width_ = width;
-  height_ = height;
-  fixed_bandwidth_ = fixed_bandwidth;
+  language_ = lang && type_ != DASHTree::VIDEO ? lang : "";
+  width_ = type_ == DASHTree::VIDEO ? width : 0;
+  height_ = type_ == DASHTree::VIDEO ? height : 0;
+  bandwidth_ = fixed_bandwidth;
 
   stopped_ = false;
 
-  current_period_ = tree_.periods_.empty() ? 0 : tree_.periods_[0];
-  if (!current_period_)
-    return false;
+  if (!bandwidth_)
+    bandwidth_ = static_cast<uint32_t>(download_speed_*(type_ == DASHTree::VIDEO ? 7.2 : 0.8)); //Bandwith split 90 / 10
+  else
+    bandwidth_ = static_cast<uint32_t>(bandwidth_ *(type_ == DASHTree::VIDEO ? 0.9 : 0.1));
 
-  download_speed_ = tree_.get_download_speed();
+  current_adp_ = adp;
 
-  return select_stream();
+  return select_stream(false, true);
 }
 
 bool DASHStream::start_stream(const uint32_t seg_offset)
@@ -149,55 +150,26 @@ bool DASHStream::seek(uint64_t const pos)
   return false;
 }
 
-bool DASHStream::select_stream(bool force)
+bool DASHStream::select_stream(bool force, bool justInit)
 {
   const DASHTree::Representation *new_rep(0), *min_rep(0);
-  const DASHTree::AdaptationSet *new_adp(0), *min_adp(0);
 
   if (force && absolute_position_ == 0) //already selected
     return true;
 
-  uint32_t bandwidth = fixed_bandwidth_;
-  if (!bandwidth)
-    bandwidth = static_cast<uint32_t>(download_speed_*(type_ == DASHTree::VIDEO ? 7.2 : 0.8)); //Bandwith split 90 / 10
-  else
-    bandwidth = static_cast<uint32_t>(bandwidth *(type_ == DASHTree::VIDEO ? 0.9 : 0.1));
-  std::string lang(language_), avail_lang;
-
-NEXTLANG:
-  for (std::vector<DASHTree::AdaptationSet*>::const_iterator ba(current_period_->adaptationSets_.begin()), ea(current_period_->adaptationSets_.end()); ba != ea; ++ba)
+  for (std::vector<DASHTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
   {
-    if ((*ba)->type_ == type_ && (lang.empty() || stricmp(lang.c_str(), (*ba)->language_.c_str()) == 0))
-    {
-      for (std::vector<DASHTree::Representation*>::const_iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
-      {
-        if ((*br)->width_ <= width_ && (*br)->height_ <= height_ && (*br)->bandwidth_ < bandwidth && (*br)->codecs_ != "ec-3"
-          && (!new_rep || ((*br)->bandwidth_ > new_rep->bandwidth_)))
-        {
-          new_adp = (*ba);
-          new_rep = (*br);
-        }
-        else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)
-        {
-          min_adp = (*ba);
-          min_rep = (*br);
-        }
-      }
-    }
-    else if ((*ba)->type_ == type_)
-      avail_lang = (*ba)->language_;
+    if ((*br)->width_ <= width_ && (*br)->height_ <= height_ && (*br)->bandwidth_ < bandwidth_ && (*br)->codecs_ != "ec-3"
+    && (!new_rep || ((*br)->bandwidth_ > new_rep->bandwidth_)))
+      new_rep = (*br);
+    else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)
+      min_rep = (*br);
   }
-  if (!new_rep && !min_rep && !avail_lang.empty())
-  {
-    lang = avail_lang;
-    goto NEXTLANG;
-  }
-
   if (!new_rep)
-  {
-    new_adp = min_adp;
     new_rep = min_rep;
-  }
+
+  if (justInit)
+    return true;
 
   if (!force && new_rep == current_rep_)
     return false;
@@ -207,7 +179,6 @@ NEXTLANG:
   if (curl_handle_)
     clear();
 
-  current_adp_ = new_adp;
   current_rep_ = new_rep;
 
   if (observer_)

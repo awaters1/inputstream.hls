@@ -172,6 +172,8 @@ start(void *data, const char *el, const char **attr)
               dash->current_representation_->height_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
             else if (strcmp((const char*)*attr, "audioSamplingRate") == 0)
               dash->current_representation_->samplingRate_ = static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
+            else if (strcmp((const char*)*attr, "frameRate") == 0)
+              sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32, dash->current_representation_->fpsRate_, dash->current_representation_->fpsScale_);
             else if (strcmp((const char*)*attr, "id") == 0)
               dash->current_representation_->id = (const char*)*(attr + 1);
             attr += 2;
@@ -362,11 +364,16 @@ end(void *data, const char *el)
         }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
-          if (!dash->pssh_.empty() && dash->adp_pssh_ != dash->pssh_)
+          dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
+          if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
+          || (!dash->pssh_.empty() && dash->adp_pssh_ != dash->pssh_)
+          || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3))
+          {
+            delete dash->current_adaptationset_;
             dash->current_period_->adaptationSets_.pop_back();
+          }
           else
             dash->pssh_ = dash->adp_pssh_;
-          dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
         }
       }
       else if (strcmp(el, "Period") == 0)

@@ -19,11 +19,20 @@
 #include <iostream>
 #include <string.h>
 #include <sstream>
-#include <list>
+#include <vector>
 
+#include "dash/DASHTree.h"
+#include "dash/DASHStream.h"
+
+#include "xbmc_addon_types.h"
+#include "libXBMC_addon.h"
 #include "kodi_inputstream_types.h"
 
 #include "Ap4.h"
+
+#define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
+
+ADDON::CHelper_libXBMC_addon *xbmc = 0;
 
 /*******************************************************
 Bento4 Streams
@@ -116,7 +125,7 @@ public:
     }
     if (m_Decrypter && AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
     {
-      xbmc.Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!\n");
+      xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
       return result;
     }
 
@@ -185,49 +194,63 @@ public:
   bool initialize();
   void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
   FragmentedSampleReader *GetNextSample();
-  INPUTSTREAM_INFO &GetStreamInfo(unsigned int sid){ return sid == 1 ? audio_info_ : sid == 2 ? video_info_ : dummy_info_; };
-private:
-  std::string mpdFileURL_;
-
-  dash::DASHTree dashtree_;
 
   struct STREAM
   {
-    STREAM() :input_(0), reader_(0), file_(0){ memset(&info_, 0, sizeof(info_)); };
-    ~STREAM()
+    STREAM(dash::DASHTree t, dash::DASHTree::StreamType s) :stream_(t, s), enabled(false), current_segment_(0), input_(0), reader_(0), input_file_(0) { memset(&info_, 0, sizeof(info_)); };
+    ~STREAM(){ disable(); };
+    void disable()
     {
-      if (enabled())
+      if (enabled)
       {
         stream_.stop();
         SAFE_DELETE(input_);
         SAFE_DELETE(reader_);
-        SAFE_DELETE(file_);
+        SAFE_DELETE(input_file_);
         enabled = false;
       }
     };
+
     bool enabled;
+    uint32_t current_segment_;
     dash::DASHStream stream_;
     AP4_ByteStream *input_;
     AP4_File *input_file_;
     INPUTSTREAM_INFO info_;
     FragmentedSampleReader *reader_;
   };
-  std::list<STREAM> streams_;
 
-  INPUTSTREAM_INFO dummy_info_;
+  STREAM *GetStream(unsigned int sid) const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
+  int GetTotalTime()const { return (int)dashtree_.overallSeconds_; };
+
+private:
+  std::string mpdFileURL_;
+
+  dash::DASHTree dashtree_;
+
+  std::vector<STREAM*> streams_, stack_;
 
   uint16_t width_, height_;
   std::string language_;
   uint32_t fixed_bandwidth_;
+
+  AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 } *session = 0;
 
 Session::Session()
+  :single_sample_decryptor_(0)
+  , width_(1280)
+  , height_(720)
+  , language_("de")
+  , fixed_bandwidth_(0)
 {
-  memset(&dummy_info_, 0, sizeof(dummy_info_));
 }
 
 Session::~Session()
 {
+  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    SAFE_DELETE(*b);
   streams_.clear();
 }
 
@@ -235,170 +258,97 @@ Session::~Session()
 |   initialize
 +---------------------------------------------------------------------*/
 
-static bool copyLang(char* dest, const char* src)
-{
-  size_t len(strlen(src));
-
-  if (len && len != 3)
-  {
-    xbmc->Log(ADDON::LOG_ERROR, "Invalid language in trak atom (%s)", src);
-    return false;
-  }
-  strcpy(dest, src);
-  return true;
-}
-
 bool Session::initialize()
 {
-  AP4_Result result;
-  /************ VIDEO INITIALIZATION ******/
-  result = AP4_FileByteStream::Create("video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
-  if (AP4_FAILED(result)) {
-    xbmc->Log(ADDON::LOG_ERROR, "Cannot open video.mov!");
-    return false;
-  }
-  video_input_file_ = new AP4_File(*video_input_, AP4_DefaultAtomFactory::Instance, true);
-  AP4_Movie* movie = video_input_file_->GetMovie();
-  if (movie == NULL)
+  // Open mpd file
+  const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
+  if (!delim)
   {
-    xbmc->Log(ADDON::LOG_ERROR, "No MOOV in video stream!");
+    xbmc->Log(ADDON::LOG_ERROR, "Invalid mpdURL: / expected (%s)", mpdFileURL_.c_str());
     return false;
   }
-  AP4_Track *track = movie->GetTrack(AP4_Track::TYPE_VIDEO);
-  if (!track)
+  dashtree_.base_url_ = std::string(mpdFileURL_.c_str(), (delim - mpdFileURL_.c_str()) + 1);
+
+  if (!dashtree_.open(mpdFileURL_.c_str()) || dashtree_.empty())
   {
-    xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in video stream");
+    xbmc->Log(ADDON::LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }
+  xbmc->Log(ADDON::LOG_INFO, "Successfully parsed .mpd file. Download speed: %0.4f Bytes/s", dashtree_.download_speed_);
 
-  AP4_SampleDescription *desc = track->GetSampleDescription(0);
-  if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
-    desc = static_cast<AP4_ProtectedSampleDescription*>(desc)->GetOriginalSampleDescription();
-  AP4_VideoSampleDescription *video_sample_description = AP4_DYNAMIC_CAST(AP4_VideoSampleDescription, desc);
-  if (video_sample_description == NULL)
+  // create SESSION::STREAM objects. One for each AdaptationSet
+  unsigned int i(0);
+  const dash::DASHTree::AdaptationSet *adp;
+
+  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    SAFE_DELETE(*b);
+  streams_.clear();
+
+  while (adp = dashtree_.GetAdaptationSet(i++))
   {
-    xbmc->Log(ADDON::LOG_ERROR, "Unable to parse video sample description!");
-    return false;
+    streams_.push_back(new STREAM(dashtree_, adp->type_));
+    STREAM &stream(*streams_.back());
+    stream.stream_.prepare_stream(adp, width_, height_, language_.c_str(), fixed_bandwidth_);
+
+    const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
+
+    stream.info_.m_Width = rep->width_;
+    stream.info_.m_Height = rep->height_;
+    stream.info_.m_Aspect = rep->aspect_;
+    stream.info_.m_pID = i;
+    switch (adp->type_)
+    {
+    case dash::DASHTree::VIDEO:
+      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+      break;
+    case dash::DASHTree::AUDIO:
+      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+      break;
+    case dash::DASHTree::TEXT:
+      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
+      break;
+    }
+
+    if (rep->codecs_.find("mp4a") == 0)
+      strcpy(stream.info_.m_codecName, "AAC");
+    else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
+      strcpy(stream.info_.m_codecName, "EAC3");
+    else if (rep->codecs_.find("avc") == 0)
+      strcpy(stream.info_.m_codecName, "H264");
+    else if (rep->codecs_.find("hevc") == 0)
+      strcpy(stream.info_.m_codecName, "HEVC");
+
+    stream.info_.m_FpsRate = rep->fpsRate_;
+    stream.info_.m_FpsScale = rep->fpsScale_;
+    stream.info_.m_SampleRate = rep->samplingRate_;
+    strcpy(stream.info_.m_language, adp->language_.c_str());
   }
-  switch (desc->GetFormat())
-  {
-  case AP4_SAMPLE_FORMAT_AVC1:
-  case AP4_SAMPLE_FORMAT_AVC2:
-  case AP4_SAMPLE_FORMAT_AVC3:
-  case AP4_SAMPLE_FORMAT_AVC4:
-    strcpy(video_info_.m_codecName, "H264");
-    break;
-  case AP4_SAMPLE_FORMAT_HEV1:
-  case AP4_SAMPLE_FORMAT_HVC1:
-    strcpy(video_info_.m_codecName, "HEVC");
-    break;
-  default:
-    xbmc->Log(ADDON::LOG_ERROR, "Video codec not supported");
-    return false;
-  }
-  video_info_.m_Width = video_sample_description->GetWidth();
-  video_info_.m_Height = video_sample_description->GetHeight();
-  video_info_.m_Aspect = 1.0;
-
-  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
-
-  if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
-    return false;
-
-  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
-
-  if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
-    return false;
-
-  /************ AUDIO INITIALIZATION ******/
-  result = AP4_FileByteStream::Create("audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
-  if (AP4_FAILED(result)) {
-    xbmc->Log(ADDON::LOG_ERROR, "Cannot open audio.mov!");
-    return false;
-  }
-  audio_input_file_ = new AP4_File(*audio_input_, AP4_DefaultAtomFactory::Instance, true);
-  movie = audio_input_file_->GetMovie();
-  if (movie == NULL)
-  {
-    xbmc->Log(ADDON::LOG_ERROR, "No MOOV in audio stream!");
-    return false;
-  }
-  track = movie->GetTrack(AP4_Track::TYPE_AUDIO);
-  if (!track)
-  {
-    xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in audio stream!");
-    return false;
-  }
-
-  if (!copyLang(audio_info_.m_language, track->GetTrackLanguage()))
-    return false;
-
-  desc = track->GetSampleDescription(0);
-  if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
-    desc = static_cast<AP4_ProtectedSampleDescription*>(desc)->GetOriginalSampleDescription();
-  AP4_AudioSampleDescription *audio_sample_description = AP4_DYNAMIC_CAST(AP4_GenericAudioSampleDescription, desc);
-  if (audio_sample_description == NULL)
-  {
-    xbmc->Log(ADDON::LOG_ERROR, "Unable to parse audio sample description!");
-    return false;
-  }
-  switch (desc->GetFormat())
-  {
-  case AP4_SAMPLE_FORMAT_MP4A:
-    strcpy(audio_info_.m_codecName, "AAC");
-    break;
-  case  AP4_SAMPLE_FORMAT_AC_3:
-  case AP4_SAMPLE_FORMAT_EC_3:
-    strcpy(audio_info_.m_codecName, "EAC3");
-    break;
-  default:
-    xbmc->Log(ADDON::LOG_ERROR, "Audio codec not supported!");
-    return false;
-  }
-  if (AP4_MpegSystemSampleDescription *esds = AP4_DYNAMIC_CAST(AP4_MpegSystemSampleDescription, audio_sample_description))
-    audio_info_.m_BitRate = esds->GetAvgBitrate();
-
-  audio_info_.m_BitsPerSample = audio_sample_description->GetSampleSize();
-  audio_info_.m_Channels = audio_sample_description->GetChannelCount();
-  audio_info_.m_SampleRate = audio_sample_description->GetSampleRate();
-
-  audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 0);
-
-  if (!AP4_SUCCEEDED(audio_reader_->ReadSample()))
-    return false;
-
   return true;
 }
 
 FragmentedSampleReader *Session::GetNextSample()
 {
-  FragmentedSampleReader *stack[2];
-  unsigned int numReader(0);
-
-  if (!video_reader_->EOS())
-    stack[numReader++] = video_reader_;
-  if (!audio_reader_->EOS())
-    stack[numReader++] = audio_reader_;
+  stack_.clear();
+  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    if ((*b)->enabled && !(*b)->reader_->EOS())
+      stack_.push_back(*b);
 
   FragmentedSampleReader *res(0);
 
-  while (numReader--)
-    if (!res || stack[numReader]->DTS() < res->DTS())
-      res = stack[numReader];
+  for (std::vector<STREAM*>::const_iterator b(stack_.begin()), e(stack_.end()); b != e; ++b)
+    if (!res || (*b)->reader_->DTS() < res->DTS())
+      res = (*b)->reader_;
 
   return res;
 }
 
 /***************************  Interface *********************************/
 
-extern "C" {
-
 #include "kodi_inputstream_dll.h"
-#include "xbmc_addon_types.h"
-#include "libXBMC_addon.h"
 #include "libKODI_inputstream.h"
 
-  ADDON::CHelper_libXBMC_addon *xbmc = 0;
+extern "C" {
+
   ADDON_STATUS curAddonStatus = ADDON_STATUS_UNKNOWN;
   CHelper_libKODI_inputstream *ipsh = 0;
 
@@ -408,21 +358,21 @@ extern "C" {
 
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
   {
-    if (!hdl || !props)
+    if (!hdl)
       return ADDON_STATUS_UNKNOWN;
 
     xbmc = new ADDON::CHelper_libXBMC_addon;
     if (!xbmc->RegisterMe(hdl))
     {
-      delete xbmc, xbmc = nullptr;
+      SAFE_DELETE(xbmc);
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
 
     ipsh = new CHelper_libKODI_inputstream;
     if (!ipsh->RegisterMe(hdl))
     {
-      delete xbmc, xbmc = nullptr;
-      delete ipsh, ipsh = nullptr;
+      SAFE_DELETE(xbmc);
+      SAFE_DELETE(ipsh);
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
 
@@ -444,8 +394,9 @@ extern "C" {
   void ADDON_Destroy()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Destroy()");
-    delete xbmc, xbmc = nullptr;
-    delete session;
+    SAFE_DELETE(session);
+    SAFE_DELETE(xbmc);
+    SAFE_DELETE(ipsh);
   }
 
   bool ADDON_HasSettings()
@@ -486,8 +437,7 @@ extern "C" {
     session = new Session();
     if (!session->initialize())
     {
-      delete session;
-      session = 0;
+      SAFE_DELETE(session);
       return false;
     }
     return true;
@@ -495,8 +445,13 @@ extern "C" {
 
   void Close(void)
   {
-    delete session;
-    session = 0;
+    SAFE_DELETE(session);
+  }
+
+  const char* GetPathList(void)
+  {
+    static const char* test = "http://blabla";
+    return test;
   }
 
   struct INPUTSTREAM_IDS GetStreamIds()
@@ -514,20 +469,70 @@ extern "C" {
   {
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
-    caps.m_supportsISeekTime = true;
+    caps.m_supportsISeekTime = false;
     caps.m_supportsIDisplayTime = true;
     return caps;
   }
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
+    static struct INPUTSTREAM_INFO dummy_info = {
+      INPUTSTREAM_INFO::TYPE_NONE, "", 0, "",
+      0, 0, 0, 0, 0.0f,
+      0, 0, 0, 0, 0 };
+
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStream(%d)", streamid);
-    return session->GetStreamInfo(streamid);
+
+    Session::STREAM *stream(session->GetStream(streamid));
+    if (stream)
+      return stream->info_;
+
+    return dummy_info;
   }
 
   void EnableStream(int streamid, bool enable)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: EnableStream(%d, %d)", streamid, (int)enable);
+
+    if (!session)
+      return;
+
+    Session::STREAM *stream(session->GetStream(streamid));
+
+    if (!stream)
+      return;
+
+    if (enable)
+    {
+      if (stream->enabled)
+        return;
+
+      stream->enabled = true;
+
+      stream->input_ = new AP4_DASHStream(&stream->stream_);
+      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
+      AP4_Movie* movie = stream->input_file_->GetMovie();
+      if (movie == NULL)
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+        return stream->disable();
+      }
+      AP4_Track *track = movie->GetTrack(AP4_Track::TYPE_VIDEO);
+      if (!track)
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in stream");
+        return stream->disable();
+      }
+
+      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, 1, session->GetSingleSampleDecryptor());
+      stream->stream_.start_stream(stream->current_segment_);
+
+      if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
+        return stream->disable();
+
+      return;
+    }
+    return stream->disable();
   }
 
   int ReadStream(unsigned char*, unsigned int)
@@ -599,7 +604,10 @@ extern "C" {
 
   int GetTotalTime()
   {
-    return 20;
+    if (!session)
+      return 0;
+
+    return session->GetTotalTime();
   }
 
   int GetTime()

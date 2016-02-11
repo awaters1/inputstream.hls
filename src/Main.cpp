@@ -316,7 +316,7 @@ extern "C" {
     xbmc = new ADDON::CHelper_libXBMC_addon;
     if (!xbmc->RegisterMe(hdl))
     {
-      delete xbmc, xbmc = nullptr;
+      SAFE_DELETE(xbmc);
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
 

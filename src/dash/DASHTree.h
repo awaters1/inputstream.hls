@@ -40,13 +40,16 @@ namespace dash
 
     struct Representation
     {
-      Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0), hasInitialization_(false){};
+      Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
+        aspect_(1.0f), fpsRate_(0), fpsScale_(1), hasInitialization_(false){};
       std::string url_;
       std::string id;
       std::string codecs_;
       uint32_t bandwidth_;
       uint32_t samplingRate_;
       uint16_t width_, height_;
+      uint32_t fpsRate_, fpsScale_;
+      float aspect_;
       bool hasInitialization_;
       //SegmentList
       uint32_t duration_, timescale_;
@@ -130,6 +133,8 @@ namespace dash
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
+    bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
+    const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
   };
 
 }
