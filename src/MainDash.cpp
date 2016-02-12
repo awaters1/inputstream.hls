@@ -229,7 +229,7 @@ private:
 
   dash::DASHTree dashtree_;
 
-  std::vector<STREAM*> streams_, stack_;
+  std::vector<STREAM*> streams_;
 
   uint16_t width_, height_;
   std::string language_;
@@ -328,16 +328,11 @@ bool Session::initialize()
 
 FragmentedSampleReader *Session::GetNextSample()
 {
-  stack_.clear();
-  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && !(*b)->reader_->EOS())
-      stack_.push_back(*b);
-
   FragmentedSampleReader *res(0);
-
-  for (std::vector<STREAM*>::const_iterator b(stack_.begin()), e(stack_.end()); b != e; ++b)
-    if (!res || (*b)->reader_->DTS() < res->DTS())
-      res = (*b)->reader_;
+  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    if ((*b)->enabled && !(*b)->reader_->EOS()
+    && (!res || (*b)->reader_->DTS() < res->DTS()))
+        res = (*b)->reader_;
 
   return res;
 }
@@ -462,10 +457,9 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStreamIds()");
     INPUTSTREAM_IDS iids;
-    iids.m_streamCount = 2;
-    iids.m_streamIds[0] = 1;
-    iids.m_streamIds[1] = 2;
-
+    iids.m_streamCount = streams_.size();
+    for (unsigned int i(0); i < iids.m_streamCount;)
+      iids.m_streamIds[i] = ++i;
     return iids;
   }
 
