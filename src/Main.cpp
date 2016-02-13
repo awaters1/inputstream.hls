@@ -128,11 +128,11 @@ Session::Session()
 
 Session::~Session()
 {
-  delete video_input_;
   delete video_reader_;
+  delete video_input_;
 
-  delete audio_input_;
   delete audio_reader_;
+  delete audio_input_;
 }
 
 /*----------------------------------------------------------------------

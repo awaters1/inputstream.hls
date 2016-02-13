@@ -204,8 +204,8 @@ public:
       if (enabled)
       {
         stream_.stop();
-        SAFE_DELETE(input_);
         SAFE_DELETE(reader_);
+        SAFE_DELETE(input_);
         SAFE_DELETE(input_file_);
         enabled = false;
       }
