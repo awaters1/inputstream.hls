@@ -378,7 +378,7 @@ extern "C" {
 
   bool Open(INPUTSTREAM& props)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Open()";
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Open()");
 
     session = new Session();
     if (!session->initialize())
@@ -391,7 +391,7 @@ extern "C" {
 
   void Close(void)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Close()";
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Close()");
     SAFE_DELETE(session);
   }
 
