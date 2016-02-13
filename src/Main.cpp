@@ -190,11 +190,11 @@ bool Session::initialize()
   case AP4_SAMPLE_FORMAT_AVC2:
   case AP4_SAMPLE_FORMAT_AVC3:
   case AP4_SAMPLE_FORMAT_AVC4:
-    strcpy(video_info_.m_codecName, "H264");
+    strcpy(video_info_.m_codecName, "h264");
     break;
   case AP4_SAMPLE_FORMAT_HEV1:
   case AP4_SAMPLE_FORMAT_HVC1:
-    strcpy(video_info_.m_codecName, "HEVC");
+    strcpy(video_info_.m_codecName, "hevc");
     break;
   default:
     xbmc->Log(ADDON::LOG_ERROR, "Video codec not supported");
@@ -204,7 +204,7 @@ bool Session::initialize()
   video_info_.m_Height = video_sample_description->GetHeight();
   video_info_.m_Aspect = 1.0;
 
-  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
+  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 2);
 
   if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
     return false;
@@ -244,11 +244,11 @@ bool Session::initialize()
   switch (desc->GetFormat())
   {
   case AP4_SAMPLE_FORMAT_MP4A:
-    strcpy(audio_info_.m_codecName, "AAC");
+    strcpy(audio_info_.m_codecName, "aac");
     break;
   case  AP4_SAMPLE_FORMAT_AC_3:
   case AP4_SAMPLE_FORMAT_EC_3:
-    strcpy(audio_info_.m_codecName, "EAC3");
+    strcpy(audio_info_.m_codecName, "eac3");
     break;
   default:
     xbmc->Log(ADDON::LOG_ERROR, "Audio codec not supported!");
@@ -261,7 +261,7 @@ bool Session::initialize()
   audio_info_.m_Channels = audio_sample_description->GetChannelCount();
   audio_info_.m_SampleRate = audio_sample_description->GetSampleRate();
 
-  audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 0);
+  audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 1);
 
   if (!AP4_SUCCEEDED(audio_reader_->ReadSample()))
     return false;
@@ -378,10 +378,7 @@ extern "C" {
 
   bool Open(INPUTSTREAM& props)
   {
-    char buf[1024];
-    GetCurrentDirectory(1024, buf);
-    
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream(%s)", buf);
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Open()";
 
     session = new Session();
     if (!session->initialize())
@@ -394,6 +391,7 @@ extern "C" {
 
   void Close(void)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: Close()";
     SAFE_DELETE(session);
   }
 
