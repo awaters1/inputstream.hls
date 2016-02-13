@@ -134,7 +134,7 @@ AP4_KodiFileByteStream::Create(AP4_FileByteStream*      delegator,
             return AP4_ERROR_INVALID_PARAMETERS;
     }
 
-    if (file) {
+    if (!file) {
         return AP4_ERROR_CANNOT_OPEN_FILE;
     }
 
@@ -251,7 +251,7 @@ AP4_KodiFileByteStream::Seek(AP4_Position position)
     
     size_t result;
     result = xbmc->SeekFile(m_File, position, SEEK_SET);
-    if (result == 0) {
+    if (result == position) {
         m_Position = position;
         return AP4_SUCCESS;
     } else {

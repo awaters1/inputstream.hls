@@ -138,15 +138,15 @@ AP4_StdcFileByteStream::Create(AP4_FileByteStream*      delegator,
         int open_result;
         switch (mode) {
           case AP4_FileByteStream::STREAM_MODE_READ:
-            open_result = fopen_s(&file, name, "rb");
+            open_result = ::fopen_s(&file, name, "rb");
             break;
 
           case AP4_FileByteStream::STREAM_MODE_WRITE:
-            open_result = fopen_s(&file, name, "wb+");
+            open_result = ::fopen_s(&file, name, "wb+");
             break;
 
           case AP4_FileByteStream::STREAM_MODE_READ_WRITE:
-              open_result = fopen_s(&file, name, "r+b");
+              open_result = ::fopen_s(&file, name, "r+b");
               break;                                  
 
           default:

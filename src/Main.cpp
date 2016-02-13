@@ -95,11 +95,11 @@ public:
   bool initialize();
   void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
   FragmentedSampleReader *GetNextSample();
-  INPUTSTREAM_INFO &GetStreamInfo(unsigned int sid){ return sid == 1 ? audio_info_ : sid == 2 ? video_info_ : dummy_info_; };
+  INPUTSTREAM_INFO *GetStreamInfo(unsigned int sid){ return sid == 1 ? &audio_info_ : sid == 2 ? &video_info_ : 0; };
 private:
   AP4_ByteStream *video_input_, *audio_input_;
   AP4_File *video_input_file_, *audio_input_file_;
-  INPUTSTREAM_INFO video_info_, audio_info_, dummy_info_;
+  INPUTSTREAM_INFO video_info_, audio_info_;
 
   uint16_t width_, height_;
   std::string language_;
@@ -118,7 +118,6 @@ Session::Session()
 {
   memset(&audio_info_, 0, sizeof(audio_info_));
   memset(&video_info_, 0, sizeof(video_info_));
-  memset(&dummy_info_, 0, sizeof(dummy_info_));
 
   audio_info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
   audio_info_.m_pID = 1;
@@ -157,7 +156,7 @@ bool Session::initialize()
 {
   AP4_Result result;
   /************ VIDEO INITIALIZATION ******/
-  result = AP4_FileByteStream::Create("video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
+  result = AP4_FileByteStream::Create("C:\\Temp\\video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
   if (AP4_FAILED(result)) {
     xbmc->Log(ADDON::LOG_ERROR, "Cannot open video.mov!");
     return false;
@@ -210,13 +209,8 @@ bool Session::initialize()
   if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
     return false;
 
-  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 1);
-
-  if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
-    return false;
-
   /************ AUDIO INITIALIZATION ******/
-  result = AP4_FileByteStream::Create("audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
+  result = AP4_FileByteStream::Create("C:\\Temp\\audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
   if (AP4_FAILED(result)) {
     xbmc->Log(ADDON::LOG_ERROR, "Cannot open audio.mov!");
     return false;
@@ -241,7 +235,7 @@ bool Session::initialize()
   desc = track->GetSampleDescription(0);
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
     desc = static_cast<AP4_ProtectedSampleDescription*>(desc)->GetOriginalSampleDescription();
-  AP4_AudioSampleDescription *audio_sample_description = AP4_DYNAMIC_CAST(AP4_GenericAudioSampleDescription, desc);
+  AP4_AudioSampleDescription *audio_sample_description = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, desc);
   if (audio_sample_description == NULL)
   {
     xbmc->Log(ADDON::LOG_ERROR, "Unable to parse audio sample description!");
@@ -384,7 +378,10 @@ extern "C" {
 
   bool Open(INPUTSTREAM& props)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream()");
+    char buf[1024];
+    GetCurrentDirectory(1024, buf);
+    
+    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream(%s)", buf);
 
     session = new Session();
     if (!session->initialize())
@@ -414,9 +411,13 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStreamIds()");
     INPUTSTREAM_IDS iids;
-    iids.m_streamCount = 2;
-    iids.m_streamIds[0] = 1;
-    iids.m_streamIds[1] = 2;
+    if (session)
+    {
+      iids.m_streamCount = 2;
+      iids.m_streamIds[0] = 1;
+      iids.m_streamIds[1] = 2;
+    } else
+      iids.m_streamCount = 0;
 
     return iids;
   }
@@ -425,15 +426,27 @@ extern "C" {
   {
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
-    caps.m_supportsISeekTime = true;
+    caps.m_supportsISeekTime = false;
     caps.m_supportsIDisplayTime = true;
     return caps;
   }
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
+    static struct INPUTSTREAM_INFO dummy_info = {
+      INPUTSTREAM_INFO::TYPE_NONE, "", 0, "",
+      0, 0, 0, 0, 0.0f,
+      0, 0, 0, 0, 0 };
+    
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStream(%d)", streamid);
-    return session->GetStreamInfo(streamid);
+
+    if (session)
+    {
+      INPUTSTREAM_INFO *info(session->GetStreamInfo(streamid));
+      if (info)
+        return *info;
+    }
+    return dummy_info;
   }
 
   void EnableStream(int streamid, bool enable)

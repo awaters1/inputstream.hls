@@ -24,6 +24,7 @@ FILE(GLOB SOURCEFILES
 	System/*.cpp
 	${BENTOSYS}
 	Crypto/*.cpp
+#	System/StdC/*.cpp
 	System/Kodi/*.cpp
 	MetaData/*.cpp
 )
