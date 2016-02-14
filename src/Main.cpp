@@ -154,6 +154,9 @@ static bool copyLang(char* dest, const char* src)
 
 bool Session::initialize()
 {
+  static uint8_t dadata[128], dvdata[53];
+  AP4_ParseHex("000000016764001fac2ca5014016ec05a808080a000007d200017701c540005b8d8000a037fe31c1da1c31960000000168e9093525", dvdata, 53);
+  
   AP4_Result result;
   /************ VIDEO INITIALIZATION ******/
   result = AP4_FileByteStream::Create("C:\\Temp\\video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
@@ -203,6 +206,8 @@ bool Session::initialize()
   video_info_.m_Width = video_sample_description->GetWidth();
   video_info_.m_Height = video_sample_description->GetHeight();
   video_info_.m_Aspect = 1.0;
+  video_info_.m_ExtraSize = sizeof(dvdata);
+  video_info_.m_ExtraData = dvdata;
 
   video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 2);
 
@@ -260,6 +265,8 @@ bool Session::initialize()
   audio_info_.m_BitsPerSample = audio_sample_description->GetSampleSize();
   audio_info_.m_Channels = audio_sample_description->GetChannelCount();
   audio_info_.m_SampleRate = audio_sample_description->GetSampleRate();
+  audio_info_.m_ExtraSize = 0;
+  audio_info_.m_ExtraData = 0;
 
   audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 1);
 
@@ -432,7 +439,7 @@ extern "C" {
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
     static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", 0, "",
+      INPUTSTREAM_INFO::TYPE_NONE, "", 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
     

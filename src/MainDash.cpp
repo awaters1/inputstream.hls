@@ -475,7 +475,7 @@ extern "C" {
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
     static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", 0, "",
+      INPUTSTREAM_INFO::TYPE_NONE, "", 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
 
