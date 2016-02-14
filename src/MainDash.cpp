@@ -523,6 +523,7 @@ extern "C" {
       }
 
       stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, 1, session->GetSingleSampleDecryptor());
+      stream->stream_.select_stream(true);
       stream->stream_.start_stream(stream->current_segment_);
 
       if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))

@@ -169,7 +169,10 @@ bool DASHStream::select_stream(bool force, bool justInit)
     new_rep = min_rep;
 
   if (justInit)
+  {
+    current_rep_ = new_rep;
     return true;
+  }
 
   if (!force && new_rep == current_rep_)
     return false;

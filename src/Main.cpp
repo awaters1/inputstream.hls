@@ -515,9 +515,9 @@ extern "C" {
     {
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
-      p->dts = sr->DTS();
+      p->dts = sr->DTS() * 1000000;
       p->pts = p->dts;
-      p->duration = s.GetDuration();
+      p->duration = s.GetDuration() * 1000000;
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
       p->iSize = sr->GetSampleDataSize();
