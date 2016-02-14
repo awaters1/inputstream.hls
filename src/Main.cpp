@@ -154,9 +154,6 @@ static bool copyLang(char* dest, const char* src)
 
 bool Session::initialize()
 {
-  static uint8_t dadata[128], dvdata[53];
-  AP4_ParseHex("000000016764001fac2ca5014016ec05a808080a000007d200017701c540005b8d8000a037fe31c1da1c31960000000168e9093525", dvdata, 53);
-  
   AP4_Result result;
   /************ VIDEO INITIALIZATION ******/
   result = AP4_FileByteStream::Create("C:\\Temp\\video.mov", AP4_FileByteStream::STREAM_MODE_READ, video_input_);
@@ -178,6 +175,9 @@ bool Session::initialize()
     return false;
   }
 
+  video_info_.m_ExtraSize = 0;
+  video_info_.m_ExtraData = 0;
+  
   AP4_SampleDescription *desc = track->GetSampleDescription(0);
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
     desc = static_cast<AP4_ProtectedSampleDescription*>(desc)->GetOriginalSampleDescription();
@@ -194,6 +194,11 @@ bool Session::initialize()
   case AP4_SAMPLE_FORMAT_AVC3:
   case AP4_SAMPLE_FORMAT_AVC4:
     strcpy(video_info_.m_codecName, "h264");
+    if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, desc))
+    {
+      video_info_.m_ExtraSize = avc->GetRawBytes().GetDataSize();
+      video_info_.m_ExtraData = avc->GetRawBytes().GetData();
+    }
     break;
   case AP4_SAMPLE_FORMAT_HEV1:
   case AP4_SAMPLE_FORMAT_HVC1:
@@ -206,8 +211,6 @@ bool Session::initialize()
   video_info_.m_Width = video_sample_description->GetWidth();
   video_info_.m_Height = video_sample_description->GetHeight();
   video_info_.m_Aspect = 1.0;
-  video_info_.m_ExtraSize = sizeof(dvdata);
-  video_info_.m_ExtraData = dvdata;
 
   video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 2);
 
