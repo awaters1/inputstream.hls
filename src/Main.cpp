@@ -324,6 +324,9 @@ extern "C" {
 
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
   {
+    // initialize globals
+    session = nullptr;
+
     if (!hdl)
       return ADDON_STATUS_UNKNOWN;
 
