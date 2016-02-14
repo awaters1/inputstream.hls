@@ -40,7 +40,8 @@ public:
   FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
-    , m_ts(0.0)
+    , m_dts(0.0)
+    , m_pts(0.0)
     , m_eos(false)
     , m_StreamId(streamId)
   {
@@ -63,22 +64,25 @@ public:
         return result;
       }
     }
-    m_ts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
+    m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
+    m_pts = (double)m_sample_.GetCts() / (double)m_Track->GetMediaTimeScale();
     return AP4_SUCCESS;
   };
 
   bool EOS()const{ return m_eos; };
-  double DTS()const{ return m_ts; };
+  double DTS()const{ return m_dts; };
+  double PTS()const{ return m_pts; };
   const AP4_Sample &Sample()const { return m_sample_; };
   AP4_UI32 GetStreamId()const{ return m_StreamId; };
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
+  double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
 
 private:
   AP4_Track *m_Track;
   AP4_UI32 m_StreamId;
   bool m_eos;
-  double m_ts;
+  double m_dts, m_pts;
 
   AP4_Sample     m_sample_;
   AP4_DataBuffer m_sample_data_;
@@ -519,8 +523,8 @@ extern "C" {
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
       p->dts = sr->DTS() * 1000000;
-      p->pts = p->dts;
-      p->duration = s.GetDuration() * 1000000;
+      p->pts = sr->PTS() * 1000000;
+      p->duration = sr->GetDuration() * 1000000;
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
       p->iSize = sr->GetSampleDataSize();
