@@ -203,6 +203,11 @@ bool Session::initialize()
   case AP4_SAMPLE_FORMAT_HEV1:
   case AP4_SAMPLE_FORMAT_HVC1:
     strcpy(video_info_.m_codecName, "hevc");
+    if (AP4_HevcSampleDescription *hevc = AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, desc))
+    {
+      video_info_.m_ExtraSize = hevc->GetRawBytes().GetDataSize();
+      video_info_.m_ExtraData = hevc->GetRawBytes().GetData();
+    }
     break;
   default:
     xbmc->Log(ADDON::LOG_ERROR, "Video codec not supported");
@@ -253,6 +258,11 @@ bool Session::initialize()
   {
   case AP4_SAMPLE_FORMAT_MP4A:
     strcpy(audio_info_.m_codecName, "aac");
+    if (AP4_MpegSampleDescription *aac = AP4_DYNAMIC_CAST(AP4_MpegSampleDescription, desc))
+    {
+      audio_info_.m_ExtraSize = aac->GetDecoderInfo().GetDataSize();
+      audio_info_.m_ExtraData = aac->GetDecoderInfo().GetData();
+    }
     break;
   case  AP4_SAMPLE_FORMAT_AC_3:
   case AP4_SAMPLE_FORMAT_EC_3:
