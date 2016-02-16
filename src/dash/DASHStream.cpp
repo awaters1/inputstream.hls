@@ -10,7 +10,6 @@
 *****************************************************************************/
 
 #include "DASHStream.h"
-#include "../../lib/libcurl/include/curl/curl.h"
 
 #include <iostream>
 #include <cstring>
@@ -45,13 +44,17 @@ bool DASHStream::download_segment()
 {
   segment_buffer_.clear();
   absolute_position_ = 0;
+  segment_read_pos_ = 0;
   char rangebuf[128];
   if (!current_seg_)
     return false;
+  
+  std::string strURL;
+  
   if (~current_seg_->range_begin_)
   {
     sprintf(rangebuf, "/range/%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, (current_rep_->url_ + rangebuf).c_str());
+    strURL = current_rep_->url_ + rangebuf;
     absolute_position_ = current_seg_->range_begin_;
   }
   else if (~current_seg_->range_end_) //templated segment
@@ -60,23 +63,18 @@ bool DASHStream::download_segment()
     media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
     sprintf(rangebuf, "%" PRIu64, current_seg_->range_end_);
     media.replace(media.find("$Number$"), 8, rangebuf);
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, media.c_str());
+    strURL = media;
   }
   else //templated initialization segment
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, current_rep_->url_.c_str());
+    strURL =  current_rep_->url_;
 
-  /* Define our callback to get called when there's data to be written */
-  curl_easy_setopt(curl_handle_, CURLOPT_WRITEFUNCTION, curl_fwrite_init);
-  /* Set a pointer to our struct to pass to the callback */
-  curl_easy_setopt(curl_handle_, CURLOPT_WRITEDATA, &segment_buffer_);
-  segment_read_pos_ = 0;
-  CURLcode ret = curl_easy_perform(curl_handle_);
-  if (ret == CURLE_OK)
-  {
-    curl_easy_getinfo(curl_handle_, CURLINFO_SPEED_DOWNLOAD, &download_speed_);
-    return true;
-  }
-  return false;
+  return download(strURL.c_str());
+}
+
+bool DASHStream::write_data(const void *buffer, size_t buffer_size)
+{
+  segment_buffer_ += std::string((const char *)buffer, buffer_size);
+  return true;
 }
 
 bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth)
@@ -187,14 +185,6 @@ bool DASHStream::select_stream(bool force, bool justInit)
   if (observer_)
     observer_->OnStreamChange(this, segid);
 
-  curl_handle_ = curl_easy_init();
-  /* enable TCP keep - alive for this transfer */
-  curl_easy_setopt(curl_handle_, CURLOPT_TCP_KEEPALIVE, 1L);
-  /* keep-alive idle time to 120 seconds */
-  curl_easy_setopt(curl_handle_, CURLOPT_TCP_KEEPIDLE, 120L);
-  /* interval time between keep-alive probes: 60 seconds */
-  curl_easy_setopt(curl_handle_, CURLOPT_TCP_KEEPINTVL, 60L);
-
   /* lets download the initialization */
   if (current_seg_ = current_rep_->get_initialization())
     return download_segment();
@@ -211,8 +201,6 @@ void DASHStream::info(std::ostream &s)
 
 void DASHStream::clear()
 {
-  curl_easy_cleanup(curl_handle_);
-  curl_handle_ = 0;
   current_adp_ = 0;
   current_rep_ = 0;
 }

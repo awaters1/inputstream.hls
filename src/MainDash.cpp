@@ -82,6 +82,61 @@ protected:
 };
 
 /*******************************************************
+Kodi Streams implementation
+********************************************************/
+
+class KodiDASHTree : public dash::DASHTree
+{
+protected:
+  virtual bool download(const char* url)
+  {
+    // open the file
+    std::string strURL(url);
+    strURL += "|encoding%3Dgzip";
+    
+    void* file = xbmc->OpenFile(strURL.c_str(), 0);
+    if (!file)
+      return false;
+  
+    // read the file
+    char buf[8192];
+    size_t nbRead;
+    while ((nbRead = xbmc->ReadFile(file, buf, 8192)) > 0 && write_data(buf, nbRead));
+
+    xbmc->CloseFile(file);
+
+    return nbRead == 0;
+  };
+};
+
+class KodiDASHStream : public dash::DASHStream
+{
+public:
+  KodiDASHStream(dash::DASHTree &tree, dash::DASHTree::StreamType type)
+    :dash::DASHStream(tree, type) 
+  {
+  };
+protected:
+  virtual bool download(const char* url)
+  {
+    // open the file
+    void* file = xbmc->OpenFile(url, 0);
+    if (!file)
+      return false;
+
+    // read the file
+    char *buf = (char*)malloc(1024*1024);
+    size_t nbRead;
+    while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && write_data(buf, nbRead));
+    free(buf);
+
+    xbmc->CloseFile(file);
+
+    return nbRead == 0;
+  };
+};
+
+/*******************************************************
 |   CodecHandler
 ********************************************************/
 
@@ -367,7 +422,6 @@ private:
   AP4_UI32 m_StreamId;
   bool m_eos;
   double m_dts, m_pts;
-  AP4_UI08 m_pictureId, m_lastPictureId;
 
   AP4_Sample     m_sample_;
   AP4_DataBuffer m_encrypted, m_sample_data_;
@@ -409,7 +463,7 @@ public:
 
     bool enabled;
     uint32_t current_segment_;
-    dash::DASHStream stream_;
+    KodiDASHStream stream_;
     AP4_ByteStream *input_;
     AP4_File *input_file_;
     INPUTSTREAM_INFO info_;
@@ -425,7 +479,7 @@ public:
 private:
   std::string mpdFileURL_;
 
-  dash::DASHTree dashtree_;
+  KodiDASHTree dashtree_;
 
   std::vector<STREAM*> streams_;
 
@@ -442,7 +496,7 @@ Session::Session()
   , width_(1280)
   , height_(720)
   , language_("de")
-  , fixed_bandwidth_(0)
+  , fixed_bandwidth_(10000000)
 {
 }
 

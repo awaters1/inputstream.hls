@@ -15,9 +15,9 @@ set(MPD_SOURCES src/MainDash.cpp src/dash/DASHTree.cpp src/dash/DASHStream.cpp)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 if(WIN32)
-  list(APPEND DEPLIBS ws2_32 libcurl libexpat)
+  list(APPEND DEPLIBS ws2_32 libexpat)
 else()
-  list(APPEND DEPLIBS curl expat)
+  list(APPEND DEPLIBS expat)
 endif()
 
 include_directories(${INCLUDES}
@@ -29,9 +29,9 @@ include_directories(${INCLUDES}
                     
 if(WIN32)
 	link_directories(
-		${PROJECT_SOURCE_DIR}/lib/libcurl/lib
 		${PROJECT_SOURCE_DIR}/lib/expat/lib
 	)
+	include_directories(lib/expat/include)
 endif()
 
 add_subdirectory(lib/libbento4)

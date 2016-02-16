@@ -13,8 +13,6 @@
 #include <cstring>
 
 #include "DASHTree.h"
-#include "../../lib/libcurl/include/curl/curl.h"
-#include "../../lib/expat/include/expat.h"
 #include "../oscompat.h"
 
 using namespace dash;
@@ -222,6 +220,7 @@ static const char* ltranslate(const char * in)
 
 DASHTree::DASHTree()
   :download_speed_(0.0)
+  , parser_(0)
 {
 }
 
@@ -590,21 +589,6 @@ end(void *data, const char *el)
 }
 
 /*----------------------------------------------------------------------
-|   curl callback
-+---------------------------------------------------------------------*/
-
-static size_t curl_fwrite(void *buffer, size_t size, size_t nmemb, void *dest)
-{
-  XML_Parser parser(reinterpret_cast<XML_Parser>(dest));
-
-  bool done(false);
-  if (XML_Parse(parser, (const char*)buffer, size*nmemb, done) == XML_STATUS_ERROR)
-    return 0;
-  return size*nmemb;
-}
-
-
-/*----------------------------------------------------------------------
 |   DASHTree
 +---------------------------------------------------------------------*/
 
@@ -622,50 +606,27 @@ void DASHTree::Segment::SetRange(const char *range)
 
 bool DASHTree::open(const char *url)
 {
-  XML_Parser p = XML_ParserCreate(NULL);
-  if (!p)
+  parser_ = XML_ParserCreate(NULL);
+  if (!parser_)
     return false;
-  XML_SetUserData(p, (void*)this);
-  XML_SetElementHandler(p, start, end);
-  XML_SetCharacterDataHandler(p, text);
+  XML_SetUserData(parser_, (void*)this);
+  XML_SetElementHandler(parser_, start, end);
+  XML_SetCharacterDataHandler(parser_, text);
   currentNode_ = 0;
   strXMLText_.clear();
 
-  struct curl_slist *headerlist = NULL;
+  bool ret = download(url);
+  
+  XML_ParserFree(parser_);
+  parser_ = 0;
 
-  curl_global_init(CURL_GLOBAL_ALL);
+  return ret;
+}
 
-  headerlist = curl_slist_append(headerlist, "Accept: */*");
-  headerlist = curl_slist_append(headerlist, "Connection: close");
-  headerlist = curl_slist_append(headerlist, "Pragma: no-cache");
-  headerlist = curl_slist_append(headerlist, "Cache-Control: no-cache");
-  headerlist = curl_slist_append(headerlist, "x-retry-count: 0");
-  headerlist = curl_slist_append(headerlist, "x-request-priority: CRITICAL");
-  headerlist = curl_slist_append(headerlist, "Accept-Encoding: gzip, deflate");
-  headerlist = curl_slist_append(headerlist, "Accept-Language: de-DE,de;q=0.8,en-US;q=0.6,en;q=0.4");
-  headerlist = curl_slist_append(headerlist, "EXPECT:");
-
-  CURL *curl = curl_easy_init();
-  curl_easy_setopt(curl, CURLOPT_URL, url);
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
-  /* Define our callback to get called when there's data to be written */
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_fwrite);
-  /* Set a pointer to our struct to pass to the callback */
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, p);
-  /* Automaticlly decompress gzipped responses */
-  curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
-  CURLcode res = curl_easy_perform(curl);
-
-  download_speed_ = 0.0;
-  curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD, &download_speed_);
-
-  curl_easy_cleanup(curl);
-
-  XML_ParserFree(p);
-
-  if (res != CURLE_OK)
-    return false;
-  return true;
+bool DASHTree::write_data(void *buffer, size_t buffer_size)
+{
+  bool done(false);
+  return (XML_Parse(parser_, (const char*)buffer, buffer_size, done) != XML_STATUS_ERROR);
 }
 
 bool DASHTree::has_type(StreamType t)

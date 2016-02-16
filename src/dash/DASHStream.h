@@ -46,6 +46,10 @@ namespace dash
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
     DASHTree::Representation const *getRepresentation(){ return current_rep_; };
+  protected:
+    virtual bool download(const char* url){ return false; };
+    bool write_data(const void *buffer, size_t buffer_size);
+
   private:
     bool download_segment();
 

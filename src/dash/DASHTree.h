@@ -14,6 +14,7 @@
 #include <vector>
 #include <string>
 #include <inttypes.h>
+#include "expat.h"
 
 namespace dash
 {
@@ -104,6 +105,7 @@ namespace dash
     std::string base_url_;
 
     /* XML Parsing*/
+    XML_Parser parser_;
     uint32_t currentNode_;
     uint32_t segcount_;
     double overallSeconds_;
@@ -135,6 +137,9 @@ namespace dash
     double get_download_speed() const { return download_speed_; };
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
-  };
+protected:
+  virtual bool download(const char* url){ return false; };
+  bool write_data(void *buffer, size_t buffer_size);
+};
 
 }
