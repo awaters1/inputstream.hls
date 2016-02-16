@@ -11,19 +11,29 @@ find_package(kodiplatform REQUIRED)
 find_package(p8-platform REQUIRED)
 
 
-set(MPD_SOURCES src/Main.cpp)
+set(MPD_SOURCES src/MainDash.cpp src/dash/DASHTree.cpp src/dash/DASHStream.cpp)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 if(WIN32)
-  list(APPEND DEPLIBS ws2_32)
+  list(APPEND DEPLIBS ws2_32 libcurl libexpat)
+else()
+  list(APPEND DEPLIBS curl expat)
 endif()
 
 include_directories(${INCLUDES}
                     ${kodiplatform_INCLUDE_DIRS}
                     ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
-                    lib/libbento4/Core)
+                    lib/libbento4/Core
+)
                     
+if(WIN32)
+	link_directories(
+		${PROJECT_SOURCE_DIR}/lib/libcurl/lib
+		${PROJECT_SOURCE_DIR}/lib/expat/lib
+	)
+endif()
+
 add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
 					

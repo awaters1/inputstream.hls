@@ -30,7 +30,6 @@
 |   includes
 +---------------------------------------------------------------------*/
 #include "Ap4AvcParser.h"
-#include "Ap4Utils.h"
 
 /*----------------------------------------------------------------------
 |   debugging
@@ -163,37 +162,6 @@ AP4_AvcFrameParser::~AP4_AvcFrameParser()
 }
 
 /*----------------------------------------------------------------------
-|   ReadGolomb
-+---------------------------------------------------------------------*/
-static unsigned int
-ReadGolomb(AP4_BitReader& bits)
-{
-    unsigned int leading_zeros = 0;
-    while (bits.ReadBit() == 0) {
-        leading_zeros++;
-        if (leading_zeros > 32) return 0; // safeguard
-    }
-    if (leading_zeros) {
-        return (1<<leading_zeros)-1+bits.ReadBits(leading_zeros);
-    } else {
-        return 0;
-    }
-}
-
-/*----------------------------------------------------------------------
-|   ReadGolomb
-+---------------------------------------------------------------------*/
-static int
-SignedGolomb(unsigned int code_num)
-{
-    if (code_num % 2) {
-        return (code_num+1)/2;
-    } else {
-        return -((int)code_num/2);
-    }
-}
-
-/*----------------------------------------------------------------------
 |   AP4_AvcSequenceParameterSet::AP4_AvcSequenceParameterSet
 +---------------------------------------------------------------------*/
 AP4_AvcSequenceParameterSet::AP4_AvcSequenceParameterSet() :
@@ -235,6 +203,39 @@ AP4_AvcSequenceParameterSet::AP4_AvcSequenceParameterSet() :
     AP4_SetMemory(scaling_list_8x8, 0, sizeof(scaling_list_8x8));
     AP4_SetMemory(use_default_scaling_matrix_8x8, 0, sizeof(use_default_scaling_matrix_8x8));
     AP4_SetMemory(offset_for_ref_frame, 0, sizeof(offset_for_ref_frame));
+}
+
+/*----------------------------------------------------------------------
+|   ReadGolomb
++---------------------------------------------------------------------*/
+unsigned int
+AP4_AvcFrameParser::ReadGolomb(AP4_BitReader& bits)
+{
+  unsigned int leading_zeros = 0;
+  while (bits.ReadBit() == 0) {
+    leading_zeros++;
+    if (leading_zeros > 32) return 0; // safeguard
+  }
+  if (leading_zeros) {
+    return (1 << leading_zeros) - 1 + bits.ReadBits(leading_zeros);
+  }
+  else {
+    return 0;
+  }
+}
+
+/*----------------------------------------------------------------------
+|   ReadGolomb
++---------------------------------------------------------------------*/
+int
+AP4_AvcFrameParser::SignedGolomb(unsigned int code_num)
+{
+  if (code_num % 2) {
+    return (code_num + 1) / 2;
+  }
+  else {
+    return -((int)code_num / 2);
+  }
 }
 
 /*----------------------------------------------------------------------

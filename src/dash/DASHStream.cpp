@@ -10,7 +10,7 @@
 *****************************************************************************/
 
 #include "DASHStream.h"
-#include "../../libcurl/include/curl/curl.h"
+#include "../../lib/libcurl/include/curl/curl.h"
 
 #include <iostream>
 #include <cstring>

@@ -13,8 +13,8 @@
 #include <cstring>
 
 #include "DASHTree.h"
-#include "../../libcurl/include/curl/curl.h"
-#include "../../expat/include/expat.h"
+#include "../../lib/libcurl/include/curl/curl.h"
+#include "../../lib/expat/include/expat.h"
 #include "../oscompat.h"
 
 using namespace dash;

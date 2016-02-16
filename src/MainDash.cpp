@@ -82,6 +82,168 @@ protected:
 };
 
 /*******************************************************
+|   CodecHandler
+********************************************************/
+
+class CodecHandler
+{
+public:
+  CodecHandler(AP4_SampleDescription *sd)
+    : sample_description(sd)
+    , extra_data(0)
+    , extra_data_size(0)
+    , naluLengthSize(0)
+    , pictureId(0)
+    , pictureIdPrev(0)
+  {};
+  virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer &){ return 0; };
+  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
+
+  AP4_SampleDescription *sample_description;
+  const AP4_UI08 *extra_data;
+  AP4_Size extra_data_size;
+  AP4_UI08 naluLengthSize;
+  AP4_UI08 pictureId, pictureIdPrev;
+
+};
+
+/***********************   AVC   ************************/
+
+class AVCCodecHandler : public CodecHandler
+{
+public:
+  AVCCodecHandler(AP4_SampleDescription *sd)
+    :CodecHandler(sd)
+  {
+    unsigned int width(0), height(0);
+    if (AP4_VideoSampleDescription *video_sample_description = AP4_DYNAMIC_CAST(AP4_VideoSampleDescription, sample_description))
+    {
+      width = video_sample_description->GetWidth();
+      height = video_sample_description->GetHeight();
+    }
+    if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description))
+    {
+      extra_data_size = avc->GetRawBytes().GetDataSize();
+      extra_data = avc->GetRawBytes().GetData();
+      if (avc->GetPictureParameters().ItemCount() > 1 || !width || !height)
+        naluLengthSize = avc->GetNaluLengthSize();
+    }
+  }
+
+  virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer const &buffer)
+  {
+    //Search the Slice header NALU
+    const AP4_UI08 *data(buffer.GetData());
+    unsigned int data_size(buffer.GetDataSize());
+    for (; data_size;)
+    {
+      // sanity check
+      if (data_size < naluLengthSize)
+        break;
+
+      // get the next NAL unit
+      AP4_UI32 nalu_size;
+      switch (naluLengthSize) {
+      case 1:nalu_size = *data++; data_size--; break;
+      case 2:nalu_size = AP4_BytesToInt16BE(data); data += 2; data_size -= 2; break;
+      case 4:nalu_size = AP4_BytesToInt32BE(data); data += 4; data_size -= 4; break;
+      default: data_size = 0; nalu_size = 1; break;
+      }
+      if (nalu_size > data_size)
+        break;
+
+      unsigned int nal_unit_type = *data & 0x1F;
+
+      if (nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_NON_IDR_PICTURE ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_IDR_PICTURE ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_A ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_B ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_C) {
+
+        AP4_DataBuffer unescaped(data, data_size);
+        AP4_NalParser::Unescape(unescaped);
+        AP4_BitReader bits(unescaped.GetData(), unescaped.GetDataSize());
+
+        bits.SkipBits(8); // NAL Unit Type
+
+        AP4_AvcFrameParser::ReadGolomb(bits); // first_mb_in_slice
+        AP4_AvcFrameParser::ReadGolomb(bits); // slice_type
+        return AP4_AvcFrameParser::ReadGolomb(bits);
+      }
+      // move to the next NAL unit
+      data += nalu_size;
+      data_size -= nalu_size;
+    }
+    return 0;
+  }
+
+  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height)
+  {
+    if (pictureId == pictureIdPrev)
+      return false;
+    pictureIdPrev = pictureId;
+
+    if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description))
+    {
+      AP4_Array<AP4_DataBuffer>& buffer = avc->GetPictureParameters();
+      AP4_AvcPictureParameterSet pps;
+      for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+      {
+        if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParsePPS(buffer[i].GetData(), buffer[i].GetDataSize(), pps)) && pps.pic_parameter_set_id == pictureId)
+        {
+          buffer = avc->GetSequenceParameters();
+          AP4_AvcSequenceParameterSet sps;
+          for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+          {
+            if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(buffer[i].GetData(), buffer[i].GetDataSize(), sps)) && sps.seq_parameter_set_id == pps.seq_parameter_set_id)
+            {
+              sps.GetInfo(width, height);
+              return true;
+            }
+          }
+          break;
+        }
+      }
+    }
+    return false;
+  };
+};
+
+/***********************   HEVC   ************************/
+
+class HEVCCodecHandler : public CodecHandler
+{
+public:
+  HEVCCodecHandler(AP4_SampleDescription *sd)
+    :CodecHandler(sd)
+  {
+    if (AP4_HevcSampleDescription *hevc = AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, sample_description))
+    {
+      extra_data_size = hevc->GetRawBytes().GetDataSize();
+      extra_data = hevc->GetRawBytes().GetData();
+      naluLengthSize = hevc->GetNaluLengthSize();
+    }
+  }
+};
+
+/***********************   MPEG   ************************/
+
+class MPEGCodecHandler : public CodecHandler
+{
+public:
+  MPEGCodecHandler(AP4_SampleDescription *sd)
+    :CodecHandler(sd)
+  {
+    if (AP4_MpegSampleDescription *aac = AP4_DYNAMIC_CAST(AP4_MpegSampleDescription, sample_description))
+    {
+      extra_data_size = aac->GetDecoderInfo().GetDataSize();
+      extra_data = aac->GetDecoderInfo().GetData();
+    }
+  }
+};
+
+
+/*******************************************************
 |   FragmentedSampleReader
 ********************************************************/
 class FragmentedSampleReader : public AP4_LinearReader
@@ -99,17 +261,38 @@ public:
     , m_SingleSampleDecryptor(ssd)
     , m_Decrypter(0)
     , m_Protected_desc(0)
+    , m_codecHandler(0)
   {
     EnableTrack(m_Track->GetId());
 
     AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
     if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
       m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
+    switch (desc->GetFormat())
+    {
+    case AP4_SAMPLE_FORMAT_AVC1:
+    case AP4_SAMPLE_FORMAT_AVC2:
+    case AP4_SAMPLE_FORMAT_AVC3:
+    case AP4_SAMPLE_FORMAT_AVC4:
+      m_codecHandler = new AVCCodecHandler(desc);
+      break;
+    case AP4_SAMPLE_FORMAT_HEV1:
+    case AP4_SAMPLE_FORMAT_HVC1:
+      m_codecHandler = new HEVCCodecHandler(desc);
+      break;
+    case AP4_SAMPLE_FORMAT_MP4A:
+      m_codecHandler = new MPEGCodecHandler(desc);
+      break;
+    default:
+      m_codecHandler = new CodecHandler(desc);
+      break;
+    }
   }
 
   ~FragmentedSampleReader()
   {
     delete m_Decrypter;
+    delete m_codecHandler;
   }
 
   AP4_Result ReadSample()
@@ -132,6 +315,9 @@ public:
 
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
     m_pts = (double)m_sample_.GetCts() / (double)m_Track->GetMediaTimeScale();
+
+    m_codecHandler->UpdatePPSId(m_sample_data_);
+
     return AP4_SUCCESS;
   };
 
@@ -143,6 +329,9 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
   double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
+  const AP4_UI08 *GetExtraData(){ return m_codecHandler->extra_data; };
+  AP4_Size GetExtraDataSize(){ return m_codecHandler->extra_data_size; };
+  bool GetVideoInformation(unsigned int &width, unsigned int &height){ return  m_codecHandler->GetVideoInformation(width, height); };
 
 protected:
   virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
@@ -178,9 +367,12 @@ private:
   AP4_UI32 m_StreamId;
   bool m_eos;
   double m_dts, m_pts;
+  AP4_UI08 m_pictureId, m_lastPictureId;
 
   AP4_Sample     m_sample_;
   AP4_DataBuffer m_encrypted, m_sample_data_;
+
+  CodecHandler *m_codecHandler;
 
   AP4_ProtectedSampleDescription *m_Protected_desc;
   AP4_CencSingleSampleDecrypter *m_SingleSampleDecryptor;
@@ -209,8 +401,8 @@ public:
       {
         stream_.stop();
         SAFE_DELETE(reader_);
-        SAFE_DELETE(input_);
         SAFE_DELETE(input_file_);
+        SAFE_DELETE(input_);
         enabled = false;
       }
     };
@@ -225,8 +417,10 @@ public:
   };
 
   STREAM *GetStream(unsigned int sid) const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  unsigned int GetStreamCount() const { return streams_.size(); };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   int GetTotalTime()const { return (int)dashtree_.overallSeconds_; };
+  bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
 
 private:
   std::string mpdFileURL_;
@@ -238,6 +432,7 @@ private:
   uint16_t width_, height_;
   std::string language_;
   uint32_t fixed_bandwidth_;
+  bool changed_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 } *session = 0;
@@ -264,6 +459,8 @@ Session::~Session()
 
 bool Session::initialize()
 {
+  mpdFileURL_ = "http://download.tsi.telecom-paristech.fr/gpac/DASH_CONFORMANCE/TelecomParisTech/mp4-live/mp4-live-mpd-AV-BS.mpd";
+
   // Open mpd file
   const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
   if (!delim)
@@ -314,13 +511,13 @@ bool Session::initialize()
     }
 
     if (rep->codecs_.find("mp4a") == 0)
-      strcpy(stream.info_.m_codecName, "AAC");
+      strcpy(stream.info_.m_codecName, "aac");
     else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
-      strcpy(stream.info_.m_codecName, "EAC3");
+      strcpy(stream.info_.m_codecName, "eac3");
     else if (rep->codecs_.find("avc") == 0)
-      strcpy(stream.info_.m_codecName, "H264");
+      strcpy(stream.info_.m_codecName, "h264");
     else if (rep->codecs_.find("hevc") == 0)
-      strcpy(stream.info_.m_codecName, "HEVC");
+      strcpy(stream.info_.m_codecName, "hevc");
 
     stream.info_.m_FpsRate = rep->fpsRate_;
     stream.info_.m_FpsScale = rep->fpsScale_;
@@ -461,9 +658,9 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStreamIds()");
     INPUTSTREAM_IDS iids;
-    iids.m_streamCount = streams_.size();
-    for (unsigned int i(0); i < iids.m_streamCount;)
-      iids.m_streamIds[i] = ++i;
+    iids.m_streamCount = session->GetStreamCount();
+    for (unsigned int i(0); i < iids.m_streamCount;++i)
+      iids.m_streamIds[i] = i+1;
     return iids;
   }
 
@@ -511,6 +708,9 @@ extern "C" {
 
       stream->enabled = true;
 
+      stream->stream_.start_stream(stream->current_segment_);
+      stream->stream_.select_stream(true);
+
       stream->input_ = new AP4_DASHStream(&stream->stream_);
       stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
       AP4_Movie* movie = stream->input_file_->GetMovie();
@@ -519,7 +719,11 @@ extern "C" {
         xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
         return stream->disable();
       }
-      AP4_Track *track = movie->GetTrack(stream->stream.get_type());
+
+      static const AP4_Track::Type TIDC[dash::DASHTree::STREAM_TYPE_COUNT] =
+      { AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO, AP4_Track::TYPE_TEXT };
+
+      AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
       if (!track)
       {
         xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in stream");
@@ -527,11 +731,18 @@ extern "C" {
       }
 
       stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, 1, session->GetSingleSampleDecryptor());
-      stream->stream_.select_stream(true);
-      stream->stream_.start_stream(stream->current_segment_);
 
       if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
         return stream->disable();
+
+      // Maybe we have changed information for hints after parsing the first packet...
+      stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
+      // ExtraData is now available......
+      stream->info_.m_ExtraData = stream->reader_->GetExtraData();
+      stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
+
+      // Set the session Changed to force new streamInfor call from kodi -> addon
+      session->CheckChange(true);
 
       return;
     }
@@ -574,6 +785,13 @@ extern "C" {
   {
     if (!session)
       return NULL;
+
+    if (session->CheckChange())
+    {
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
+      p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+      return p;
+    }
 
     FragmentedSampleReader *sr(session->GetNextSample());
 

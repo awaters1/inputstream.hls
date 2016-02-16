@@ -37,6 +37,8 @@
 #include "Ap4DataBuffer.h"
 #include "Ap4NalParser.h"
 #include "Ap4Array.h"
+#include "Ap4Utils.h"
+
 
 /*----------------------------------------------------------------------
 |   constants
@@ -178,7 +180,7 @@ public:
     static const char* NaluTypeName(unsigned int nalu_type);
     static const char* PrimaryPicTypeName(unsigned int primary_pic_type);
     static const char* SliceTypeName(unsigned int slice_type);
-    
+
     AP4_AvcNalParser();
 };
 
@@ -240,15 +242,22 @@ public:
     
     AP4_AvcSequenceParameterSet** GetSequenceParameterSets() { return &m_SPS[0]; }
     AP4_AvcPictureParameterSet**  GetPictureParameterSets()  { return &m_PPS[0]; }
-    
+
+    static AP4_Result ParseSPS(const unsigned char*         data,
+      unsigned int                 data_size,
+      AP4_AvcSequenceParameterSet& sps);
+    static AP4_Result ParsePPS(const unsigned char*        data,
+      unsigned int                data_size,
+      AP4_AvcPictureParameterSet& pps);
+
+    static unsigned int
+      ReadGolomb(AP4_BitReader& bits);
+
+    static int
+      SignedGolomb(unsigned int code_num);
+
 private:
     // methods
-    AP4_Result ParseSPS(const unsigned char*         data,
-                        unsigned int                 data_size,
-                        AP4_AvcSequenceParameterSet& sps);
-    AP4_Result ParsePPS(const unsigned char*        data,
-                        unsigned int                data_size,
-                        AP4_AvcPictureParameterSet& pps);
     AP4_Result ParseSliceHeader(const AP4_UI08*               data,
                                 unsigned int                  data_size,
                                 unsigned int                  nal_unit_type,

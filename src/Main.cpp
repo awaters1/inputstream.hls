@@ -37,13 +37,17 @@ class FragmentedSampleReader : public AP4_LinearReader
 {
 public:
 
-  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId)
+  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, 
+    AP4_UI32 streamId, AP4_UI08 nls)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
     , m_dts(0.0)
     , m_pts(0.0)
+    , m_pictureId(0)
+    , m_lastPictureId(0)
     , m_eos(false)
     , m_StreamId(streamId)
+    , m_NaluLengthSize(nls)
   {
     EnableTrack(m_Track->GetId());
   }
@@ -66,8 +70,87 @@ public:
     }
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
     m_pts = (double)m_sample_.GetCts() / (double)m_Track->GetMediaTimeScale();
+    
+    //Search the Slice header NALU
+    const AP4_UI08 *data(m_sample_data_.GetData());
+    unsigned int data_size(m_sample_data_.GetDataSize());
+    for (;data_size;)
+    {
+      // sanity check
+      if (data_size < m_NaluLengthSize)
+        break;
+
+      // get the next NAL unit
+      AP4_UI32 nalu_size;
+      switch (m_NaluLengthSize) {
+        case 1:nalu_size = *data++; data_size--; break;
+        case 2:nalu_size = AP4_BytesToInt16BE(data); data += 2; data_size -= 2; break;
+        case 4:nalu_size = AP4_BytesToInt32BE(data); data += 4; data_size -= 4; break;
+        default: data_size = 0; nalu_size = 1; break;
+      }
+      if (nalu_size > data_size)
+        break;
+
+      unsigned int nal_unit_type = *data & 0x1F;
+
+      if (nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_NON_IDR_PICTURE ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_IDR_PICTURE ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_A ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_B ||
+        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_C) {
+
+        AP4_DataBuffer unescaped(data, data_size);
+        AP4_NalParser::Unescape(unescaped);
+        AP4_BitReader bits(unescaped.GetData(), unescaped.GetDataSize());
+
+        bits.SkipBits(8); // NAL Unit Type
+
+        AP4_AvcFrameParser::ReadGolomb(bits); // first_mb_in_slice
+        AP4_AvcFrameParser::ReadGolomb(bits); // slice_type
+        m_pictureId = AP4_AvcFrameParser::ReadGolomb(bits);
+        break;
+      }
+      // move to the next NAL unit
+      data += nalu_size;
+      data_size -= nalu_size;
+    }
     return AP4_SUCCESS;
   };
+
+  bool GetVideoInformation(unsigned int &width, unsigned int &height)
+  {
+    if (m_pictureId != m_lastPictureId)
+    {
+      AP4_SampleDescription *desc = m_Track->GetSampleDescription(0);
+      if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
+        desc = static_cast<AP4_ProtectedSampleDescription*>(desc)->GetOriginalSampleDescription();
+      if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, desc))
+      {
+        AP4_Array<AP4_DataBuffer>& buffer = avc->GetPictureParameters();
+        AP4_AvcPictureParameterSet pps;
+        for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+        {
+          if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParsePPS(buffer[i].GetData(), buffer[i].GetDataSize(), pps)) && pps.pic_parameter_set_id == m_pictureId)
+          {
+            buffer = avc->GetSequenceParameters();
+            AP4_AvcSequenceParameterSet sps;
+            for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+            {
+              if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(buffer[i].GetData(), buffer[i].GetDataSize(), sps)) && sps.seq_parameter_set_id == pps.seq_parameter_set_id)
+              {
+                sps.GetInfo(width, height);
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+      m_lastPictureId = m_pictureId;
+      return true;
+    }
+    return false;
+  }
 
   bool EOS()const{ return m_eos; };
   double DTS()const{ return m_dts; };
@@ -83,6 +166,8 @@ private:
   AP4_UI32 m_StreamId;
   bool m_eos;
   double m_dts, m_pts;
+  AP4_UI08 m_NaluLengthSize;
+  uint8_t m_pictureId, m_lastPictureId;
 
   AP4_Sample     m_sample_;
   AP4_DataBuffer m_sample_data_;
@@ -191,6 +276,13 @@ bool Session::initialize()
     xbmc->Log(ADDON::LOG_ERROR, "Unable to parse video sample description!");
     return false;
   }
+  
+  AP4_UI08 naluLengthSize = 0;
+
+  video_info_.m_Width = video_sample_description->GetWidth();
+  video_info_.m_Height = video_sample_description->GetHeight();
+  video_info_.m_Aspect = 1.0;
+
   switch (desc->GetFormat())
   {
   case AP4_SAMPLE_FORMAT_AVC1:
@@ -202,6 +294,8 @@ bool Session::initialize()
     {
       video_info_.m_ExtraSize = avc->GetRawBytes().GetDataSize();
       video_info_.m_ExtraData = avc->GetRawBytes().GetData();
+      if (avc->GetPictureParameters().ItemCount() > 1 || !video_info_.m_Width || !video_info_.m_Height)
+        naluLengthSize = avc->GetNaluLengthSize();
     }
     break;
   case AP4_SAMPLE_FORMAT_HEV1:
@@ -211,20 +305,20 @@ bool Session::initialize()
     {
       video_info_.m_ExtraSize = hevc->GetRawBytes().GetDataSize();
       video_info_.m_ExtraData = hevc->GetRawBytes().GetData();
+      //naluLengthSize = hevc->GetNaluLengthSize();
     }
     break;
   default:
     xbmc->Log(ADDON::LOG_ERROR, "Video codec not supported");
     return false;
   }
-  video_info_.m_Width = video_sample_description->GetWidth();
-  video_info_.m_Height = video_sample_description->GetHeight();
-  video_info_.m_Aspect = 1.0;
 
-  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 2);
+  video_reader_ = new FragmentedSampleReader(video_input_, movie, track, 2, naluLengthSize);
 
   if (!AP4_SUCCEEDED(video_reader_->ReadSample()))
     return false;
+
+  video_reader_->GetVideoInformation(video_info_.m_Width, video_info_.m_Height);
 
   /************ AUDIO INITIALIZATION ******/
   result = AP4_FileByteStream::Create("C:\\Temp\\audio.mov", AP4_FileByteStream::STREAM_MODE_READ, audio_input_);
@@ -285,7 +379,7 @@ bool Session::initialize()
   audio_info_.m_ExtraSize = 0;
   audio_info_.m_ExtraData = 0;
 
-  audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 1);
+  audio_reader_ = new FragmentedSampleReader(audio_input_, movie, track, 1, 0);
 
   if (!AP4_SUCCEEDED(audio_reader_->ReadSample()))
     return false;
