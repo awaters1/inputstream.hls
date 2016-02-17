@@ -34,6 +34,27 @@
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
 
+namespace XBMCFILE
+{
+  /* indicate that caller can handle truncated reads, where function returns before entire buffer has been filled */
+  static const unsigned int READ_TRUNCATED = 0x01;
+
+  /* indicate that that caller support read in the minimum defined chunk size, this disables internal cache then */
+  static const unsigned int READ_CHUNKED   = 0x02;
+
+  /* use cache to access this file */
+  static const unsigned int READ_CACHED    = 0x04;
+
+  /* open without caching. regardless to file type. */
+  static const unsigned int READ_NO_CACHE  = 0x08;
+
+  /* calcuate bitrate for file while reading */
+  static const unsigned int READ_BITRATE   = 0x10;
+}
+
+
+
+
 /*******************************************************
 Bento4 Streams
 ********************************************************/
@@ -94,7 +115,7 @@ protected:
     std::string strURL(url);
     strURL += "|encoding%3Dgzip";
     
-    void* file = xbmc->OpenFile(strURL.c_str(), 0);
+    void* file = xbmc->OpenFile(strURL.c_str(), XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
     if (!file)
       return false;
   
@@ -120,7 +141,7 @@ protected:
   virtual bool download(const char* url)
   {
     // open the file
-    void* file = xbmc->OpenFile(url, 0);
+    void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
     if (!file)
       return false;
 
@@ -223,7 +244,7 @@ public:
 
         AP4_AvcFrameParser::ReadGolomb(bits); // first_mb_in_slice
         AP4_AvcFrameParser::ReadGolomb(bits); // slice_type
-        return AP4_AvcFrameParser::ReadGolomb(bits);
+        return AP4_AvcFrameParser::ReadGolomb(bits); //picture_set_id
       }
       // move to the next NAL unit
       data += nalu_size;
@@ -439,7 +460,7 @@ Main class Session
 class Session
 {
 public:
-  Session();
+  Session(const char *strURL);
   ~Session();
   bool initialize();
   void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
@@ -491,8 +512,9 @@ private:
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 } *session = 0;
 
-Session::Session()
+Session::Session(const char *strURL)
   :single_sample_decryptor_(0)
+  , mpdFileURL_(strURL)
   , width_(1280)
   , height_(720)
   , language_("de")
@@ -513,7 +535,7 @@ Session::~Session()
 
 bool Session::initialize()
 {
-  mpdFileURL_ = "http://download.tsi.telecom-paristech.fr/gpac/DASH_CONFORMANCE/TelecomParisTech/mp4-live/mp4-live-mpd-AV-BS.mpd";
+  //mpdFileURL_ = "http://download.tsi.telecom-paristech.fr/gpac/DASH_CONFORMANCE/TelecomParisTech/mp4-live/mp4-live-mpd-AV-BS.mpd";
 
   // Open mpd file
   const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
@@ -603,7 +625,7 @@ extern "C" {
   CHelper_libKODI_inputstream *ipsh = 0;
 
   /***********************************************************
-  * Standart AddOn related public library functions
+  * Standard AddOn related public library functions
   ***********************************************************/
 
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
@@ -626,7 +648,7 @@ extern "C" {
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
 
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Create()");
+    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Create()");
 
     curAddonStatus = ADDON_STATUS_UNKNOWN;
 
@@ -643,7 +665,7 @@ extern "C" {
 
   void ADDON_Destroy()
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: ADDON_Destroy()");
+    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Destroy()");
     SAFE_DELETE(session);
     SAFE_DELETE(xbmc);
     SAFE_DELETE(ipsh);
@@ -682,9 +704,9 @@ extern "C" {
 
   bool Open(INPUTSTREAM& props)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: OpenStream()");
+    xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
-    session = new Session();
+    session = new Session(props.m_strURL);
     if (!session->initialize())
     {
       SAFE_DELETE(session);
@@ -695,6 +717,7 @@ extern "C" {
 
   void Close(void)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "Close()");
     SAFE_DELETE(session);
   }
 
@@ -710,7 +733,7 @@ extern "C" {
 
   struct INPUTSTREAM_IDS GetStreamIds()
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStreamIds()");
+    xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
     INPUTSTREAM_IDS iids;
     iids.m_streamCount = session->GetStreamCount();
     for (unsigned int i(0); i < iids.m_streamCount;++i)
@@ -720,6 +743,7 @@ extern "C" {
 
   struct INPUTSTREAM_CAPABILITIES GetCapabilities()
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
     caps.m_supportsISeekTime = false;
@@ -734,7 +758,7 @@ extern "C" {
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
 
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: GetStream(%d)", streamid);
+    xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
     Session::STREAM *stream(session->GetStream(streamid));
     if (stream)
@@ -745,7 +769,7 @@ extern "C" {
 
   void EnableStream(int streamid, bool enable)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "InputStream.mpd: EnableStream(%d, %d)", streamid, (int)enable);
+    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d, %d)", streamid, (int)enable);
 
     if (!session)
       return;
@@ -795,7 +819,7 @@ extern "C" {
       stream->info_.m_ExtraData = stream->reader_->GetExtraData();
       stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
 
-      // Set the session Changed to force new streamInfor call from kodi -> addon
+      // Set the session Changed to force new GetStreamInfo call from kodi -> addon
       session->CheckChange(true);
 
       return;
