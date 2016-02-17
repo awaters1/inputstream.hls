@@ -724,9 +724,10 @@ extern "C" {
   const char* GetPathList(void)
   {
     static char buffer[1024];
-
     if (!xbmc->GetSetting("URL", buffer))
       buffer[0] = 0;
+
+    xbmc->Log(ADDON::LOG_DEBUG, "GetPathList(%s)", buffer);
 
     return buffer;
   }
