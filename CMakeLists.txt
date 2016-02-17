@@ -12,6 +12,7 @@ find_package(p8-platform REQUIRED)
 
 
 set(MPD_SOURCES src/MainDash.cpp src/dash/DASHTree.cpp src/dash/DASHStream.cpp)
+#set(MPD_SOURCES src/Main.cpp)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 if(WIN32)

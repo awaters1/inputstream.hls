@@ -784,7 +784,7 @@ extern "C" {
         return stream->disable();
       }
 
-      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, 1, session->GetSingleSampleDecryptor());
+      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor());
 
       if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
         return stream->disable();
