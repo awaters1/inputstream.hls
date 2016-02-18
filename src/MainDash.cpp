@@ -497,6 +497,12 @@ public:
   int GetTotalTime()const { return (int)dashtree_.overallSeconds_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
 
+protected:
+  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(
+    AP4_DataBuffer streamCodec,
+    const char *licenseType,
+    const char *licenseKey){ return 0; };
+
 private:
   std::string mpdFileURL_;
 
@@ -673,16 +679,19 @@ extern "C" {
 
   bool ADDON_HasSettings()
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_HasSettings()");
     return false;
   }
 
   unsigned int ADDON_GetSettings(ADDON_StructSetting ***sSet)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_GetSettings()");
     return 0;
   }
 
   ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_SetSettings()");
     return ADDON_STATUS_OK;
   }
 
@@ -723,13 +732,28 @@ extern "C" {
 
   const char* GetPathList(void)
   {
-    static char buffer[1024];
-    if (!xbmc->GetSetting("URL", buffer))
-      buffer[0] = 0;
+    static std::string strSettings;
+    strSettings.clear();
 
-    xbmc->Log(ADDON::LOG_DEBUG, "GetPathList(%s)", buffer);
+    char buffer[1024];
 
-    return buffer;
+    unsigned int nURL(0);
+    while (1)
+    {
+      sprintf(buffer, "URL%d", ++nURL);
+      if (xbmc->GetSetting(buffer, buffer))
+      {
+        if (buffer[0])
+        {
+          if (!strSettings.empty())
+            strSettings += "|";
+          strSettings += buffer;
+        }
+      }
+      else
+        break;
+    }
+    return strSettings.c_str();
   }
 
   struct INPUTSTREAM_IDS GetStreamIds()

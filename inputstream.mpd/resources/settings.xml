@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
-    <setting id="URL" type="text" label="30000" default="http://url.com" />
+    <setting id="URL1" type="text" label="30000" />
+    <setting id="URL2" type="text" label="30000" />
+    <setting id="URL3" type="text" label="30000" />
+    <setting id="URL4" type="text" label="30000" />
+    <setting id="URL5" type="text" label="30000" />
+    <setting id="URL6" type="text" label="30000" />
+    <setting id="URL7" type="text" label="30000" />
+    <setting id="URL8" type="text" label="30000" />
 </settings>
