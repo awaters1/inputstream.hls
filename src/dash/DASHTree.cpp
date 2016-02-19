@@ -567,13 +567,31 @@ end(void *data, const char *el)
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
           || (!dash->pssh_.empty() && dash->adp_pssh_ != dash->pssh_)
-          || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3))
+          || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3)
+          || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;
             dash->current_period_->adaptationSets_.pop_back();
           }
           else
+          {
             dash->pssh_ = dash->adp_pssh_;
+            
+            if (dash->current_adaptationset_->segment_durations_.empty()
+              && !dash->current_adaptationset_->segtpl_.media.empty())
+            {
+              for (std::vector<DASHTree::Representation*>::iterator 
+                b(dash->current_adaptationset_->repesentations_.begin()), 
+                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+              {
+                if ((*b)->duration_ && !(*b)->timescale_)
+                {
+                  (*b)->duration_ = dash->current_adaptationset_->segtpl_.duration;
+                  (*b)->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
+                }
+              }
+            }
+          }
         }
       }
       else if (strcmp(el, "Period") == 0)

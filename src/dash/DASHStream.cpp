@@ -148,6 +148,44 @@ bool DASHStream::seek(uint64_t const pos)
   return false;
 }
 
+bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &needReset)
+{
+  if (!current_rep_)
+    return false;
+
+  uint32_t choosen_seg(~0);
+  
+  if (!current_adp_->segment_durations_.empty())
+  {
+    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_adp_->timescale_);
+    while (choosen_seg < current_adp_->segment_durations_.size() && sec_in_ts > current_adp_->segment_durations_[choosen_seg])
+      sec_in_ts -= current_adp_->segment_durations_[choosen_seg++];
+  } 
+  else if (current_rep_->duration_ > 0 && current_rep_->timescale_ > 0)
+  {
+    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
+    choosen_seg = static_cast<uint32_t>(sec_in_ts / current_rep_->duration_);
+  }
+  const DASHTree::Segment* old_seg(current_seg_);
+  if (current_seg_ = current_rep_->get_segment(choosen_seg, true))
+  {
+    needReset = true;
+    if (current_seg_ != old_seg)
+      download_segment();
+    else if (current_seconds < seek_seconds)
+    {
+      absolute_position_ -= segment_read_pos_;
+      segment_read_pos_ = 0;
+    }
+    else
+      needReset = false;
+    return true;
+  }
+  else
+    current_seg_ = old_seg;
+  return false;
+}
+
 bool DASHStream::select_stream(bool force, bool justInit)
 {
   const DASHTree::Representation *new_rep(0), *min_rep(0);

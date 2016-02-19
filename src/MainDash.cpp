@@ -397,6 +397,12 @@ public:
     return AP4_SUCCESS;
   };
 
+  void Reset(bool bEOS)
+  {
+    FlushQueues();
+    m_eos = bEOS;
+  }
+
   bool EOS()const{ return m_eos; };
   double DTS()const{ return m_dts; };
   double PTS()const{ return m_pts; };
@@ -496,6 +502,7 @@ public:
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   int GetTotalTime()const { return (int)dashtree_.overallSeconds_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
+  bool SeekTime(double seekTime);
 
 protected:
   virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(
@@ -514,6 +521,7 @@ private:
   std::string language_;
   uint32_t fixed_bandwidth_;
   bool changed_;
+  double last_pts_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 } *session = 0;
@@ -525,6 +533,7 @@ Session::Session(const char *strURL)
   , height_(720)
   , language_("de")
   , fixed_bandwidth_(10000000)
+  , last_pts_(0)
 {
 }
 
@@ -617,7 +626,30 @@ FragmentedSampleReader *Session::GetNextSample()
     && (!res || (*b)->reader_->DTS() < res->DTS()))
         res = (*b)->reader_;
 
+  if (res)
+    last_pts_ = res->PTS();
+
   return res;
+}
+
+bool Session::SeekTime(double seekTime)
+{
+  bool ret(false);
+
+  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    if ((*b)->enabled)
+    {
+      bool bReset;
+      if ((*b)->stream_.seek_time(seekTime, last_pts_, bReset))
+      {
+        if (bReset)
+          (*b)->reader_->Reset(false);
+        ret = AP4_SUCCEEDED((*b)->reader_->SeekTo(static_cast<AP4_UI32>(seekTime * 1000))) || ret;
+      }
+      else
+        (*b)->reader_->Reset(true);
+    }
+  return ret;
 }
 
 /***************************  Interface *********************************/
@@ -918,7 +950,9 @@ extern "C" {
 
   bool DemuxSeekTime(int time, bool backwards, double *startpts)
   {
-    return false;
+    if (!session)
+      return false;
+    return session->SeekTime(static_cast<double>(time));
   }
 
   void DemuxSetSpeed(int speed)

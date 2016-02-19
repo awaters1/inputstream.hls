@@ -63,8 +63,12 @@ namespace dash
           return &segments_[0] + curpos;
         return 0;
       };
-      const Segment *get_segment(const uint32_t pos)const
+      const Segment *get_segment(uint32_t pos, bool respectInit = false)const
       {
+        if (respectInit && hasInitialization_)
+        {
+          if (~pos) ++pos; else return 0;
+        }
         return pos < segments_.size() ? &segments_[pos] : 0;
       };
       const uint32_t get_segment_pos(const Segment *segment)const
