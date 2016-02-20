@@ -103,6 +103,7 @@ bool DASHStream::start_stream(const uint32_t seg_offset)
   if (!current_seg_ || !current_rep_->get_next_segment(current_seg_))
     stopped_ = true;
   absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
+  stopped_ = false;
   return true;
 }
 

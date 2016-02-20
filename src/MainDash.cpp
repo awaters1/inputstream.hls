@@ -500,7 +500,8 @@ public:
   STREAM *GetStream(unsigned int sid) const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
-  int GetTotalTime()const { return (int)dashtree_.overallSeconds_; };
+  double GetTotalTime()const { return dashtree_.overallSeconds_; };
+  double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   bool SeekTime(double seekTime);
 
@@ -803,8 +804,10 @@ extern "C" {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
-    caps.m_supportsISeekTime = false;
+    caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
+    caps.m_supportsSeek = true;
+    caps.m_supportsPause = true;
     return caps;
   }
 
@@ -843,7 +846,7 @@ extern "C" {
 
       stream->enabled = true;
 
-      stream->stream_.start_stream(stream->current_segment_);
+      stream->stream_.start_stream(0);
       stream->stream_.select_stream(true);
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
@@ -866,6 +869,9 @@ extern "C" {
       }
 
       stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor());
+
+      // Jump to the segment at wich we want to continue
+      // stream->stream_.start_stream(stream->current_segment_);
 
       if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
         return stream->disable();
@@ -952,7 +958,7 @@ extern "C" {
   {
     if (!session)
       return false;
-    return session->SeekTime(static_cast<double>(time));
+    return session->SeekTime(static_cast<double>(time)*0.001f);
   }
 
   void DemuxSetSpeed(int speed)
@@ -965,12 +971,15 @@ extern "C" {
     if (!session)
       return 0;
 
-    return session->GetTotalTime();
+    return static_cast<int>(session->GetTotalTime()*1000);
   }
 
   int GetTime()
   {
-    return 0;
+    if (!session)
+      return 0;
+
+    return static_cast<int>(session->GetPTS() * 1000);
   }
 
   bool CanPauseStream(void)
@@ -978,21 +987,21 @@ extern "C" {
     return true;
   }
 
-  void PauseStream(bool)
-  {
-  }
-
   bool CanSeekStream(void)
   {
     return false;
   }
 
-  bool SeekTime(int)
+  bool PosTime(int)
   {
     return false;
   }
 
   void SetSpeed(int)
+  {
+  }
+
+  void PauseStream(double)
   {
   }
 
