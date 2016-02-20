@@ -414,6 +414,12 @@ public:
   const AP4_UI08 *GetExtraData(){ return m_codecHandler->extra_data; };
   AP4_Size GetExtraDataSize(){ return m_codecHandler->extra_data_size; };
   bool GetVideoInformation(unsigned int &width, unsigned int &height){ return  m_codecHandler->GetVideoInformation(width, height); };
+  bool TimeSeek(double pts)
+  {
+    bool result;
+    while ((result = AP4_SUCCEEDED(ReadSample())) && m_pts < pts);
+    return result;
+  };
 
 protected:
   virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
@@ -645,7 +651,8 @@ bool Session::SeekTime(double seekTime)
       {
         if (bReset)
           (*b)->reader_->Reset(false);
-        ret = AP4_SUCCEEDED((*b)->reader_->SeekTo(static_cast<AP4_UI32>(seekTime * 1000))) || ret;
+        if (!(*b)->reader_->TimeSeek(seekTime))
+          (*b)->reader_->Reset(true);
       }
       else
         (*b)->reader_->Reset(true);
@@ -938,6 +945,8 @@ extern "C" {
 
     if (sr)
     {
+      //xbmc->Log(ADDON::LOG_DEBUG, "SID: %d, PTS: %f", sr->GetStreamId(), sr->PTS());
+      
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
       p->dts = sr->DTS() * 1000000;
@@ -989,7 +998,7 @@ extern "C" {
 
   bool CanSeekStream(void)
   {
-    return false;
+    return true;
   }
 
   bool PosTime(int)

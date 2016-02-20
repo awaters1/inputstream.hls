@@ -584,7 +584,7 @@ end(void *data, const char *el)
                 b(dash->current_adaptationset_->repesentations_.begin()), 
                 e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
               {
-                if ((*b)->duration_ && !(*b)->timescale_)
+                if (!(*b)->duration_ || !(*b)->timescale_)
                 {
                   (*b)->duration_ = dash->current_adaptationset_->segtpl_.duration;
                   (*b)->timescale_ = dash->current_adaptationset_->segtpl_.timescale;

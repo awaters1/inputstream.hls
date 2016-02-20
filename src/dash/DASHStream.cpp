@@ -173,7 +173,7 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
     needReset = true;
     if (current_seg_ != old_seg)
       download_segment();
-    else if (current_seconds < seek_seconds)
+    else if (seek_seconds < current_seconds)
     {
       absolute_position_ -= segment_read_pos_;
       segment_read_pos_ = 0;
