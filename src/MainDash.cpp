@@ -908,17 +908,17 @@ extern "C" {
     return -1;
   }
 
-  long long SeekStream(long long, int)
+  int64_t SeekStream(int64_t, int)
   {
     return -1;
   }
 
-  long long PositionStream(void)
+  int64_t PositionStream(void)
   {
     return -1;
   }
 
-  long long LengthStream(void)
+  int64_t LengthStream(void)
   {
     return -1;
   }

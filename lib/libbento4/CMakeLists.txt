@@ -15,6 +15,8 @@ if(WIN32)
 	message(STATUS "BENTOSYS: WIN32")
 else()
 	set(BENTOSYS "System/Posix/*.cpp")
+        set(GCC_COVERAGE_COMPILE_FLAGS    "-fPIC")
+        add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 	message(STATUS "BENTOSYS: POSIX")
 endif()
 
