@@ -172,6 +172,7 @@ protected:
                               AP4_UI32&       track_id);
     void       FlushQueue(Tracker* tracker);
     void       FlushQueues();
+    void       Reset();
     
     // members
     AP4_Movie&          m_Movie;

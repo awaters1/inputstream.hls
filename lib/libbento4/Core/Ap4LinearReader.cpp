@@ -118,6 +118,29 @@ AP4_LinearReader::FlushQueues()
 }
 
 /*----------------------------------------------------------------------
+|   AP4_LinearReader::Reset
++---------------------------------------------------------------------*/
+void
+AP4_LinearReader::Reset()
+{
+  // flush any queued samples
+  FlushQueues();
+
+  // reset tracker states
+  for (unsigned int i = 0; i<m_Trackers.ItemCount(); i++) {
+    if (m_Trackers[i]->m_SampleTableIsOwned) {
+      delete m_Trackers[i]->m_SampleTable;
+    }
+    delete m_Trackers[i]->m_NextSample;
+    m_Trackers[i]->m_SampleTable = NULL;
+    m_Trackers[i]->m_NextSample = NULL;
+    m_Trackers[i]->m_NextSampleIndex = 0;
+    m_Trackers[i]->m_Eos = false;
+  }
+  m_NextFragmentPosition = 0;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_LinearReader::SetSampleIndex
 +---------------------------------------------------------------------*/
 AP4_Result 
@@ -251,20 +274,7 @@ AP4_LinearReader::SeekTo(AP4_UI32 time_ms, AP4_UI32* actual_time_ms)
         return AP4_FAILURE;
     }
     
-    // flush any queued samples
-    FlushQueues();
-    
-    // reset tracker states
-    for (unsigned int i=0; i<m_Trackers.ItemCount(); i++) {
-        if (m_Trackers[i]->m_SampleTableIsOwned) {
-            delete m_Trackers[i]->m_SampleTable;
-        }
-        delete m_Trackers[i]->m_NextSample;
-        m_Trackers[i]->m_SampleTable     = NULL;
-        m_Trackers[i]->m_NextSample      = NULL;
-        m_Trackers[i]->m_NextSampleIndex = 0;
-        m_Trackers[i]->m_Eos             = false;
-    }
+    Reset();
         
     return AP4_SUCCESS;
 }

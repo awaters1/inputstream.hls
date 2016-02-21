@@ -399,7 +399,7 @@ public:
 
   void Reset(bool bEOS)
   {
-    FlushQueues();
+    AP4_LinearReader::Reset();
     m_eos = bEOS;
   }
 
@@ -642,8 +642,6 @@ FragmentedSampleReader *Session::GetNextSample()
 bool Session::SeekTime(double seekTime)
 {
   bool ret(false);
-  
-  xbmc->Log(ADDON::LOG_INFO, "SeekTime start (%0.6f)",seekTime);
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled)
@@ -661,8 +659,6 @@ bool Session::SeekTime(double seekTime)
       else
         (*b)->reader_->Reset(true);
     }
-   xbmc->Log(ADDON::LOG_INFO, "SeekTime finished");
-
   return ret;
 }
 
@@ -951,8 +947,6 @@ extern "C" {
 
     if (sr)
     {
-      xbmc->Log(ADDON::LOG_DEBUG, "SID: %d, PTS: %f", sr->GetStreamId(), sr->PTS());
-      
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
       p->dts = sr->DTS() * 1000000;
@@ -973,6 +967,9 @@ extern "C" {
   {
     if (!session)
       return false;
+
+    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4f)", time);
+
     return session->SeekTime(static_cast<double>(time)*0.001f);
   }
 
