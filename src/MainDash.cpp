@@ -642,6 +642,8 @@ FragmentedSampleReader *Session::GetNextSample()
 bool Session::SeekTime(double seekTime)
 {
   bool ret(false);
+  
+  xbmc->Log(ADDON::LOG_INFO, "SeekTime start (%0.6f)",seekTime);
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled)
@@ -653,10 +655,14 @@ bool Session::SeekTime(double seekTime)
           (*b)->reader_->Reset(false);
         if (!(*b)->reader_->TimeSeek(seekTime))
           (*b)->reader_->Reset(true);
+        else
+          ret = true;
       }
       else
         (*b)->reader_->Reset(true);
     }
+   xbmc->Log(ADDON::LOG_INFO, "SeekTime finished");
+
   return ret;
 }
 
@@ -945,7 +951,7 @@ extern "C" {
 
     if (sr)
     {
-      //xbmc->Log(ADDON::LOG_DEBUG, "SID: %d, PTS: %f", sr->GetStreamId(), sr->PTS());
+      xbmc->Log(ADDON::LOG_DEBUG, "SID: %d, PTS: %f", sr->GetStreamId(), sr->PTS());
       
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
