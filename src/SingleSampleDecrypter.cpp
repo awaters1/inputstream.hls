@@ -18,7 +18,12 @@
 
 #include "MainDash.h"
 
-AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer streamCodec)
+void Session::GetSupportedDecrypterURN(std::string licType, std::string licKey, std::pair<std::string, std::string> &urn)
+{
+  //Nothing supported
+}
+
+AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
 {
     return 0;
 };

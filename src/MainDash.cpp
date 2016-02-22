@@ -24,6 +24,7 @@
 
 #include "xbmc_addon_types.h"
 #include "libXBMC_addon.h"
+#include "helpers.h"
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
@@ -468,6 +469,9 @@ Session::~Session()
 
 bool Session::initialize()
 {
+  // Get URN's wich are supported by this addon
+  GetSupportedDecrypterURN(license_type_, license_key_, dashtree_.adp_pssh_);
+
   // Open mpd file
   const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
   if (!delim)
@@ -484,6 +488,32 @@ bool Session::initialize()
   }
   xbmc->Log(ADDON::LOG_INFO, "Successfully parsed .mpd file. Download speed: %0.4f Bytes/s", dashtree_.download_speed_);
 
+  if (dashtree_.encryptionState_ == dash::DASHTree::ENCRYTIONSTATE_ENCRYPTED)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Unable to handle decryption. Unsupported!");
+    return false;
+  }
+
+  // Try to initialize an SingleSampleDecryptor
+  if (dashtree_.encryptionState_)
+  {
+    uint8_t init_data[256];
+    unsigned int init_data_size(256);
+
+    if (dashtree_.adp_pssh_.second == "FILE")
+    {
+      while (size_t pos = dashtree_.adp_pssh_.first.find('-') != std::string::npos)
+        dashtree_.adp_pssh_.first.erase(pos, 1);
+      
+      unsigned char key_system[16];
+      AP4_ParseHex(dashtree_.adp_pssh_.first.c_str(), key_system, 16);
+
+      //TODO: Open file and extract pssh data
+
+    } else
+      b64_decode(dashtree_.pssh_.second.data(), dashtree_.pssh_.second.size(), init_data, init_data_size);
+  }
+  
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
   const dash::DASHTree::AdaptationSet *adp;

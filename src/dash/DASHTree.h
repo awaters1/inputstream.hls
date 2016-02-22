@@ -114,8 +114,17 @@ namespace dash
     uint32_t segcount_;
     double overallSeconds_;
     double download_speed_;
-    std::string pssh_;
+    
+    std::pair<std::string, std::string> pssh_, adp_pssh_;
 
+    enum
+    {
+      ENCRYTIONSTATE_UNENCRYPTED = 0,
+      ENCRYTIONSTATE_ENCRYPTED = 1,
+      ENCRYTIONSTATE_SUPPORTED = 2
+    };
+    unsigned int  encryptionState_;
+    
     enum
     {
       MPDNODE_MPD = 1 << 0,
@@ -131,7 +140,7 @@ namespace dash
       MPDNODE_S = 1 << 11,
       MPDNODE_PSSH = 1 << 12
     };
-    std::string strXMLText_, adp_pssh_;
+    std::string strXMLText_;
 
     DASHTree();
     ~DASHTree();

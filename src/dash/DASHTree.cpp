@@ -221,6 +221,7 @@ static const char* ltranslate(const char * in)
 DASHTree::DASHTree()
   :download_speed_(0.0)
   , parser_(0)
+  , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
 {
 }
 
@@ -389,18 +390,22 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "ContentProtection") == 0)
         {
           dash->strXMLText_.clear();
-          bool wvfound(false);
+          dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
+          bool urnFound(false);
           for (; *attr;)
           {
             if (strcmp((const char*)*attr, "schemeIdUri") == 0)
             {
-              wvfound = strcmp((const char*)*(attr + 1), "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED") == 0;
+              urnFound = dash->adp_pssh_.first == (const char*)*(attr + 1);
               break;
             }
             attr += 2;
           }
-          if (wvfound)
+          if (urnFound)
+          {
             dash->currentNode_ |= DASHTree::MPDNODE_CONTENTPROTECTION;
+            dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+          }
         }
       }
       else if (strcmp(el, "AdaptationSet") == 0)
@@ -408,7 +413,7 @@ start(void *data, const char *el, const char **attr)
         //<AdaptationSet contentType="video" group="2" lang="en" mimeType="video/mp4" par="16:9" segmentAlignment="true" startWithSAP="1" subsegmentAlignment="true" subsegmentStartsWithSAP="1">
         dash->current_adaptationset_ = new DASHTree::AdaptationSet();
         dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
-        dash->adp_pssh_.clear();
+        dash->adp_pssh_.second.clear();
         for (; *attr;)
         {
           if (strcmp((const char*)*attr, "contentType") == 0)
@@ -429,7 +434,6 @@ start(void *data, const char *el, const char **attr)
           else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
             dash->current_adaptationset_->type_ = DASHTree::AUDIO;
         }
-
         dash->segcount_ = 0;
         dash->currentNode_ |= DASHTree::MPDNODE_ADAPTIONSET;
       }
@@ -551,14 +555,14 @@ end(void *data, const char *el)
           {
             if (strcmp(el, "cenc:pssh") == 0)
             {
-              dash->adp_pssh_ = dash->strXMLText_;
+              dash->adp_pssh_.second = dash->strXMLText_;
               dash->currentNode_ &= ~DASHTree::MPDNODE_PSSH;
             }
           }
           else if (strcmp(el, "ContentProtection") == 0)
           {
-            if (dash->adp_pssh_.empty())
-              dash->adp_pssh_ = "FILE";
+            if (dash->adp_pssh_.second.empty())
+              dash->adp_pssh_.second = "FILE";
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
         }
@@ -566,7 +570,7 @@ end(void *data, const char *el)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || (!dash->pssh_.empty() && dash->adp_pssh_ != dash->pssh_)
+          || (!dash->pssh_.first.empty() && dash->adp_pssh_ != dash->pssh_)
           || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3)
           || dash->current_adaptationset_->repesentations_.empty())
           {

@@ -98,7 +98,8 @@ public:
   bool SeekTime(double seekTime);
 
 protected:
-  AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer streamCodec);
+  void GetSupportedDecrypterURN(std::string licType, std::string licKey, std::pair<std::string, std::string> &urn);
+  AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec);
 
 private:
   std::string mpdFileURL_;
