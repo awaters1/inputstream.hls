@@ -85,6 +85,7 @@ protected:
 
 private:
   std::string mpdFileURL_;
+  std::string license_key_, license_type_;
 
   KodiDASHTree dashtree_;
 
