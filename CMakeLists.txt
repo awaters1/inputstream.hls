@@ -10,8 +10,7 @@ find_package(kodi REQUIRED)
 find_package(kodiplatform REQUIRED)
 find_package(p8-platform REQUIRED)
 
-set(MPD_SOURCES src/MainDash.cpp src/dash/DASHTree.cpp src/dash/DASHStream.cpp)
-#set(MPD_SOURCES src/Main.cpp)
+set(MPD_SOURCES src/MainDash.cpp src/dash/DASHTree.cpp src/dash/DASHStream.cpp src/SingleSampleDecrypter.cpp)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 
