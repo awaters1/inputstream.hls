@@ -28,6 +28,23 @@
 
 class FragmentedSampleReader;
 
+namespace XBMCFILE
+{
+  /* indicate that caller can handle truncated reads, where function returns before entire buffer has been filled */
+  static const unsigned int READ_TRUNCATED = 0x01;
+
+  /* indicate that that caller support read in the minimum defined chunk size, this disables internal cache then */
+  static const unsigned int READ_CHUNKED   = 0x02;
+
+  /* use cache to access this file */
+  static const unsigned int READ_CACHED    = 0x04;
+
+  /* open without caching. regardless to file type. */
+  static const unsigned int READ_NO_CACHE  = 0x08;
+
+  /* calcuate bitrate for file while reading */
+  static const unsigned int READ_BITRATE   = 0x10;
+}
 
 /*******************************************************
 Kodi Streams implementation
