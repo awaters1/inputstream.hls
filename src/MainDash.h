@@ -68,7 +68,7 @@ protected:
 class Session
 {
 public:
-  Session(const char *strURL);
+  Session(const char *strURL, const char *strLicType, const char* strLicKey);
   ~Session();
   bool initialize();
   void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);

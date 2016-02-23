@@ -85,7 +85,7 @@ bool KodiDASHTree::download(const char* url)
 {
   // open the file
   std::string strURL(url);
-  strURL += "|encoding%3Dgzip";
+  strURL += "|acceptencoding=gzip";
     
   void* file = xbmc->OpenFile(strURL.c_str(), XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
   if (!file)
@@ -445,9 +445,11 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(const char *strURL)
+Session::Session(const char *strURL, const char *strLicType, const char* strLicKey)
   :single_sample_decryptor_(0)
   , mpdFileURL_(strURL)
+  , license_type_(strLicType)
+  , license_key_(strLicKey)
   , width_(1280)
   , height_(720)
   , language_("de")
@@ -739,7 +741,15 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
-    session = new Session(props.m_strURL);
+    const char *lt(""), *lk("");
+    for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
+      if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_type") == 0)
+        lt = props.m_ListItemProperties[i].m_strValue;
+      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_key") == 0)
+        lk = props.m_ListItemProperties[i].m_strValue;
+
+    session = new Session(props.m_strURL, lt, lk);
+
     if (!session->initialize())
     {
       SAFE_DELETE(session);
