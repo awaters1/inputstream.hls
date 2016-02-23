@@ -784,9 +784,14 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
     INPUTSTREAM_IDS iids;
-    iids.m_streamCount = session->GetStreamCount();
-    for (unsigned int i(0); i < iids.m_streamCount;++i)
-      iids.m_streamIds[i] = i+1;
+    
+    if(session)
+    {
+        iids.m_streamCount = session->GetStreamCount();
+        for (unsigned int i(0); i < iids.m_streamCount;++i)
+          iids.m_streamIds[i] = i+1;
+    } else
+        iids.m_streamCount = 0;
     return iids;
   }
 
