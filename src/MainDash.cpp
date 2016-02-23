@@ -494,26 +494,6 @@ bool Session::initialize()
     return false;
   }
 
-  // Try to initialize an SingleSampleDecryptor
-  if (dashtree_.encryptionState_)
-  {
-    uint8_t init_data[256];
-    unsigned int init_data_size(256);
-
-    if (dashtree_.adp_pssh_.second == "FILE")
-    {
-      while (size_t pos = dashtree_.adp_pssh_.first.find('-') != std::string::npos)
-        dashtree_.adp_pssh_.first.erase(pos, 1);
-      
-      unsigned char key_system[16];
-      AP4_ParseHex(dashtree_.adp_pssh_.first.c_str(), key_system, 16);
-
-      //TODO: Open file and extract pssh data
-
-    } else
-      b64_decode(dashtree_.pssh_.second.data(), dashtree_.pssh_.second.size(), init_data, init_data_size);
-  }
-  
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
   const dash::DASHTree::AdaptationSet *adp;
@@ -560,6 +540,66 @@ bool Session::initialize()
     stream.info_.m_FpsScale = rep->fpsScale_;
     stream.info_.m_SampleRate = rep->samplingRate_;
     strcpy(stream.info_.m_language, adp->language_.c_str());
+  }
+  
+  // Try to initialize an SingleSampleDecryptor
+  if (dashtree_.encryptionState_)
+  {
+    AP4_DataBuffer init_data;
+
+    if (dashtree_.adp_pssh_.second == "FILE")
+    {
+      std::string strkey(dashtree_.adp_pssh_.first.substr(9));
+      while (size_t pos = strkey.find('-') != std::string::npos)
+        strkey.erase(pos, 1);
+      if (strkey.size() != 32)
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "Key system mismatch (%s)!", dashtree_.adp_pssh_.first.c_str());
+        return false;
+      }
+
+      unsigned char key_system[16];
+      AP4_ParseHex(strkey.c_str(), key_system, 16);
+
+      Session::STREAM *stream(streams_[0]);
+
+      stream->enabled = true;
+      stream->stream_.start_stream(0);
+      stream->stream_.select_stream(true);
+
+      stream->input_ = new AP4_DASHStream(&stream->stream_);
+      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
+      AP4_Movie* movie = stream->input_file_->GetMovie();
+      if (movie == NULL)
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+        stream->disable();
+        return false;
+      }
+      AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
+
+      for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+      {
+        if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
+          init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
+      }
+
+      if (!init_data.GetDataSize())
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
+        stream->disable();
+        return false;
+      }
+      stream->disable();
+    }
+    else
+    {
+      init_data.SetBufferSize(1024);
+      size_t init_data_size(1024);
+      b64_decode(dashtree_.pssh_.second.data(), dashtree_.pssh_.second.size(), init_data.UseData(), init_data_size);
+      init_data.SetDataSize(init_data_size);
+    }
+    return CreateSingleSampleDecrypter(init_data);
   }
   return true;
 }
