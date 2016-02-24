@@ -309,7 +309,10 @@ public:
 
     AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
     if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
+    {
       m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
+      desc = m_Protected_desc->GetOriginalSampleDescription();
+    }
     switch (desc->GetFormat())
     {
     case AP4_SAMPLE_FORMAT_AVC1:
@@ -340,7 +343,7 @@ public:
   AP4_Result ReadSample()
   {
     AP4_Result result;
-    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_Decrypter ? m_encrypted : m_sample_data_)))
+    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_Protected_desc ? m_encrypted : m_sample_data_)))
     {
       if (result == AP4_ERROR_EOS) {
         m_eos = true;
@@ -349,7 +352,7 @@ public:
         return result;
       }
     }
-    if (m_Decrypter && AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
+    if (m_Protected_desc && AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
     {
       xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
       return result;
@@ -951,7 +954,7 @@ extern "C" {
       const AP4_Sample &s(sr->Sample());
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
       p->dts = sr->DTS() * 1000000;
-      p->dts = sr->PTS() * 1000000;
+      p->pts = sr->PTS() * 1000000;
       p->duration = sr->GetDuration() * 1000000;
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
