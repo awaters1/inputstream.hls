@@ -104,7 +104,11 @@ bool KodiDASHTree::download(const char* url)
 bool KodiDASHStream::download(const char* url)
 {
   // open the file
-  void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
+  std::string strURL(url);
+  strURL += "|seekable=0";
+
+  // open the file
+  void* file = xbmc->OpenFile(strURL.c_str(), XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
   if (!file)
     return false;
 
