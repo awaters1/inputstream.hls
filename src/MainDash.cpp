@@ -605,7 +605,7 @@ bool Session::initialize()
       b64_decode(dashtree_.pssh_.second.data(), dashtree_.pssh_.second.size(), init_data.UseData(), init_data_size);
       init_data.SetDataSize(init_data_size);
     }
-    return CreateSingleSampleDecrypter(init_data);
+    return (single_sample_decryptor_ = CreateSingleSampleDecrypter(init_data))!=0;
   }
   return true;
 }
