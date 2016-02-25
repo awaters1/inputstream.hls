@@ -25,19 +25,7 @@ DASHStream::DASHStream(DASHTree &tree, DASHTree::StreamType type)
   , current_adp_(0)
   , current_rep_(0)
   , download_speed_(tree.get_download_speed())
-  , curl_handle_(0)
 {
-}
-
-/*----------------------------------------------------------------------
-|   curl initialization
-+---------------------------------------------------------------------*/
-
-static size_t curl_fwrite_init(void *buffer, size_t size, size_t nmemb, void *dest)
-{
-  std::string *init(reinterpret_cast<std::string *>(dest));
-  *init += std::string((const char *)buffer, size*nmemb);
-  return size*nmemb;
 }
 
 bool DASHStream::download_segment()
@@ -77,9 +65,8 @@ bool DASHStream::write_data(const void *buffer, size_t buffer_size)
   return true;
 }
 
-bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, const char *lang, uint32_t fixed_bandwidth)
+bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, uint32_t fixed_bandwidth)
 {
-  language_ = lang && type_ != DASHTree::VIDEO ? lang : "";
   width_ = type_ == DASHTree::VIDEO ? width : 0;
   height_ = type_ == DASHTree::VIDEO ? height : 0;
   bandwidth_ = fixed_bandwidth;
@@ -215,9 +202,6 @@ bool DASHStream::select_stream(bool force, bool justInit)
     return false;
 
   uint32_t segid(current_rep_ ? current_rep_->get_segment_pos(current_seg_) : 0);
-
-  if (curl_handle_)
-    clear();
 
   current_rep_ = new_rep;
 

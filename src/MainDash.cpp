@@ -84,10 +84,7 @@ Kodi Streams implementation
 bool KodiDASHTree::download(const char* url)
 {
   // open the file
-  std::string strURL(url);
-  strURL += "|acceptencoding=gzip";
-    
-  void* file = xbmc->OpenFile(strURL.c_str(), XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
+  void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE, "acceptencoding=gzip");
   if (!file)
     return false;
   
@@ -104,11 +101,7 @@ bool KodiDASHTree::download(const char* url)
 bool KodiDASHStream::download(const char* url)
 {
   // open the file
-  std::string strURL(url);
-  strURL += "|seekable=0";
-
-  // open the file
-  void* file = xbmc->OpenFile(strURL.c_str(), XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE);
+  void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE, "seekable=0");
   if (!file)
     return false;
 
@@ -459,8 +452,7 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , license_key_(strLicKey)
   , width_(1280)
   , height_(720)
-  , language_("de")
-  , fixed_bandwidth_(10000000)
+  , fixed_bandwidth_(5000000)
   , last_pts_(0)
 {
 }
@@ -515,7 +507,7 @@ bool Session::initialize()
   {
     streams_.push_back(new STREAM(dashtree_, adp->type_));
     STREAM &stream(*streams_.back());
-    stream.stream_.prepare_stream(adp, width_, height_, language_.c_str(), fixed_bandwidth_);
+    stream.stream_.prepare_stream(adp, width_, height_, fixed_bandwidth_);
 
     const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
 

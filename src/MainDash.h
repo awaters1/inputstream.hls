@@ -71,7 +71,6 @@ public:
   Session(const char *strURL, const char *strLicType, const char* strLicKey);
   ~Session();
   bool initialize();
-  void SetStreamProperties(uint16_t width, uint16_t height, const char* language, uint32_t maxBitPS, bool allow_ec_3);
   FragmentedSampleReader *GetNextSample();
 
   struct STREAM
@@ -110,7 +109,6 @@ private:
   std::vector<STREAM*> streams_;
 
   uint16_t width_, height_;
-  std::string language_;
   uint32_t fixed_bandwidth_;
   bool changed_;
   double last_pts_;
