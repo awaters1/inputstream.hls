@@ -1,3 +1,33 @@
-msgctxt "#30000"
-msgid "URL"
+# Kodi Media Center language file
+# Addon Name: Inputstream.mpd
+# Addon id: inputstream.mpd
+# Addon Provider: peak3d
+
+msgid ""
 msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30000"
+msgid "URL Support"
+msgstr ""
+
+msgctxt "#30001"
+msgid "URL"
+msgstr "Insert the prefix (regexp allowed) of the URL here. There must be more than 6 chars match"
+
+msgctxt "#30100"
+msgid "General"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "The minimum bandwidth which should not be deceeded."
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"

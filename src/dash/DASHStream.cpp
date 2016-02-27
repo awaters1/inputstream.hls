@@ -65,18 +65,24 @@ bool DASHStream::write_data(const void *buffer, size_t buffer_size)
   return true;
 }
 
-bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, uint32_t fixed_bandwidth)
+bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp,
+  const uint32_t width, const uint32_t height,
+  uint32_t min_bandwidth, uint32_t max_bandwidth)
 {
   width_ = type_ == DASHTree::VIDEO ? width : 0;
   height_ = type_ == DASHTree::VIDEO ? height : 0;
-  bandwidth_ = fixed_bandwidth;
+
+  uint32_t avg_bandwidth = tree_.bandwidth_;
+
+  bandwidth_ = min_bandwidth;
+  if (avg_bandwidth > bandwidth_)
+    bandwidth_ = avg_bandwidth;
+  if (max_bandwidth && bandwidth_ > max_bandwidth)
+    bandwidth_ = max_bandwidth;
 
   stopped_ = false;
 
-  if (!bandwidth_)
-    bandwidth_ = static_cast<uint32_t>(download_speed_*(type_ == DASHTree::VIDEO ? 7.2 : 0.8)); //Bandwith split 90 / 10
-  else
-    bandwidth_ = static_cast<uint32_t>(bandwidth_ *(type_ == DASHTree::VIDEO ? 0.9 : 0.1));
+  bandwidth_ = static_cast<uint32_t>(bandwidth_ *(type_ == DASHTree::VIDEO ? 0.9 : 0.1));
 
   current_adp_ = adp;
 

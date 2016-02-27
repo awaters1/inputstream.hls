@@ -113,7 +113,11 @@ namespace dash
     uint32_t currentNode_;
     uint32_t segcount_;
     double overallSeconds_;
+
+    uint32_t bandwidth_;
+
     double download_speed_;
+    uint64_t download_bytes;
     
     std::pair<std::string, std::string> pssh_, adp_pssh_;
 

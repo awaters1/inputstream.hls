@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
-    <setting id="URL1" type="text" label="30000" />
-    <setting id="URL2" type="text" label="30000" />
-    <setting id="URL3" type="text" label="30000" />
-    <setting id="URL4" type="text" label="30000" />
-    <setting id="URL5" type="text" label="30000" />
-    <setting id="URL6" type="text" label="30000" />
-    <setting id="URL7" type="text" label="30000" />
-    <setting id="URL8" type="text" label="30000" />
+  <category label="30100">
+    <setting id="MINBANDWIDTH" type="number" default="0" label="30101" />
+    <setting id="MAXBANDWIDTH" type="number" default = "0" label="30102" />
+    <setting id="LASTBANDWIDTH" type="number" visible="false" default="40000000" />
+  </category>
+  <category label="30000">
+    <setting id="URL1" type="text" label="30001" />
+    <setting id="URL2" type="text" label="30001" />
+    <setting id="URL3" type="text" label="30001" />
+    <setting id="URL4" type="text" label="30001" />
+    <setting id="URL5" type="text" label="30001" />
+    <setting id="URL6" type="text" label="30001" />
+    <setting id="URL7" type="text" label="30001" />
+    <setting id="URL8" type="text" label="30001" />
+  </category>
 </settings>

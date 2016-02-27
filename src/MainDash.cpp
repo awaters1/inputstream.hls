@@ -84,14 +84,19 @@ Kodi Streams implementation
 bool KodiDASHTree::download(const char* url)
 {
   // open the file
-  void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE, "acceptencoding=gzip");
+  void* file = xbmc->CURLCreate(url);
   if (!file)
     return false;
-  
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable", "0");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
+
   // read the file
   char buf[8192];
   size_t nbRead;
-  while ((nbRead = xbmc->ReadFile(file, buf, 8192)) > 0 && write_data(buf, nbRead));
+  while ((nbRead = xbmc->ReadFile(file, buf, 8192)) > 0 && ~nbRead && write_data(buf, nbRead));
+
+  download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
   xbmc->CloseFile(file);
 
@@ -101,15 +106,19 @@ bool KodiDASHTree::download(const char* url)
 bool KodiDASHStream::download(const char* url)
 {
   // open the file
-  void* file = xbmc->OpenFile(url, XBMCFILE::READ_CHUNKED | XBMCFILE::READ_NO_CACHE, "seekable=0");
+  void* file = xbmc->CURLCreate(url);
   if (!file)
     return false;
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED|XFILE::READ_NO_CACHE);
 
   // read the file
   char *buf = (char*)malloc(1024*1024);
   size_t nbRead;
-  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && write_data(buf, nbRead));
+  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead));
   free(buf);
+
+  download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
   xbmc->CloseFile(file);
 
@@ -452,9 +461,11 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , license_key_(strLicKey)
   , width_(1280)
   , height_(720)
-  , fixed_bandwidth_(5000000)
   , last_pts_(0)
 {
+  int buf;
+  xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
+  dashtree_.bandwidth_ = buf;
 }
 
 Session::~Session()
@@ -495,6 +506,13 @@ bool Session::initialize()
     return false;
   }
 
+  uint32_t min_bandwidth(0), max_bandwidth(0);
+  {
+    int buf;
+    xbmc->GetSetting("MINBANDWIDTH", (char*)&buf); min_bandwidth = buf;
+    xbmc->GetSetting("MAXBANDWIDTH", (char*)&buf); max_bandwidth = buf;
+  }
+
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
   const dash::DASHTree::AdaptationSet *adp;
@@ -507,7 +525,7 @@ bool Session::initialize()
   {
     streams_.push_back(new STREAM(dashtree_, adp->type_));
     STREAM &stream(*streams_.back());
-    stream.stream_.prepare_stream(adp, width_, height_, fixed_bandwidth_);
+    stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth);
 
     const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
 

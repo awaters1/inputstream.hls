@@ -30,7 +30,9 @@ namespace dash
     DASHStream(DASHTree &tree, DASHTree::StreamType type);
     ~DASHStream();
     void set_observer(DASHStreamObserver *observer){ observer_ = observer; };
-    bool prepare_stream(const DASHTree::AdaptationSet *adp, const uint32_t width, const uint32_t height, uint32_t fixed_bandwidth);
+    bool prepare_stream(const DASHTree::AdaptationSet *adp,
+      const uint32_t width, const uint32_t height,
+      uint32_t min_bandwidth, uint32_t max_bandwidth);
     bool start_stream(const uint32_t seg_offset);
     bool select_stream(bool force = false, bool justInit = false);
     void stop(){ stopped_ = true; };
@@ -50,7 +52,7 @@ namespace dash
   protected:
     virtual bool download(const char* url){ return false; };
     bool write_data(const void *buffer, size_t buffer_size);
-
+    double download_speed_;
   private:
     bool download_segment();
 
@@ -69,7 +71,6 @@ namespace dash
 
     uint16_t width_, height_;
     uint32_t bandwidth_;
-    double download_speed_;
     bool stopped_;
   };
 };
