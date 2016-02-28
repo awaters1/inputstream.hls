@@ -425,10 +425,9 @@ AP4_LinearReader::Advance(bool read_data)
             if (tracker->m_NextSample == NULL) {
                 if (tracker->m_NextSampleIndex >= tracker->m_SampleTable->GetSampleCount()) {
                     if (!m_HasFragments) tracker->m_Eos = true;
-                    if (tracker->m_SampleTableIsOwned) {
+                    if (tracker->m_SampleTableIsOwned)
                         delete tracker->m_SampleTable;
-                        tracker->m_SampleTable = NULL;
-                    }
+                    tracker->m_SampleTable = NULL;
                     continue;
                 }
                 tracker->m_NextSample = new AP4_Sample();
@@ -544,6 +543,52 @@ AP4_LinearReader::ReadNextSample(AP4_UI32        track_id,
     }
         
     // unreachable - return AP4_ERROR_EOS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_LinearReader::SeekSample
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_LinearReader::SeekSample(AP4_UI32 track_id, AP4_UI64 ts, bool preceedingSync)
+{
+  // we only support fragmented sources for now
+  if (!m_HasFragments)
+    return AP4_ERROR_NOT_SUPPORTED;
+
+  if (m_Trackers.ItemCount() == 0) {
+    return AP4_ERROR_NO_SUCH_ITEM;
+  }
+
+  // look for a sample from a specific track
+  Tracker* tracker = FindTracker(track_id);
+  if (tracker == NULL)
+    return AP4_ERROR_INVALID_PARAMETERS;
+
+  // don't continue if we've reached the end of that tracker
+  if (tracker->m_Eos)
+    return AP4_ERROR_EOS;
+
+  AP4_Result result;
+
+  if (!tracker->m_SampleTable && AP4_FAILED(result = Advance()))
+    return result;
+
+  AP4_Ordinal sample_index;
+  while (AP4_FAILED(result = tracker->m_SampleTable->GetSampleIndexForTimeStamp(ts, sample_index)))
+  {
+    if (result == AP4_ERROR_NOT_ENOUGH_DATA)
+    {
+      tracker->m_NextSampleIndex = tracker->m_SampleTable->GetSampleCount();
+      if (AP4_FAILED(result = Advance()))
+        return result;
+      continue;
+    }
+    return result;
+  }
+
+  sample_index = tracker->m_SampleTable->GetNearestSyncSampleIndex(sample_index, preceedingSync);
+
+  return SetSampleIndex(track_id, sample_index);
 }
 
 /*----------------------------------------------------------------------

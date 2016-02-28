@@ -387,9 +387,7 @@ public:
   bool GetVideoInformation(unsigned int &width, unsigned int &height){ return  m_codecHandler->GetVideoInformation(width, height); };
   bool TimeSeek(double pts)
   {
-    bool result;
-    while ((result = AP4_SUCCEEDED(ReadSample())) && m_pts < pts);
-    return result;
+    return AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), true));
   };
 
 protected:

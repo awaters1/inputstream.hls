@@ -88,6 +88,9 @@ public:
     
     AP4_Result SeekTo(AP4_UI32 time_ms, AP4_UI32* actual_time_ms = 0);
     
+    AP4_Result SeekSample(AP4_UI32 track_id, AP4_UI64 ts, bool preceedingSync);
+
+
     // accessors
     AP4_Size GetBufferFullness() { return m_BufferFullness; }
     

@@ -292,19 +292,36 @@ AP4_FragmentSampleTable::GetSampleChunkPosition(AP4_Ordinal  sample_index,
 |   AP4_FragmentSampleTable::GetSampleIndexForTimeStamp
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_FragmentSampleTable::GetSampleIndexForTimeStamp(AP4_UI64     /*ts*/, 
+AP4_FragmentSampleTable::GetSampleIndexForTimeStamp(AP4_UI64     ts,
                                                     AP4_Ordinal& sample_index)
 {
-    sample_index = 0; // FIXME
-    return AP4_SUCCESS;
+  if (!m_Samples.ItemCount())
+    return AP4_ERROR_NOT_ENOUGH_DATA;
+
+  sample_index = 0;
+  while (sample_index < m_Samples.ItemCount() && m_Samples[sample_index].GetCts() + m_Samples[sample_index].GetDuration() < ts)
+    ++sample_index;
+
+  if (sample_index == m_Samples.ItemCount())
+    return AP4_ERROR_NOT_ENOUGH_DATA;
+
+  return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------
 |   AP4_FragmentSampleTable::GetNearestSyncSampleIndex
 +---------------------------------------------------------------------*/
 AP4_Ordinal  
-AP4_FragmentSampleTable::GetNearestSyncSampleIndex(AP4_Ordinal /*sample_index*/, bool /*before*/)
+AP4_FragmentSampleTable::GetNearestSyncSampleIndex(AP4_Ordinal sample_index, bool before)
 {
-    return 0; // FIXME
+  if (sample_index >= m_Samples.ItemCount())
+    return sample_index;
+
+  AP4_Ordinal end(before ? 0 : m_Samples.ItemCount()-1);
+
+  while (sample_index != end && !m_Samples[sample_index].IsSync())
+    sample_index = sample_index + (before ? -1 : 1);
+
+  return sample_index;
 }
 
