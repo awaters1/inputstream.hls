@@ -110,7 +110,7 @@ bool KodiDASHStream::download(const char* url)
   if (!file)
     return false;
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
-  xbmc->CURLOpen(file, XFILE::READ_CHUNKED|XFILE::READ_NO_CACHE);
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
   char *buf = (char*)malloc(1024*1024);
@@ -139,16 +139,18 @@ public:
     , naluLengthSize(0)
     , pictureId(0)
     , pictureIdPrev(0)
+    , channelCount(0)
   {};
   virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer &){ return 0; };
   virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
+  virtual bool GetAudioInformation(unsigned int &channels){ return false; };
 
   AP4_SampleDescription *sample_description;
   const AP4_UI08 *extra_data;
   AP4_Size extra_data_size;
   AP4_UI08 naluLengthSize;
   AP4_UI08 pictureId, pictureIdPrev;
-
+  AP4_UI08 channelCount;
 };
 
 /***********************   AVC   ************************/
@@ -284,6 +286,19 @@ public:
       extra_data = aac->GetDecoderInfo().GetData();
     }
   }
+
+
+  virtual bool GetAudioInformation(unsigned int &channels)
+  {
+    AP4_AudioSampleDescription *mpeg = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, sample_description);
+    if (mpeg != nullptr && mpeg->GetChannelCount() != channelCount)
+    {
+      channelCount = mpeg->GetChannelCount();
+      channels = channelCount;
+      return true;
+    }
+    return false;
+  }
 };
 
 
@@ -385,6 +400,7 @@ public:
   const AP4_UI08 *GetExtraData(){ return m_codecHandler->extra_data; };
   AP4_Size GetExtraDataSize(){ return m_codecHandler->extra_data_size; };
   bool GetVideoInformation(unsigned int &width, unsigned int &height){ return  m_codecHandler->GetVideoInformation(width, height); };
+  bool GetAudioInformation(unsigned int &channelCount){ return  m_codecHandler->GetAudioInformation(channelCount); };
   bool TimeSeek(double pts)
   {
     return AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), true));
@@ -623,16 +639,21 @@ bool Session::initialize()
 
 FragmentedSampleReader *Session::GetNextSample()
 {
-  FragmentedSampleReader *res(0);
+  STREAM *res(0);
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && !(*b)->reader_->EOS()
-    && (!res || (*b)->reader_->DTS() < res->DTS()))
-        res = (*b)->reader_;
+    && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
+        res = *b;
 
   if (res)
-    last_pts_ = res->PTS();
-
-  return res;
+  {
+    if (res->reader_->GetVideoInformation(res->info_.m_Width, res->info_.m_Height)
+    || res->reader_->GetAudioInformation(res->info_.m_Channels))
+      changed_ = true;
+    last_pts_ = res->reader_->PTS();
+    return res->reader_;
+  }
+  return 0;
 }
 
 bool Session::SeekTime(double seekTime)
@@ -891,14 +912,6 @@ extern "C" {
 
       stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor());
 
-      // Jump to the segment at wich we want to continue
-      // stream->stream_.start_stream(stream->current_segment_);
-
-      if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
-        return stream->disable();
-
-      // Maybe we have changed information for hints after parsing the first packet...
-      stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
       // ExtraData is now available......
       stream->info_.m_ExtraData = stream->reader_->GetExtraData();
       stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
@@ -906,6 +919,15 @@ extern "C" {
       // Set the session Changed to force new GetStreamInfo call from kodi -> addon
       session->CheckChange(true);
 
+      if (session->GetPTS() < 0.00001f)
+      {
+        if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
+          return stream->disable();
+
+        // Maybe we have changed information for hints after parsing the first packet...
+        stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
+        stream->reader_->GetAudioInformation(stream->info_.m_Channels);
+      }
       return;
     }
     return stream->disable();
