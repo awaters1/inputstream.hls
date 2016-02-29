@@ -42,7 +42,7 @@ namespace dash
     struct Representation
     {
       Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
-        aspect_(1.0f), fpsRate_(0), fpsScale_(1), hasInitialization_(false){};
+        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), hasInitialization_(false){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -52,6 +52,7 @@ namespace dash
       uint32_t fpsRate_, fpsScale_;
       float aspect_;
       bool hasInitialization_;
+      uint8_t channelCount_;
       //SegmentList
       uint32_t duration_, timescale_;
       std::vector<Segment> segments_;
@@ -128,6 +129,7 @@ namespace dash
       ENCRYTIONSTATE_SUPPORTED = 2
     };
     unsigned int  encryptionState_;
+    uint8_t adpChannelCount_;
     
     enum
     {

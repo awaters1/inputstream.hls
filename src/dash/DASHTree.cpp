@@ -230,6 +230,32 @@ DASHTree::~DASHTree()
 {
 }
 
+static uint8_t GetChannels(const char **attr)
+{
+  const char *schemeIdUri(0), *value(0);
+
+  for (; *attr;)
+  {
+    if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+      schemeIdUri = (const char*)*(attr + 1);
+    else if (strcmp((const char*)*attr, "value") == 0)
+      value = (const char*)*(attr + 1);
+    attr += 2;
+  }
+  if (schemeIdUri && value)
+  {
+    if (strcmp(schemeIdUri, "urn:mpeg:dash:23003:3:audio_channel_configuration:2011") == 0)
+      return atoi(value);
+    else if (strcmp(schemeIdUri, "urn:dolby:dash:audio_channel_configuration:2011") == 0)
+    {
+      if (strcmp(value, "F801") == 0)
+        return 6;
+      else if (strcmp(value, "FE01") == 0)
+        return 8;
+    }
+  }
+  return 0;
+}
 
 /*----------------------------------------------------------------------
 |   expat start
@@ -281,6 +307,10 @@ start(void *data, const char *el, const char **attr)
             else
               return;
             dash->current_representation_->segments_.push_back(seg);
+          }
+          else if (strcmp(el, "AudioChannelConfiguration") == 0)
+          {
+            dash->current_representation_->channelCount_ = GetChannels(attr);
           }
           else if (strcmp(el, "BaseURL") == 0)
           {
@@ -360,6 +390,7 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "Representation") == 0)
         {
           dash->current_representation_ = new DASHTree::Representation();
+          dash->current_representation_->channelCount_ = dash->adpChannelCount_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
           for (; *attr;)
           {
@@ -407,6 +438,10 @@ start(void *data, const char *el, const char **attr)
             dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
           }
         }
+        else if (strcmp(el, "AudioChannelConfiguration") == 0)
+        {
+          dash->adpChannelCount_ = GetChannels(attr);
+        }
       }
       else if (strcmp(el, "AdaptationSet") == 0)
       {
@@ -414,6 +449,7 @@ start(void *data, const char *el, const char **attr)
         dash->current_adaptationset_ = new DASHTree::AdaptationSet();
         dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
         dash->adp_pssh_.second.clear();
+        dash->adpChannelCount_ = 0;
         for (; *attr;)
         {
           if (strcmp((const char*)*attr, "contentType") == 0)

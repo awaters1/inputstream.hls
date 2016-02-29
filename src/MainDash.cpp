@@ -139,7 +139,6 @@ public:
     , naluLengthSize(0)
     , pictureId(0)
     , pictureIdPrev(0)
-    , channelCount(0)
   {};
   virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer &){ return 0; };
   virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
@@ -150,7 +149,6 @@ public:
   AP4_Size extra_data_size;
   AP4_UI08 naluLengthSize;
   AP4_UI08 pictureId, pictureIdPrev;
-  AP4_UI08 channelCount;
 };
 
 /***********************   AVC   ************************/
@@ -291,10 +289,9 @@ public:
   virtual bool GetAudioInformation(unsigned int &channels)
   {
     AP4_AudioSampleDescription *mpeg = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, sample_description);
-    if (mpeg != nullptr && mpeg->GetChannelCount() != channelCount)
+    if (mpeg != nullptr && mpeg->GetChannelCount() != channels)
     {
-      channelCount = mpeg->GetChannelCount();
-      channels = channelCount;
+      channels = mpeg->GetChannelCount();
       return true;
     }
     return false;
@@ -560,6 +557,14 @@ bool Session::initialize()
       break;
     }
 
+    // we currently use only the first track!
+    std::string::size_type pos = rep->codecs_.find(",");
+    if (pos == std::string::npos)
+      pos = rep->codecs_.size();
+
+    strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
+    stream.info_.m_codecInternalName[pos] = 0;
+
     if (rep->codecs_.find("mp4a") == 0)
       strcpy(stream.info_.m_codecName, "aac");
     else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
@@ -572,6 +577,8 @@ bool Session::initialize()
     stream.info_.m_FpsRate = rep->fpsRate_;
     stream.info_.m_FpsScale = rep->fpsScale_;
     stream.info_.m_SampleRate = rep->samplingRate_;
+    stream.info_.m_Channels = rep->channelCount_;
+    stream.info_.m_Bandwidth = rep->bandwidth_;
     strcpy(stream.info_.m_language, adp->language_.c_str());
   }
   
@@ -856,7 +863,7 @@ extern "C" {
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
     static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", 0, 0, 0, "",
+      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
 
