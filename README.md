@@ -13,7 +13,7 @@ This is a dash mpd file addon for kodi's new InputStream Interface.
 - .strm file: [http://download.tsi.telecom-paristech.fr/gpac/DASH_CONFORMANCE/TelecomParisTech/mp4-live/mp4-live-mpd-AV-BS.mpd]
 
 ##### Notes:
-- the current kodi master tree currently does not include the necessary inputstream interface.    
+- the current kodi master tree does not include the necessary inputstream interface.    
 There is an PR for this: [https://github.com/xbmc/xbmc/pull/9173]  
 You can use theh inputstream branch from @fernetmenta: [https://github.com/fernetmenta/xbmc/tree/inputstream]
 - There is still some work to be done on measuring the download speed for adaptive bitrate switching, currently 4MBit/s is the default value which can be overriden in the settings dialog of the addon
