@@ -21,5 +21,5 @@ You can use theh inputstream branch from @fernetmenta: [https://github.com/ferne
 
 ##### Credits:
 [@fernetmenta](github.com/fernetmenta) Best support I ever got regarding streams / codecs and kodi internals.  
-[@notpiff](https://github.com/notspiff) Thanks for yur ideas / tipps regarding kodi file system  
+[@notpiff](https://github.com/notspiff) Thanks for your ideas / tipps regarding kodi file system  
 [bento4 library](https://www.bento4.com/) For me the best library choice for mp4 streams. Well written and extensible!
