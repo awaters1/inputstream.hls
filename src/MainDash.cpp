@@ -1009,7 +1009,7 @@ extern "C" {
     if (!session)
       return false;
 
-    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4f)", time);
+    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%d)", time);
 
     return session->SeekTime(static_cast<double>(time)*0.001f);
   }

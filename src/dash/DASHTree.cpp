@@ -363,6 +363,9 @@ start(void *data, const char *el, const char **attr)
             attr += 2;
           }
         }
+        else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+        {
+        }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
           for (; *attr;)
@@ -382,15 +385,16 @@ start(void *data, const char *el, const char **attr)
           //We only support templates with id and number so far.......
           std::string &media(dash->current_adaptationset_->segtpl_.media);
           if (media.find("$RepresentationID$") == std::string::npos
-            || media.find("$Number$") == std::string::npos)
+            || media.find("$Number") == std::string::npos)
             media.clear();
           else
-            media = dash->base_url_ + media;
+            media = dash->current_adaptationset_->base_url_ + media;
         }
         else if (strcmp(el, "Representation") == 0)
         {
           dash->current_representation_ = new DASHTree::Representation();
           dash->current_representation_->channelCount_ = dash->adpChannelCount_;
+          dash->current_representation_->codecs_ = dash->current_adaptationset_->codecs_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
           for (; *attr;)
           {
@@ -442,14 +446,21 @@ start(void *data, const char *el, const char **attr)
         {
           dash->adpChannelCount_ = GetChannels(attr);
         }
+        else if (strcmp(el, "BaseURL") == 0)
+        {
+          dash->strXMLText_.clear();
+          dash->currentNode_ |= DASHTree::MPDNODE_BASEURL;
+        }
       }
       else if (strcmp(el, "AdaptationSet") == 0)
       {
         //<AdaptationSet contentType="video" group="2" lang="en" mimeType="video/mp4" par="16:9" segmentAlignment="true" startWithSAP="1" subsegmentAlignment="true" subsegmentStartsWithSAP="1">
         dash->current_adaptationset_ = new DASHTree::AdaptationSet();
         dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
+        dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_;
         dash->adp_pssh_.second.clear();
         dash->adpChannelCount_ = 0;
+        
         for (; *attr;)
         {
           if (strcmp((const char*)*attr, "contentType") == 0)
@@ -461,6 +472,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "mimeType") == 0)
             dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
+          else if (strcmp((const char*)*attr, "codecs") == 0)
+            dash->current_adaptationset_->codecs_ = (const char*)*(attr + 1);
           attr += 2;
         }
         if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)
@@ -477,6 +490,7 @@ start(void *data, const char *el, const char **attr)
     else if (strcmp(el, "Period") == 0)
     {
       dash->current_period_ = new DASHTree::Period();
+      dash->current_period_->base_url_ = dash->base_url_;
       dash->periods_.push_back(dash->current_period_);
       dash->currentNode_ |= DASHTree::MPDNODE_PERIOD;
     }
@@ -497,8 +511,22 @@ start(void *data, const char *el, const char **attr)
       }
       attr += 2;
     }
-    if (mpt && sscanf(mpt, "PT%uH%uM%fS", &h, &m, &s) == 3)
-      dash->overallSeconds_ = h * 3600 + m * 60 + s;
+    if (mpt && *mpt++ == 'P' && *mpt++ == 'T')
+    {
+      const char *next = strchr(mpt, 'H');
+      if (next){
+        dash->overallSeconds_ += atof(mpt)*3600;
+        mpt = next + 1;
+      }
+      next = strchr(mpt, 'M');
+      if (next){
+        dash->overallSeconds_ += atof(mpt)*60;
+        mpt = next + 1;
+      }
+      next = strchr(mpt, 'S');
+      if (next)
+        dash->overallSeconds_ += atof(mpt);
+    }
     dash->currentNode_ |= DASHTree::MPDNODE_MPD;
   }
 }
@@ -528,13 +556,21 @@ end(void *data, const char *el)
     {
       if (dash->currentNode_ & DASHTree::MPDNODE_ADAPTIONSET)
       {
+        if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+        {
+          if (strcmp(el, "BaseURL") == 0)
+          {
+            dash->current_adaptationset_->base_url_ = dash->base_url_ + dash->strXMLText_;
+            dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
+          }
+        }
         if (dash->currentNode_ & DASHTree::MPDNODE_REPRESENTATION)
         {
           if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
           {
             if (strcmp(el, "BaseURL") == 0)
             {
-              dash->current_representation_->url_ = dash->base_url_ + dash->strXMLText_;
+              dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
               dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
             }
           }
@@ -565,7 +601,12 @@ end(void *data, const char *el)
                   if (!dash->current_adaptationset_->segtpl_.initialization.empty())
                   {
                     seg.range_end_ = ~0;
-                    dash->current_representation_->url_ = dash->base_url_ + dash->current_adaptationset_->segtpl_.initialization;
+                    dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->current_adaptationset_->segtpl_.initialization;
+                    
+                    std::string::size_type repPos = dash->current_representation_->url_.find("$RepresentationID$");
+                    if (repPos != std::string::npos)
+                      dash->current_representation_->url_.replace(repPos, 18, dash->current_representation_->id);
+                    
                     dash->current_representation_->segments_.push_back(seg);
                     dash->current_representation_->hasInitialization_ = true;
                   }

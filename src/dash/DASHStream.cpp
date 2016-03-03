@@ -49,12 +49,21 @@ bool DASHStream::download_segment()
   {
     std::string media(current_adp_->segtpl_.media);
     media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
-    sprintf(rangebuf, "%" PRIu64, current_seg_->range_end_);
-    media.replace(media.find("$Number$"), 8, rangebuf);
+
+    std::string::size_type np(media.find("$Number") + 7), npe(media.find('$', np));
+    
+    char fmt[16];
+    if (np == npe)
+      strcpy(fmt, "%d");
+    else
+      strcpy(fmt, media.substr(np, npe - np).c_str());
+    
+    sprintf(rangebuf, fmt, static_cast<int>(current_seg_->range_end_));
+    media.replace(np - 7, npe - np + 8, rangebuf);
     strURL = media;
   }
   else //templated initialization segment
-    strURL =  current_rep_->url_;
+    strURL = current_rep_->url_;
 
   return download(strURL.c_str());
 }

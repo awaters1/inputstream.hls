@@ -86,6 +86,8 @@ namespace dash
       uint32_t timescale_;
       std::string language_;
       std::string mimeType_;
+      std::string base_url_;
+      std::string codecs_;
       std::vector<Representation*> repesentations_;
       std::vector<uint32_t> segment_durations_;
 
@@ -103,7 +105,7 @@ namespace dash
       Period(){};
       ~Period(){ for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
       std::vector<AdaptationSet*> adaptationSets_;
-
+      std::string base_url_;
     }*current_period_;
 
     std::vector<Period*> periods_;
