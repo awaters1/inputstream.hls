@@ -462,6 +462,8 @@ void Session::STREAM::disable()
     SAFE_DELETE(input_file_);
     SAFE_DELETE(input_);
     enabled = false;
+    info_.m_ExtraData = 0;
+    info_.m_ExtraSize = 0;
   }
 }
 
@@ -663,12 +665,12 @@ FragmentedSampleReader *Session::GetNextSample()
   return 0;
 }
 
-bool Session::SeekTime(double seekTime)
+bool Session::SeekTime(double seekTime, unsigned int streamId)
 {
   bool ret(false);
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled)
+    if ((*b)->enabled && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
       if ((*b)->stream_.seek_time(seekTime, last_pts_, bReset))
@@ -857,6 +859,7 @@ extern "C" {
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = true;
     caps.m_supportsPause = true;
+    caps.m_supportsEnableAtPTS = true;
     return caps;
   }
 
@@ -878,7 +881,12 @@ extern "C" {
 
   void EnableStream(int streamid, bool enable)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d, %d)", streamid, (int)enable);
+    return EnableStreamAtPTS(streamid, enable ? 0 : ~0 );
+  }
+
+  void EnableStreamAtPTS(int streamid, uint64_t pts)
+  {
+    xbmc->Log(ADDON::LOG_DEBUG, "EnableStreamAtPTS(%d, %" PRIi64, streamid, pts);
 
     if (!session)
       return;
@@ -888,7 +896,7 @@ extern "C" {
     if (!stream)
       return;
 
-    if (enable)
+    if (~pts)
     {
       if (stream->enabled)
         return;
@@ -926,15 +934,15 @@ extern "C" {
       // Set the session Changed to force new GetStreamInfo call from kodi -> addon
       session->CheckChange(true);
 
-      if (session->GetPTS() < 0.00001f)
-      {
-        if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
-          return stream->disable();
+      if (pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, streamid))
+        return stream->disable();
 
-        // Maybe we have changed information for hints after parsing the first packet...
-        stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
-        stream->reader_->GetAudioInformation(stream->info_.m_Channels);
-      }
+      if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
+        return stream->disable();
+
+      // Maybe we have changed information for hints after parsing the first packet...
+      stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
+      stream->reader_->GetAudioInformation(stream->info_.m_Channels);
       return;
     }
     return stream->disable();
@@ -981,6 +989,7 @@ extern "C" {
     {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
       p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+      xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
       return p;
     }
 
