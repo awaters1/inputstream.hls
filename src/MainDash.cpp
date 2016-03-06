@@ -140,7 +140,7 @@ public:
     , pictureId(0)
     , pictureIdPrev(0)
   {};
-  virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer &){ return 0; };
+  virtual void UpdatePPSId(AP4_DataBuffer const&){};
   virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
   virtual bool GetAudioInformation(unsigned int &channels){ return false; };
 
@@ -157,7 +157,8 @@ class AVCCodecHandler : public CodecHandler
 {
 public:
   AVCCodecHandler(AP4_SampleDescription *sd)
-    :CodecHandler(sd)
+    : CodecHandler(sd)
+    , countPictureSetIds(0)
   {
     unsigned int width(0), height(0);
     if (AP4_VideoSampleDescription *video_sample_description = AP4_DYNAMIC_CAST(AP4_VideoSampleDescription, sample_description))
@@ -169,12 +170,13 @@ public:
     {
       extra_data_size = avc->GetRawBytes().GetDataSize();
       extra_data = avc->GetRawBytes().GetData();
-      if (avc->GetPictureParameters().ItemCount() > 1 || !width || !height)
+      countPictureSetIds = avc->GetPictureParameters().ItemCount();
+      if (countPictureSetIds > 1 || !width || !height)
         naluLengthSize = avc->GetNaluLengthSize();
     }
   }
 
-  virtual AP4_UI08 UpdatePPSId(AP4_DataBuffer const &buffer)
+  virtual void UpdatePPSId(AP4_DataBuffer const &buffer) override
   {
     //Search the Slice header NALU
     const AP4_UI08 *data(buffer.GetData());
@@ -196,13 +198,18 @@ public:
       if (nalu_size > data_size)
         break;
 
+      // Stop further NALU processing
+      if (countPictureSetIds < 2)
+        naluLengthSize = 0;
+
       unsigned int nal_unit_type = *data & 0x1F;
 
-      if (nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_NON_IDR_PICTURE ||
+      if (
+        //nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_NON_IDR_PICTURE ||
         nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_IDR_PICTURE ||
-        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_A ||
-        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_B ||
-        nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_C) {
+        //nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_A ||
+        //nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_B ||
+        //nal_unit_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_C) {
 
         AP4_DataBuffer unescaped(data, data_size);
         AP4_NalParser::Unescape(unescaped);
@@ -212,16 +219,15 @@ public:
 
         AP4_AvcFrameParser::ReadGolomb(bits); // first_mb_in_slice
         AP4_AvcFrameParser::ReadGolomb(bits); // slice_type
-        return AP4_AvcFrameParser::ReadGolomb(bits); //picture_set_id
+        pictureId = AP4_AvcFrameParser::ReadGolomb(bits); //picture_set_id
       }
       // move to the next NAL unit
       data += nalu_size;
       data_size -= nalu_size;
     }
-    return 0;
   }
 
-  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height)
+  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height) override
   {
     if (pictureId == pictureIdPrev)
       return false;
@@ -251,6 +257,8 @@ public:
     }
     return false;
   };
+private:
+  unsigned int countPictureSetIds;
 };
 
 /***********************   HEVC   ************************/
@@ -400,7 +408,9 @@ public:
   bool GetAudioInformation(unsigned int &channelCount){ return  m_codecHandler->GetAudioInformation(channelCount); };
   bool TimeSeek(double pts)
   {
-    return AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), true));
+    if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), true)))
+      return AP4_SUCCEEDED(ReadSample());
+    return false;
   };
 
 protected:
@@ -1006,6 +1016,8 @@ extern "C" {
       p->iGroupId = 0;
       p->iSize = sr->GetSampleDataSize();
       memcpy(p->pData, sr->GetSampleData(), p->iSize);
+
+      //xbmc->Log(ADDON::LOG_DEBUG, "DTS: %04f, PTS:%04f, ID: %u", p->dts, p->pts, p->iStreamId);
 
       sr->ReadSample();
       return p;
