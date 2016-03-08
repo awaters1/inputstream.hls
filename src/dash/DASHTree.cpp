@@ -647,7 +647,7 @@ end(void *data, const char *el)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || (!dash->pssh_.first.empty() && dash->adp_pssh_ != dash->pssh_)
+          || (dash->encryptionState_&= DASHTree::ENCRYTIONSTATE_ENCRYPTED && dash->pssh_.second.empty())
           || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3)
           || dash->current_adaptationset_->repesentations_.empty())
           {

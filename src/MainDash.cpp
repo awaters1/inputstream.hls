@@ -25,10 +25,71 @@
 #include "xbmc_addon_types.h"
 #include "libXBMC_addon.h"
 #include "helpers.h"
+#include "kodi_vfs_types.h"
+#include "SSD_dll.h"
+
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
+
+/*******************************************************
+kodi host - interface for decrypter libraries
+********************************************************/
+class KodiHost : public SSD_HOST
+{
+public:
+  virtual const char *GetDecrypterPath() const override
+  {
+    static char path[1024];
+    if (!xbmc->GetSetting("__addonpath__", path))
+      return 0;
+    //Append decrypter path
+    const char *pathSep(path[0] && path[1] == ':' && isalpha(path[0]) ? "\\" : "/");
+    strcat(path, pathSep);
+    strcat(path, "decrypter");
+    strcat(path, pathSep);
+    return path;
+  };
+
+  virtual void* CURLCreate(const char* strURL) override
+  {
+    return xbmc->CURLCreate(strURL);
+  };
+
+  virtual bool CURLAddOption(void* file, CURLOPTIONS opt, const char* name, const char * value)override
+  {
+    const XFILE::CURLOPTIONTYPE xbmcmap[] = {XFILE::CURL_OPTION_PROTOCOL, XFILE::CURL_OPTION_HEADER};
+    return xbmc->CURLAddOption(file, xbmcmap[opt], name, value);
+  }
+  
+  virtual bool CURLOpen(void* file, CURLFLAGS flags)override
+  {
+    return xbmc->CURLOpen(file, XFILE::READ_NO_CACHE | (flags ? XFILE::READ_AFTER_WRITE : 0));
+  };
+
+  virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize)override
+  {
+    return xbmc->ReadFile(file, lpBuf, uiBufSize);
+  };
+
+  virtual size_t WriteFile(void* file, const void* lpBuf, size_t uiBufSize)override
+  {
+    return xbmc->WriteFile(file, lpBuf, uiBufSize);
+  };
+  
+  virtual void CloseFile(void* file)override
+  {
+    return xbmc->CloseFile(file);
+  };
+
+  virtual void Log(LOGLEVEL level, const char *msg)override
+  {
+    const ADDON::addon_log_t xbmcmap[] = { ADDON::LOG_DEBUG, ADDON::LOG_INFO, ADDON::LOG_ERROR };
+    return xbmc->Log(xbmcmap[level], msg);
+  };
+
+}kodihost;
 
 /*******************************************************
 Bento4 Streams
@@ -486,6 +547,8 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , width_(1280)
   , height_(720)
   , last_pts_(0)
+  , decrypterModule_(0)
+  , decrypter_(0)
 {
   int buf;
   xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
@@ -497,7 +560,59 @@ Session::~Session()
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
+  
+  if (decrypterModule_)
+  {
+    dlclose(decrypterModule_);
+    decrypterModule_ = 0;
+    decrypter_ = 0;
+  }
 }
+
+void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
+{
+  typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host);
+  const char *path = kodihost.GetDecrypterPath();
+
+  VFSDirEntry *items(0);
+  unsigned int num_items(0);
+
+  if (!xbmc->GetDirectory(path, "", &items, &num_items))
+    return;
+
+  for (unsigned int i(0); i < num_items; ++i)
+  {
+    if (strncmp(items[i].label, "ssd_", 4))
+      continue;
+
+    void * mod(dlopen(items[i].path, RTLD_LAZY));
+    if (mod)
+    {
+      CreateDecryptorInstanceFunc startup;
+      if (startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance"))
+      {
+        SSD_DECRYPTER *decrypter = startup(&kodihost);
+        const char *suppUrn(0);
+
+        if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
+        {
+          decrypterModule_ = mod;
+          decrypter_ = decrypter;
+          urn.first = suppUrn;
+          break;
+        }
+      }
+      dlclose(mod);
+    }
+  }
+  xbmc->FreeDirectory(items, num_items);
+
+}
+
+AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
+{
+  return 0;
+};
 
 /*----------------------------------------------------------------------
 |   initialize
@@ -506,7 +621,8 @@ Session::~Session()
 bool Session::initialize()
 {
   // Get URN's wich are supported by this addon
-  GetSupportedDecrypterURN(license_type_, license_key_, dashtree_.adp_pssh_);
+  if (!license_type_.empty())
+    GetSupportedDecrypterURN(dashtree_.adp_pssh_);
 
   // Open mpd file
   const char* delim(strrchr(mpdFileURL_.c_str(), '/'));

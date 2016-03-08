@@ -27,6 +27,7 @@
 #include "kodi_inputstream_types.h"
 
 class FragmentedSampleReader;
+class SSD_DECRYPTER;
 
 namespace XBMCFILE
 {
@@ -97,12 +98,14 @@ public:
   bool SeekTime(double seekTime, unsigned int streamId = 0);
 
 protected:
-  void GetSupportedDecrypterURN(std::string licType, std::string licKey, std::pair<std::string, std::string> &urn);
+  void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);
   AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec);
 
 private:
   std::string mpdFileURL_;
   std::string license_key_, license_type_;
+  void * decrypterModule_;
+  SSD_DECRYPTER *decrypter_;
 
   KodiDASHTree dashtree_;
 

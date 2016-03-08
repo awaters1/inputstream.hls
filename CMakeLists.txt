@@ -14,7 +14,6 @@ set(MPD_SOURCES
 	src/MainDash.cpp
 	src/dash/DASHTree.cpp
 	src/dash/DASHStream.cpp
-	src/SingleSampleDecrypter.cpp
 	src/helpers.cpp
 )
 
