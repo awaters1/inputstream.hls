@@ -19,7 +19,7 @@
 #include "cdm/media/cdm/cdm_adapter.h"
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
-#include "AP4.h"
+#include "Ap4.h"
 
 #ifndef WIDEVINECDMFILENAME
 #error  "WIDEVINECDMFILENAME must be set"
