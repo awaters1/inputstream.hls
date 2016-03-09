@@ -20,15 +20,20 @@ else()
 	message(STATUS "BENTOSYS: POSIX")
 endif()
 
-FILE(GLOB SOURCEFILES 
-	Codecs/*.cpp
-	Core/*.cpp
-	System/*.cpp
-	${BENTOSYS}
-	Crypto/*.cpp
-#	System/StdC/*.cpp
-	System/Kodi/*.cpp
-	MetaData/*.cpp
+if(DEFINED BENTOUSESTCFS)
+    set(BENTOFS "System/StdC/*.cpp")
+else()
+    set(BENTOFS "System/Kodi/*.cpp")
+endif()
+
+FILE(GLOB SOURCEFILES
+    Codecs/*.cpp
+    Core/*.cpp
+    System/*.cpp
+    ${BENTOSYS}
+    Crypto/*.cpp
+    ${BENTOFS}
+    MetaData/*.cpp
 )
 
 add_library (bento4 STATIC ${SOURCEFILES})
