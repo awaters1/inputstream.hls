@@ -19,7 +19,7 @@
 #include "helpers.h"
 #include <cstring>
 #include "oscompat.h"
-
+#include <stdlib.h>
 
 #ifndef BYTE
 typedef unsigned char BYTE;

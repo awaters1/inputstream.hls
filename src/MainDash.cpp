@@ -589,7 +589,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
     if (mod)
     {
       CreateDecryptorInstanceFunc startup;
-      if (startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance"))
+      if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
       {
         SSD_DECRYPTER *decrypter = startup(&kodihost);
         const char *suppUrn(0);
@@ -663,7 +663,7 @@ bool Session::initialize()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  while (adp = dashtree_.GetAdaptationSet(i++))
+  while ((adp = dashtree_.GetAdaptationSet(i++)))
   {
     streams_.push_back(new STREAM(dashtree_, adp->type_));
     STREAM &stream(*streams_.back());
@@ -685,6 +685,8 @@ bool Session::initialize()
       break;
     case dash::DASHTree::TEXT:
       stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
+      break;
+    default:
       break;
     }
 

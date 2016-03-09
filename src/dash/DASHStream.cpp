@@ -171,7 +171,7 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
     choosen_seg = static_cast<uint32_t>(sec_in_ts / current_rep_->duration_);
   }
   const DASHTree::Segment* old_seg(current_seg_);
-  if (current_seg_ = current_rep_->get_segment(choosen_seg, true))
+  if ((current_seg_ = current_rep_->get_segment(choosen_seg, true)))
   {
     needReset = true;
     if (current_seg_ != old_seg)
@@ -225,7 +225,7 @@ bool DASHStream::select_stream(bool force, bool justInit)
     observer_->OnStreamChange(this, segid);
 
   /* lets download the initialization */
-  if (current_seg_ = current_rep_->get_initialization())
+  if ((current_seg_ = current_rep_->get_initialization()))
     return download_segment();
 
   stopped_ = true;
