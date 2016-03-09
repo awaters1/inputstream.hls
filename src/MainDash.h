@@ -22,7 +22,7 @@
 #include "dash/DASHTree.h"
 #include "dash/DASHStream.h"
 
-#include "AP4.h"
+#include "Ap4.h"
 
 #include "kodi_inputstream_types.h"
 

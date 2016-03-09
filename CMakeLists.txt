@@ -23,7 +23,7 @@ include_directories(${INCLUDES}
                     ${kodiplatform_INCLUDE_DIRS}
                     ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
-                    ${PROJECT_SOURCE_DIR}/lib/libbento4/Core
+                    lib/libbento4/Core
 )
                     
 if(WIN32)
