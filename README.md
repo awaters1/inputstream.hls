@@ -2,8 +2,7 @@
 
 This is a dash mpd file addon for kodi's new InputStream Interface.
 
-- get the latest kodi development sources
-- build the addon regarding the guidelines building kodi binary addons
+- this addon is part of the official kodi repository and part of each kodi installation
 - configure the addon by adding URL prefixes wich are allowed to be played by this addon
 - Open a .mpd file on your local filesystem
 - or create a .strm file / or addon with passes an url with .mpd extension and open the strm file in kodi
@@ -20,8 +19,9 @@ This is a dash mpd file addon for kodi's new InputStream Interface.
 
 ##### Decrypting:
 Decrypting is not implemented. But it is prepared!  
-src/SingleSampleDecrypter.cpp file is an placeholder for this. The bento4 library, wich is the base of movie parsing inside this addon, already provides the major CENC decryption code. Its only a few lines of code to enable it.  
-License information from outside (keys) and the key information wich reside inside the stream are passed to the methods in SingleSampleDecrypter.cpp. As far as I can overview, decrypting imlementation should be possible simply by writing some code into this file.
+Decrypting takes place in separate decrypter shared libraries, wich are identified by the inputstream.mpd.licensetype listitem property.  
+Only one shared decrypter library can be active during playing decrypted media. Building decrypter libraries do not require kodi sources.  
+Simply check out the sources of this addon and you are able to build decrypters including full access to existing decrypters implemented in bento4.
 
 ##### TODO's:
 - Adaptive bitrate switching is prepared but currently not yet activated  
