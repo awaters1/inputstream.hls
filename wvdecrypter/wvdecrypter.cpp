@@ -20,6 +20,7 @@
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
 #include "Ap4.h"
+#include <stdarg.h>
 
 #ifndef WIDEVINECDMFILENAME
 #error  "WIDEVINECDMFILENAME must be set"
@@ -150,6 +151,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   strPath += WIDEVINECDMFILENAME;
 
   wv_adapter = new media::CdmAdapter("com.widevine.alpha", strPath.c_str(), media::CdmConfig());
+  unsigned int buf_size = 32 + pssh_size;
+
   if (!wv_adapter->valid())
   {
     Log(SSD_HOST::LL_ERROR, "Unable to load widevine shared library (%s)", strPath.c_str());
@@ -159,7 +162,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   // This will request a new session and initializes session_id and message members in cdm_adapter.
   // message will be used to create a license request in the step after CreateSession call.
   // Initialization data is the widevine cdm pssh code in google proto style found in mpd schemeIdUri
-  unsigned int buf_size = 32 + pssh_size;
   static uint8_t proto[] = { 0x00, 0x00, 0x00, 0x63, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00, 0xed, 0xef, 0x8b, 0xa9,
     0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x43 };
 
@@ -179,7 +181,10 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "acceptencoding", "gzip");
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "seekable", "0");
     host->CURLAddOption(file, SSD_HOST::OPTION_HEADER, "Content-Type", "application/x-www-form-urlencoded");
-    
+
+    size_t nbRead;
+    std::string::size_type licStartPos, licEndPos;
+
     if (!host->CURLOpen(file, SSD_HOST::FILE_POST))
     {
       Log(SSD_HOST::LL_ERROR, "Failed to open CURL file");
@@ -192,9 +197,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
       host->CloseFile(file);
       goto FAILURE;
     }
-    
+
     // read the file
-    size_t nbRead;
     while ((nbRead = host->ReadFile(file, buf, 1024)) > 0)
       license += std::string((const char*)buf,nbRead);
 
@@ -206,14 +210,14 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
       goto FAILURE;
     }
 
-    std::string::size_type licStartPos(license.find("\"license\":\""));
+    licStartPos = license.find("\"license\":\"");
     if (licStartPos == std::string::npos)
     {
       Log(SSD_HOST::LL_ERROR, "License start position not found");
       goto FAILURE;
     }
     licStartPos += 11;
-    std::string::size_type licEndPos(license.find("\",", licStartPos));
+    licEndPos = license.find("\",", licStartPos);
     if (licEndPos == std::string::npos)
     {
       Log(SSD_HOST::LL_ERROR, "License end position not found");
@@ -307,7 +311,7 @@ public:
       return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
     return 0;
   };
-  
+
   AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec) override
   {
     AP4_CencSingleSampleDecrypter *res = new WV_CencSingleSampleDecrypter(licenseKey_, streamCodec.GetData(), streamCodec.GetDataSize());
@@ -324,7 +328,13 @@ private:
 
 extern "C" {
 
-  SSD_DECRYPTER __declspec(dllexport) *CreateDecryptorInstance(SSD_HOST *h)
+#ifdef _WIN32
+#define MODULE_API __declspec(dllexport)
+#else
+#define MODULE_API
+#endif
+
+  class SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h)
   {
     host = h;
     return &decrypter;
