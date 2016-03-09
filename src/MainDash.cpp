@@ -766,7 +766,7 @@ bool Session::initialize()
     else
     {
       init_data.SetBufferSize(1024);
-      size_t init_data_size(1024);
+      unsigned int init_data_size(1024);
       b64_decode(dashtree_.pssh_.second.data(), dashtree_.pssh_.second.size(), init_data.UseData(), init_data_size);
       init_data.SetDataSize(init_data_size);
     }
