@@ -419,7 +419,15 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "SegmentDurations") == 0)
         {
           dash->current_adaptationset_->segment_durations_.reserve(dash->segcount_);
-          //<SegmentDurations timescale = "48000">
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "timescale") == 0)
+            {
+              dash->current_adaptationset_->timescale_ = atoi((const char*)*(attr + 1));
+              break;
+            }
+            attr += 2;
+          }
           dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTDURATIONS;
         }
         else if (strcmp(el, "ContentProtection") == 0)
@@ -556,14 +564,6 @@ end(void *data, const char *el)
     {
       if (dash->currentNode_ & DASHTree::MPDNODE_ADAPTIONSET)
       {
-        if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
-        {
-          if (strcmp(el, "BaseURL") == 0)
-          {
-            dash->current_adaptationset_->base_url_ = dash->base_url_ + dash->strXMLText_;
-            dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
-          }
-        }
         if (dash->currentNode_ & DASHTree::MPDNODE_REPRESENTATION)
         {
           if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
@@ -643,11 +643,19 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
         }
+        else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+        {
+          if (strcmp(el, "BaseURL") == 0)
+          {
+            dash->current_adaptationset_->base_url_ = dash->base_url_ + dash->strXMLText_;
+            dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
+          }
+        }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || (dash->encryptionState_&= DASHTree::ENCRYTIONSTATE_ENCRYPTED && dash->pssh_.second.empty())
+          || ((dash->encryptionState_ & DASHTree::ENCRYTIONSTATE_ENCRYPTED) && dash->adp_pssh_.second.empty())
           || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3)
           || dash->current_adaptationset_->repesentations_.empty())
           {

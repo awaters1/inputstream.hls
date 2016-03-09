@@ -468,9 +468,9 @@ public:
   AP4_Size GetExtraDataSize(){ return m_codecHandler->extra_data_size; };
   bool GetVideoInformation(unsigned int &width, unsigned int &height){ return  m_codecHandler->GetVideoInformation(width, height); };
   bool GetAudioInformation(unsigned int &channelCount){ return  m_codecHandler->GetAudioInformation(channelCount); };
-  bool TimeSeek(double pts)
+  bool TimeSeek(double pts, bool preceeding)
   {
-    if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), true)))
+    if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), preceeding)))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
@@ -611,6 +611,8 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 
 AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
 {
+  if (decrypter_)
+    return decrypter_->CreateSingleSampleDecrypter(streamCodec);
   return 0;
 };
 
@@ -792,7 +794,7 @@ FragmentedSampleReader *Session::GetNextSample()
   return 0;
 }
 
-bool Session::SeekTime(double seekTime, unsigned int streamId)
+bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 {
   bool ret(false);
 
@@ -804,10 +806,14 @@ bool Session::SeekTime(double seekTime, unsigned int streamId)
       {
         if (bReset)
           (*b)->reader_->Reset(false);
-        if (!(*b)->reader_->TimeSeek(seekTime))
+        if (!(*b)->reader_->TimeSeek(seekTime, preceeding))
+        //if (AP4_FAILED((*b)->reader_->ReadSample()))
           (*b)->reader_->Reset(true);
         else
+        {
+          xbmc->Log(ADDON::LOG_INFO, "seekTime(%0.4f) for Stream:%d continues at %0.4f", seekTime, (*b)->info_.m_pID, (*b)->reader_->PTS());
           ret = true;
+        }
       }
       else
         (*b)->reader_->Reset(true);
@@ -1061,10 +1067,8 @@ extern "C" {
       // Set the session Changed to force new GetStreamInfo call from kodi -> addon
       session->CheckChange(true);
 
-      if (pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, streamid))
-        return stream->disable();
-
-      if (!AP4_SUCCEEDED(stream->reader_->ReadSample()))
+      if ((pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, streamid))
+      ||(pts <= 0 && !AP4_SUCCEEDED(stream->reader_->ReadSample())))
         return stream->disable();
 
       // Maybe we have changed information for hints after parsing the first packet...
@@ -1149,7 +1153,7 @@ extern "C" {
 
     xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%d)", time);
 
-    return session->SeekTime(static_cast<double>(time)*0.001f);
+    return session->SeekTime(static_cast<double>(time)*0.001f, 0, backwards);
   }
 
   void DemuxSetSpeed(int speed)

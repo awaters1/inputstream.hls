@@ -95,7 +95,7 @@ public:
   double GetTotalTime()const { return dashtree_.overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
-  bool SeekTime(double seekTime, unsigned int streamId = 0);
+  bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
 
 protected:
   void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);

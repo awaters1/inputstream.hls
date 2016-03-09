@@ -161,6 +161,7 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
   if (!current_adp_->segment_durations_.empty())
   {
     uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_adp_->timescale_);
+    choosen_seg = 0;
     while (choosen_seg < current_adp_->segment_durations_.size() && sec_in_ts > current_adp_->segment_durations_[choosen_seg])
       sec_in_ts -= current_adp_->segment_durations_[choosen_seg++];
   } 

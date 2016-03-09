@@ -6,7 +6,7 @@ class SSD_HOST
 public:
   enum CURLFLAGS
   {
-    FILE_POST
+    FILE_POST = 1
   };
   enum CURLOPTIONS
   {
