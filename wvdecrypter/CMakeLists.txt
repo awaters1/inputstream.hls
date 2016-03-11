@@ -28,7 +28,7 @@ if(WIN32)
    add_definitions("-DWIDEVINECDMFILENAME=\"widevinecdm.dll\"")
 else()
    set(CDMTYPE "posix")
-   add_definitions("-DWIDEVINECDMFILENAME=\"widevinecdm.so\"")
+   add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
 endif()
 
 add_library ( ssd_wv SHARED
