@@ -15,8 +15,6 @@ if(WIN32)
 	message(STATUS "BENTOSYS: WIN32")
 else()
 	set(BENTOSYS "System/Posix/*.cpp")
-        set(GCC_COVERAGE_COMPILE_FLAGS    "-fPIC")
-        add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 	message(STATUS "BENTOSYS: POSIX")
 endif()
 
@@ -37,3 +35,4 @@ FILE(GLOB SOURCEFILES
 )
 
 add_library (bento4 STATIC ${SOURCEFILES})
+set_target_properties(bento4 PROPERTIES POSITION_INDEPENDENT_CODE True)
