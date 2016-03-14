@@ -582,7 +582,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 
   for (unsigned int i(0); i < num_items; ++i)
   {
-    if (strncmp(items[i].label, "ssd_", 4))
+    if (strncmp(items[i].label, "ssd_", 4) && strncmp(items[i].label, "libssd_", 7))
       continue;
 
     void * mod(dlopen(items[i].path, RTLD_LAZY));
