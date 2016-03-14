@@ -35,10 +35,12 @@ Measuring the bandwidth needs some intelligence to switch not for any small netw
 - On startup of a new video the average bandwidth of the previous played stream is used to choose the representation to start with. As long bandwith measurement is not fully implemented this value is fixed 4MBit/s and will not be changed.  This value can be found and modified in settings.xml, but you can also override this value using Min/Max bandwidth in the settings dialog for this addon.
 - The URL entries in the settings dialog support regular expressions, please note that at least 7 chars must match the regexp to be valid. Example: http://.*.videodownload.xy supports all subdomains of videodownload.xy
 - This addon is single threaded. The memory consumption is the sum of a single segment from each stream currently playing (will be reduced, see TODO's) Refering to known streams it is < 10MB for 720p videos.
+- Win32 users: There is a bug in the curl library wich comes with the current kodi version. Until curl is not upgraded sometimes loading a .mpd file fails.
 
 ##### Credits:
 [@fernetmenta](github.com/fernetmenta) Best support I ever got regarding streams / codecs and kodi internals.  
 [@notspiff](https://github.com/notspiff) Thanks for your ideas / tipps regarding kodi file system  
 [bento4 library](https://www.bento4.com/) For me the best library choice for mp4 streams. Well written and extensible!
 
-#####Travis CI build state: ![alt tag](https://travis-ci.org/mapfau/inputstream.mpd.svg?branch=master)  
+##### Continuous integration:
+[Travis CI build state:](https://travis-ci.org/mapfau) ![alt tag](https://travis-ci.org/mapfau/inputstream.mpd.svg?branch=master)  
