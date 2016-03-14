@@ -87,7 +87,9 @@ public:
 
     const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
 
-    m_strDecrypterPath += pathSep;
+    if (m_strDecrypterPath.size() && m_strDecrypterPath.back() != pathSep[0])
+      m_strDecrypterPath += pathSep;
+
     m_strDecrypterPath += "decrypter";
     m_strDecrypterPath += pathSep;
   }
@@ -949,6 +951,8 @@ extern "C" {
         lt = props.m_ListItemProperties[i].m_strValue;
       else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_key") == 0)
         lk = props.m_ListItemProperties[i].m_strValue;
+
+    kodihost.SetAddonPath(props.m_libFolder);
 
     session = new Session(props.m_strURL, lt, lk);
 
