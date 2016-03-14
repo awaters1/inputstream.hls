@@ -733,7 +733,14 @@ bool DASHTree::open(const char *url)
 bool DASHTree::write_data(void *buffer, size_t buffer_size)
 {
   bool done(false);
-  return (XML_Parse(parser_, (const char*)buffer, buffer_size, done) != XML_STATUS_ERROR);
+  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
+
+  if (retval == XML_STATUS_ERROR)
+  {
+    unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
+    return false;
+  }
+  return true;
 }
 
 bool DASHTree::has_type(StreamType t)

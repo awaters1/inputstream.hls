@@ -41,15 +41,7 @@ class KodiHost : public SSD_HOST
 public:
   virtual const char *GetDecrypterPath() const override
   {
-    static char path[1024];
-    if (!xbmc->GetSetting("__addonpath__", path))
-      return 0;
-    //Append decrypter path
-    const char *pathSep(path[0] && path[1] == ':' && isalpha(path[0]) ? "\\" : "/");
-    strcat(path, pathSep);
-    strcat(path, "decrypter");
-    strcat(path, pathSep);
-    return path;
+    return m_strDecrypterPath.c_str();
   };
 
   virtual void* CURLCreate(const char* strURL) override
@@ -88,6 +80,20 @@ public:
     const ADDON::addon_log_t xbmcmap[] = { ADDON::LOG_DEBUG, ADDON::LOG_INFO, ADDON::LOG_ERROR };
     return xbmc->Log(xbmcmap[level], msg);
   };
+
+  void SetAddonPath(const char *addonPath)
+  {
+    m_strDecrypterPath = addonPath;
+
+    const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
+
+    m_strDecrypterPath += pathSep;
+    m_strDecrypterPath += "decrypter";
+    m_strDecrypterPath += pathSep;
+  }
+
+private:
+  std::string m_strDecrypterPath;
 
 }kodihost;
 
@@ -153,9 +159,10 @@ bool KodiDASHTree::download(const char* url)
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
 
   // read the file
-  char buf[8192];
+  static const unsigned int CHUNKSIZE = 16384;
+  char buf[CHUNKSIZE];
   size_t nbRead;
-  while ((nbRead = xbmc->ReadFile(file, buf, 8192)) > 0 && ~nbRead && write_data(buf, nbRead));
+  while ((nbRead = xbmc->ReadFile(file, buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead));
 
   download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
@@ -436,10 +443,18 @@ public:
         return result;
       }
     }
-    if (m_Protected_desc && AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
+
+    if (m_Protected_desc)
     {
-      xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
-      return result;
+      // Make sure that the decrypter is NOT allocating memory!
+      // If decrypter and addon are compiled with different DEBUG / RELEASE
+      // options freeing HEAP memory will fail.
+      m_sample_data_.Reserve(m_encrypted.GetDataSize());
+      if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
+        return result;
+      }
     }
 
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale();
@@ -553,6 +568,10 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   int buf;
   xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
   dashtree_.bandwidth_ = buf;
+
+  char addonpath[1024];
+  if (xbmc->GetSetting("__addonpath__", addonpath))
+    kodihost.SetAddonPath(addonpath);
 }
 
 Session::~Session()
@@ -624,7 +643,10 @@ bool Session::initialize()
 {
   // Get URN's wich are supported by this addon
   if (!license_type_.empty())
+  {
     GetSupportedDecrypterURN(dashtree_.adp_pssh_);
+    xbmc->Log(ADDON::LOG_DEBUG, "Supported URN: %s", dashtree_.adp_pssh_.first.c_str());
+  }
 
   // Open mpd file
   const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
@@ -1140,7 +1162,7 @@ extern "C" {
       p->iSize = sr->GetSampleDataSize();
       memcpy(p->pData, sr->GetSampleData(), p->iSize);
 
-      //xbmc->Log(ADDON::LOG_DEBUG, "DTS: %04f, PTS:%04f, ID: %u", p->dts, p->pts, p->iStreamId);
+      //xbmc->Log(ADDON::LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
       sr->ReadSample();
       return p;
