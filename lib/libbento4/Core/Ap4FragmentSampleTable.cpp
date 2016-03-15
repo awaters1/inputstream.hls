@@ -317,7 +317,7 @@ AP4_FragmentSampleTable::GetNearestSyncSampleIndex(AP4_Ordinal sample_index, boo
   if (sample_index >= m_Samples.ItemCount())
     return sample_index;
 
-  AP4_Ordinal end(before ? 0 : m_Samples.ItemCount()-1);
+  AP4_Ordinal end(before ? 0 : m_Samples.ItemCount());
 
   while (sample_index != end && !m_Samples[sample_index].IsSync())
     sample_index = sample_index + (before ? -1 : 1);

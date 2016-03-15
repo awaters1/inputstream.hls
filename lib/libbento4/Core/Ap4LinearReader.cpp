@@ -587,7 +587,14 @@ AP4_LinearReader::SeekSample(AP4_UI32 track_id, AP4_UI64 ts, bool preceedingSync
   }
 
   sample_index = tracker->m_SampleTable->GetNearestSyncSampleIndex(sample_index, preceedingSync);
-
+  //we have reached the end -> go for the first sample of the next segment
+  if (sample_index == tracker->m_SampleTable->GetSampleCount())
+  {
+    tracker->m_NextSampleIndex = tracker->m_SampleTable->GetSampleCount();
+    if (AP4_FAILED(result = Advance()))
+      return result;
+    sample_index = 0;
+  }
   return SetSampleIndex(track_id, sample_index);
 }
 

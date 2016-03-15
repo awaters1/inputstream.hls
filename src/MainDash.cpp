@@ -598,6 +598,8 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
   VFSDirEntry *items(0);
   unsigned int num_items(0);
 
+  xbmc->Log(ADDON::LOG_DEBUG, "Searching for decrypters in: %s", path);
+
   if (!xbmc->GetDirectory(path, "", &items, &num_items))
     return;
 
@@ -617,6 +619,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 
         if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
         {
+          xbmc->Log(ADDON::LOG_DEBUG, "Found decrypter: %s", items[i].path);
           decrypterModule_ = mod;
           decrypter_ = decrypter;
           urn.first = suppUrn;
@@ -947,10 +950,18 @@ extern "C" {
 
     const char *lt(""), *lk("");
     for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
+    {
       if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_type") == 0)
+      {
+        xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.mpd.license_type: %s", props.m_ListItemProperties[i].m_strValue);
         lt = props.m_ListItemProperties[i].m_strValue;
+      }
       else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_key") == 0)
+      {
+        xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.mpd.license_key: [not shown]");
         lk = props.m_ListItemProperties[i].m_strValue;
+      }
+    }
 
     kodihost.SetAddonPath(props.m_libFolder);
 
@@ -1181,7 +1192,7 @@ extern "C" {
 
     xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%d)", time);
 
-    return session->SeekTime(static_cast<double>(time)*0.001f, 0, backwards);
+    return session->SeekTime(static_cast<double>(time)*0.001f, 0, !backwards);
   }
 
   void DemuxSetSpeed(int speed)
