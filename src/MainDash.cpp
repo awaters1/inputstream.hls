@@ -487,8 +487,12 @@ public:
   bool GetAudioInformation(unsigned int &channelCount){ return  m_codecHandler->GetAudioInformation(channelCount); };
   bool TimeSeek(double pts, bool preceeding)
   {
-    if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), preceeding)))
+    AP4_Ordinal sampleIndex;
+    if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), sampleIndex, preceeding)))
+    {
+      m_Decrypter->SetSampleIndex(sampleIndex);
       return AP4_SUCCEEDED(ReadSample());
+    }
     return false;
   };
 
@@ -497,10 +501,11 @@ protected:
     AP4_Position       moof_offset,
     AP4_Position       mdat_payload_offset)
   {
-    if (m_Protected_desc)
+    AP4_Result result;
+
+    if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset))) &&  m_Protected_desc)
     {
       //Setup the decryption
-      AP4_Result result;
       AP4_CencSampleInfoTable *sample_table;
       AP4_UI32 algorithm_id = 0;
 
@@ -518,7 +523,7 @@ protected:
       if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
         return result;
     }
-    return AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset);
+    return result;
   }
 
 private:
