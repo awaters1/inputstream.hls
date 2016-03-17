@@ -170,6 +170,8 @@ bool KodiDASHTree::download(const char* url)
 
   xbmc->CloseFile(file);
 
+  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
+
   return nbRead == 0;
 }
 
@@ -191,6 +193,8 @@ bool KodiDASHStream::download(const char* url)
   download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
   xbmc->CloseFile(file);
+
+  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
 
   return nbRead == 0;
 }
@@ -490,7 +494,8 @@ public:
     AP4_Ordinal sampleIndex;
     if (AP4_SUCCEEDED(SeekSample(m_Track->GetId(), static_cast<AP4_UI64>(pts*(double)m_Track->GetMediaTimeScale()), sampleIndex, preceeding)))
     {
-      m_Decrypter->SetSampleIndex(sampleIndex);
+      if (m_Decrypter)
+        m_Decrypter->SetSampleIndex(sampleIndex);
       return AP4_SUCCEEDED(ReadSample());
     }
     return false;
@@ -841,7 +846,6 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
         if (bReset)
           (*b)->reader_->Reset(false);
         if (!(*b)->reader_->TimeSeek(seekTime, preceeding))
-        //if (AP4_FAILED((*b)->reader_->ReadSample()))
           (*b)->reader_->Reset(true);
         else
         {
