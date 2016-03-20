@@ -41,7 +41,8 @@ std::string NativeLibraryLoadError::ToString() const {
 NativeLibrary LoadNativeLibrary(const std::string& library_path,
                                 NativeLibraryLoadError* error) {
   // dlopen() etc. open the file off disk.
-  if (library_path.Extension() == "dylib" || !DirectoryExists(library_path)) {
+  std::string::size_type delim(library_path.find_last_of('.', 0));
+  if ((delim != std::string::npos && library_path.substr(delim+1) == "dylib") || !DirectoryExists(library_path)) {
     void* dylib = dlopen(library_path.value().c_str(), RTLD_LAZY);
     if (!dylib) {
       if (error)
@@ -54,11 +55,11 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
     native_lib->objc_status = OBJC_UNKNOWN;
     return native_lib;
   }
-  base::ScopedCFTypeRef<CFURLRef> url(CFURLCreateFromFileSystemRepresentation(
+  CFURLRef url = CFURLCreateFromFileSystemRepresentation(
       kCFAllocatorDefault,
-      (const UInt8*)library_path.value().c_str(),
-      library_path.value().length(),
-      true));
+      (const UInt8*)library_path.c_str(),
+      library_path.length(),
+      true);
   if (!url)
     return NULL;
   CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, url.get());
