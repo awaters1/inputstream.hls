@@ -2,18 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/native_library.h"
+#include "native_library.h"
 
 #include <dlfcn.h>
 #include <mach-o/getsect.h>
-
-#include "base/files/file_path.h"
-#include "base/files/file_util.h"
-#include "base/logging.h"
-#include "base/mac/scoped_cftyperef.h"
-#include "base/strings/string_util.h"
-#include "base/strings/utf_string_conversions.h"
-#include "base/threading/thread_restrictions.h"
 
 namespace base {
 
@@ -46,7 +38,7 @@ std::string NativeLibraryLoadError::ToString() const {
 }
 
 // static
-NativeLibrary LoadNativeLibrary(const base::FilePath& library_path,
+NativeLibrary LoadNativeLibrary(const std::string& library_path,
                                 NativeLibraryLoadError* error) {
   // dlopen() etc. open the file off disk.
   if (library_path.Extension() == "dylib" || !DirectoryExists(library_path)) {
@@ -125,8 +117,8 @@ void* GetFunctionPointerFromNativeLibrary(NativeLibrary library,
 }
 
 // static
-string16 GetNativeLibraryName(const string16& name) {
-  return name + ASCIIToUTF16(".dylib");
-}
+//string16 GetNativeLibraryName(const string16& name) {
+//  return name + ASCIIToUTF16(".dylib");
+//}
 
 }  // namespace base
