@@ -21,24 +21,37 @@ set(BENTOUSESTCFS 1)
 
 subdirs (
 	../lib/libbento4
+    cdm
 )
 
 if(WIN32)
-   set(CDMTYPE "win")
+   set(CDMTYPE "win.cc")
    add_definitions("-DWIDEVINECDMFILENAME=\"widevinecdm.dll\"")
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+   set(CDMTYPE "mac.mm")
+   add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.dylib\"")
 else()
-   set(CDMTYPE "posix")
-   add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
+  set(CDMTYPE "posix.cc")
+  add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
 endif()
 
 add_library ( ssd_wv SHARED
 	wvdecrypter.cpp
 	../src/helpers.cpp
 	cdm/base/native_library.cc
-	cdm/base/native_library_${CDMTYPE}.cc
+	cdm/base/native_library_${CDMTYPE}
 	cdm/media/cdm/cdm_adapter.cc
 )
 
+include_directories(cdm/)
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+target_link_libraries (ssd_wv
+	bento4
+	"-framework CoreFoundation"
+)
+else()
 target_link_libraries (ssd_wv
 	bento4
 )
+endif()

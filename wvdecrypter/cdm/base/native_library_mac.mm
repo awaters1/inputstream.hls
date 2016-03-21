@@ -41,9 +41,9 @@ std::string NativeLibraryLoadError::ToString() const {
 NativeLibrary LoadNativeLibrary(const std::string& library_path,
                                 NativeLibraryLoadError* error) {
   // dlopen() etc. open the file off disk.
-  std::string::size_type delim(library_path.find_last_of('.', 0));
-  if ((delim != std::string::npos && library_path.substr(delim+1) == "dylib") || !DirectoryExists(library_path)) {
-    void* dylib = dlopen(library_path.value().c_str(), RTLD_LAZY);
+  std::string::size_type delim(library_path.find_last_of('.', library_path.length()));
+  if ((delim != std::string::npos && library_path.substr(delim+1) == "dylib")) {
+    void* dylib = dlopen(library_path.c_str(), RTLD_LAZY);
     if (!dylib) {
       if (error)
         error->message = dlerror();
@@ -55,6 +55,7 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
     native_lib->objc_status = OBJC_UNKNOWN;
     return native_lib;
   }
+
   CFURLRef url = CFURLCreateFromFileSystemRepresentation(
       kCFAllocatorDefault,
       (const UInt8*)library_path.c_str(),
@@ -62,7 +63,7 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
       true);
   if (!url)
     return NULL;
-  CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, url.get());
+  CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, url);
   if (!bundle)
     return NULL;
 
@@ -76,6 +77,8 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
 
 // static
 void UnloadNativeLibrary(NativeLibrary library) {
+  if (!library)
+    return;
   if (library->objc_status == OBJC_NOT_PRESENT) {
     if (library->type == BUNDLE) {
       CFBundleCloseBundleResourceMap(library->bundle,
@@ -84,12 +87,6 @@ void UnloadNativeLibrary(NativeLibrary library) {
     } else {
       dlclose(library->dylib);
     }
-  } else {
-    VLOG(2) << "Not unloading NativeLibrary because it may contain an ObjC "
-               "segment. library->objc_status = " << library->objc_status;
-    // Deliberately do not CFRelease the bundle or dlclose the dylib because
-    // doing so can corrupt the ObjC runtime method caches. See
-    // http://crbug.com/172319 for details.
   }
   delete library;
 }
@@ -101,8 +98,8 @@ void* GetFunctionPointerFromNativeLibrary(NativeLibrary library,
 
   // Get the function pointer using the right API for the type.
   if (library->type == BUNDLE) {
-    base::ScopedCFTypeRef<CFStringRef> symbol_name(CFStringCreateWithCString(
-        kCFAllocatorDefault, name, kCFStringEncodingUTF8));
+    CFStringRef symbol_name = CFStringCreateWithCString(
+                              kCFAllocatorDefault, name, kCFStringEncodingUTF8);
     function_pointer = CFBundleGetFunctionPointerForName(library->bundle,
                                                          symbol_name);
   } else {
