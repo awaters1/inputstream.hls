@@ -2,7 +2,7 @@
 <addon
   id="inputstream.mpd"
   version="1.0.0"
-  name="Input Stream"
+  name="InputStream MPEG DASH"
   provider-name="peak3d">
   <requires>
     <import addon="kodi.inputstream" version="1.0.0"/>
@@ -15,8 +15,8 @@
     listitemprops="license_type|license_key"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en">InputStream Client for mpd DASH files</summary>
-    <description lang="en">InputStream Client for mpd DASH files</description>
+    <summary lang="en">InputStream Client for MPEG DASH files</summary>
+    <description lang="en">InputStream Client for MPEG DASH files</description>
     <platform>@PLATFORM@</platform>
   </extension>
 </addon>
