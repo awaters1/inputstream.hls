@@ -50,9 +50,9 @@ public:
     return m_strProfilePath.c_str();
   };
 
-  virtual const char *GetBase64Domain() const override
+  virtual const char *GetHexDomain() const override
   {
-    return m_strBase64Domain.c_str();
+    return m_strHexDomain.c_str();
   };
 
   virtual void* CURLCreate(const char* strURL) override
@@ -101,7 +101,7 @@ public:
   {
     m_strDecrypterPath = addonPath;
     m_strProfilePath = addonPath;
-    m_strBase64Domain = base64Domain;
+    m_strHexDomain = base64Domain;
 
     const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
 
@@ -115,15 +115,15 @@ public:
     m_strProfilePath += pathSep;
     xbmc->CreateDirectory(m_strProfilePath.c_str());
 
-    if (m_strBase64Domain.size() && m_strBase64Domain.back() != pathSep[0])
-      m_strBase64Domain += pathSep;
+    if (m_strHexDomain.size() && m_strHexDomain.back() != pathSep[0])
+      m_strHexDomain += pathSep;
 
     m_strDecrypterPath += "decrypter";
     m_strDecrypterPath += pathSep;
   }
 
 private:
-  std::string m_strDecrypterPath, m_strProfilePath, m_strBase64Domain;
+  std::string m_strDecrypterPath, m_strProfilePath, m_strHexDomain;
 
 }kodihost;
 
