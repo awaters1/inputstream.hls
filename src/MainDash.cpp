@@ -19,6 +19,7 @@
 #include "MainDash.h"
 
 #include <iostream>
+#include <stdio.h>
 #include <string.h>
 #include <sstream>
 
@@ -42,6 +43,16 @@ public:
   virtual const char *GetDecrypterPath() const override
   {
     return m_strDecrypterPath.c_str();
+  };
+
+  virtual const char *GetProfilePath() const override
+  {
+    return m_strProfilePath.c_str();
+  };
+
+  virtual const char *GetBase64Domain() const override
+  {
+    return m_strBase64Domain.c_str();
   };
 
   virtual void* CURLCreate(const char* strURL) override
@@ -81,21 +92,33 @@ public:
     return xbmc->Log(xbmcmap[level], msg);
   };
 
-  void SetAddonPath(const char *addonPath)
+  void SetAddonPaths(const char *addonPath, const char *profilePath, const char *base64Domain)
   {
     m_strDecrypterPath = addonPath;
+    m_strProfilePath = addonPath;
+    m_strBase64Domain = base64Domain;
 
     const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
 
     if (m_strDecrypterPath.size() && m_strDecrypterPath.back() != pathSep[0])
       m_strDecrypterPath += pathSep;
 
+    if (m_strProfilePath.size() && m_strProfilePath.back() != pathSep[0])
+      m_strProfilePath += pathSep;
+    xbmc->CreateDirectory(m_strProfilePath.c_str());
+    m_strProfilePath += "cdm";
+    m_strProfilePath += pathSep;
+    xbmc->CreateDirectory(m_strProfilePath.c_str());
+
+    if (m_strBase64Domain.size() && m_strBase64Domain.back() != pathSep[0])
+      m_strBase64Domain += pathSep;
+
     m_strDecrypterPath += "decrypter";
     m_strDecrypterPath += pathSep;
   }
 
 private:
-  std::string m_strDecrypterPath;
+  std::string m_strDecrypterPath, m_strProfilePath, m_strBase64Domain;
 
 }kodihost;
 
@@ -580,10 +603,6 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   int buf;
   xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
   dashtree_.bandwidth_ = buf;
-
-  char addonpath[1024];
-  if (xbmc->GetSetting("__addonpath__", addonpath))
-    kodihost.SetAddonPath(addonpath);
 }
 
 Session::~Session()
@@ -602,7 +621,7 @@ Session::~Session()
 
 void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 {
-  typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host);
+  typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host, uint32_t version);
   const char *path = kodihost.GetDecrypterPath();
 
   VFSDirEntry *items(0);
@@ -624,7 +643,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
       CreateDecryptorInstanceFunc startup;
       if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
       {
-        SSD_DECRYPTER *decrypter = startup(&kodihost);
+        SSD_DECRYPTER *decrypter = startup(&kodihost, SSD_HOST::version);
         const char *suppUrn(0);
 
         if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
@@ -972,7 +991,23 @@ extern "C" {
       }
     }
 
-    kodihost.SetAddonPath(props.m_libFolder);
+    //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
+    const char* bspos(strchr(props.m_strURL, ':'));
+    if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos+3, '/')))
+    {
+      xbmc->Log(ADDON::LOG_ERROR, "Could not find protocol inside url - invalid");
+      return false;
+    }
+    if (bspos - props.m_strURL > 256)
+    {
+      xbmc->Log(ADDON::LOG_ERROR, "length of domain exeeds max. size of 256 - invalid");
+      return false;
+    }
+    char buffer[1024];
+    buffer[(bspos - props.m_strURL) * 2] = 0;
+    AP4_FormatHex(reinterpret_cast<const uint8_t*>(props.m_strURL), bspos - props.m_strURL, buffer);
+
+    kodihost.SetAddonPaths(props.m_libFolder, props.m_profileFolder, buffer);
 
     session = new Session(props.m_strURL, lt, lk);
 

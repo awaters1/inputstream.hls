@@ -506,8 +506,6 @@ start(void *data, const char *el, const char **attr)
   else if (strcmp(el, "MPD") == 0)
   {
     const char *mpt(0);
-    unsigned int h, m;
-    float s;
 
     dash->overallSeconds_ = 0;
     for (; *attr;)

@@ -13,8 +13,11 @@ public:
     OPTION_PROTOCOL,
     OPTION_HEADER
   };
+  static const uint32_t version = 1;
 
   virtual const char *GetDecrypterPath() const = 0;
+  virtual const char *GetProfilePath() const = 0;
+  virtual const char *GetBase64Domain() const = 0;
   virtual void* CURLCreate(const char* strURL) = 0;
   virtual bool CURLAddOption(void* file, CURLOPTIONS opt, const char* name, const char * value) = 0;
   virtual bool CURLOpen(void* file, CURLFLAGS flags) = 0;
