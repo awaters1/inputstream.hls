@@ -86,6 +86,11 @@ public:
     return xbmc->CloseFile(file);
   };
 
+  virtual bool CreateDirectory(const char *dir)override
+  {
+    return xbmc->CreateDirectory(dir);
+  };
+
   virtual void Log(LOGLEVEL level, const char *msg)override
   {
     const ADDON::addon_log_t xbmcmap[] = { ADDON::LOG_DEBUG, ADDON::LOG_INFO, ADDON::LOG_ERROR };

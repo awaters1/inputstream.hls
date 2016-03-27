@@ -24,7 +24,8 @@ public:
   virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) = 0;
   virtual size_t WriteFile(void* file, const void* lpBuf, size_t uiBufSize) = 0;
   virtual void CloseFile(void* file) = 0;
-  
+  virtual bool CreateDirectory(const char *dir) = 0;
+
   enum LOGLEVEL
   {
     LL_DEBUG,
