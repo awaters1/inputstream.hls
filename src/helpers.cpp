@@ -133,3 +133,51 @@ std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEnc
 		ret += urlEncode ? "%3D" : "=";
 	return ret;
 }
+
+std::vector<std::string> split(const std::string& s, char seperator)
+{
+  std::vector<std::string> output;
+  std::string::size_type prev_pos = 0, pos = 0;
+
+  while ((pos = s.find(seperator, pos)) != std::string::npos)
+  {
+    std::string substring(s.substr(prev_pos, pos - prev_pos));
+    output.push_back(substring);
+    prev_pos = ++pos;
+  }
+  output.push_back(s.substr(prev_pos, pos - prev_pos));
+  return output;
+}
+
+std::string &trim(std::string &src)
+{
+  src.erase(0, src.find_first_not_of(" "));
+  src.erase(src.find_last_not_of(" ") + 1);
+  return src;
+}
+
+static char from_hex(char ch) {
+  return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+}
+
+std::string url_decode(std::string text) {
+  char h;
+  std::string escaped;
+  
+  for (auto i = text.begin(), n = text.end(); i != n; ++i) {
+    std::string::value_type c = (*i);
+    if (c == '%') {
+      if (i[1] && i[2]) {
+        h = from_hex(i[1]) << 4 | from_hex(i[2]);
+        escaped += h;
+        i += 2;
+      }
+    }
+    else if (c == '+')
+      escaped += ' ';
+    else {
+      escaped += c;
+    }
+  }
+  return escaped;
+}

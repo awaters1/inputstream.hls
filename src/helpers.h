@@ -20,7 +20,14 @@
 
 #include <string>
 #include <stdint.h>
+#include <vector>
 
 bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int &out_len);
 
 std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEncode);
+
+std::vector<std::string> split(const std::string& s, char seperator);
+
+std::string &trim(std::string &src);
+
+std::string url_decode(std::string text);
