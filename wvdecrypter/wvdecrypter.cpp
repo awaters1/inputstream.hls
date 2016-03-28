@@ -19,8 +19,10 @@
 #include "cdm/media/cdm/cdm_adapter.h"
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
+#include "jsmn.h"
 #include "Ap4.h"
 #include <stdarg.h>
+#include <deque>
 
 #ifndef WIDEVINECDMFILENAME
 #error  "WIDEVINECDMFILENAME must be set"
@@ -95,13 +97,18 @@ private:
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
-class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
+class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter, public media::CdmAdapterClient
 {
 public:
   // methods
   WV_CencSingleSampleDecrypter(std::string licenseURL, const uint8_t *pssh, size_t pssh_size);
 
   bool initialized()const { return wv_adapter != 0; };
+
+  virtual void OnCDMMessage(media::CdmAdapterClient::CDMADPMSG msg) override
+  {
+    messages_.push_back(msg);
+  };
 
   virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
     AP4_DataBuffer& data_out,
@@ -119,9 +126,14 @@ public:
     const AP4_UI32* bytes_of_encrypted_data);
 
 private:
+  bool GetLicense();
+  bool SendSessionMessage();
+
   media::CdmAdapter *wv_adapter;
   unsigned int max_subsample_count_;
   cdm::SubsampleEntry *subsample_buffer_;
+  std::deque<media::CdmAdapterClient::CDMADPMSG> messages_;
+  std::string pssh_, license_url_;
 };
 
 /*----------------------------------------------------------------------
@@ -133,31 +145,57 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   , wv_adapter(0)
   , max_subsample_count_(0)
   , subsample_buffer_(0)
+  , license_url_(licenseURL)
+  , pssh_(std::string(reinterpret_cast<const char*>(pssh), pssh_size))
 {
-  uint8_t buf[1024];
-
   if (pssh_size > 256)
   {
     Log(SSD_HOST::LL_ERROR, "Init_data with length: %u seems not to be cenc init data!", pssh_size);
     return;
   }
 
-  std::string strPath = host->GetDecrypterPath();
-  if (strPath.empty())
+  std::string strLibPath = host->GetDecrypterPath();
+  if (strLibPath.empty())
   {
     Log(SSD_HOST::LL_ERROR, "Absolute path to widevine in settings expected");
     return;
   }
-  strPath += WIDEVINECDMFILENAME;
+  strLibPath += WIDEVINECDMFILENAME;
 
-  wv_adapter = new media::CdmAdapter("com.widevine.alpha", strPath.c_str(), media::CdmConfig());
-  unsigned int buf_size = 32 + pssh_size;
+  std::string strBasePath = host->GetProfilePath();
+  char cSep = strBasePath.back();
+  strBasePath += "widevine";
+  strBasePath += cSep;
+  host->CreateDirectoryW(strBasePath.c_str());
+  strBasePath += host->GetHexDomain();
+  host->CreateDirectoryW(strBasePath.c_str());
 
+  wv_adapter = new media::CdmAdapter("com.widevine.alpha", strLibPath, strBasePath, media::CdmConfig(false, true), *(dynamic_cast<media::CdmAdapterClient*>(this)));
   if (!wv_adapter->valid())
   {
-    Log(SSD_HOST::LL_ERROR, "Unable to load widevine shared library (%s)", strPath.c_str());
-    goto FAILURE;
+    Log(SSD_HOST::LL_ERROR, "Unable to load widevine shared library (%s)", strLibPath.c_str());
+    delete wv_adapter;
+    wv_adapter = 0;
+    return;
   }
+
+  // For backward compatibility: If no | is found in URL, make the amazon convention out of it
+  if (license_url_.find('|') == std::string::npos)
+    license_url_ += "|Content-Type=application%2Fx-www-form-urlencoded|widevine2Challenge=B{SSM}&includeHdcpTestKeyInLicense=false|JBlicense";
+
+  if (!GetLicense())
+  {
+    Log(SSD_HOST::LL_ERROR, "Unable to generate a license");
+    delete wv_adapter;
+    wv_adapter = 0;
+  }
+  SetParentIsOwner(false);
+}
+
+bool WV_CencSingleSampleDecrypter::GetLicense()
+{
+  unsigned int buf_size = 32 + pssh_.size();
+  uint8_t buf[1024];
 
   // This will request a new session and initializes session_id and message members in cdm_adapter.
   // message will be used to create a license request in the step after CreateSession call.
@@ -166,83 +204,162 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x00 };
 
   proto[3] = static_cast<uint8_t>(buf_size);
-  proto[31] = static_cast<uint8_t>(pssh_size);
+  proto[31] = static_cast<uint8_t>(pssh_.size());
 
   memcpy(buf, proto, sizeof(proto));
-  memcpy(&buf[32], pssh, pssh_size);
+  memcpy(&buf[32], pssh_.data(), pssh_.size());
 
   wv_adapter->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
 
-  if (wv_adapter->SessionValid())
+  //Now check messages and fire as long there is no error and messages are present.
+
+  while (!messages_.empty())
   {
-    std::string license, challenge(b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true));
-    challenge = "widevine2Challenge=" + challenge;
-    challenge += "&includeHdcpTestKeyInLicense=true";
-
-    // open the file
-    void* file = host->CURLCreate(licenseURL.c_str());
-    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "acceptencoding", "gzip");
-    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "seekable", "0");
-    host->CURLAddOption(file, SSD_HOST::OPTION_HEADER, "Content-Type", "application/x-www-form-urlencoded");
-
-    size_t nbRead;
-    std::string::size_type licStartPos, licEndPos;
-
-    if (!host->CURLOpen(file, SSD_HOST::FILE_POST))
+    media::CdmAdapterClient::CDMADPMSG msg = messages_.front();
+    messages_.pop_front();
+    switch (msg)
     {
-      Log(SSD_HOST::LL_ERROR, "Failed to open CURL file");
-      goto FAILURE;
+    case media::CdmAdapterClient::kError:
+      return false;
+    case media::CdmAdapterClient::kSessionMessage:
+      if (!SendSessionMessage())
+        return false;
+      break;
     }
-
-    if (size_t sz = host->WriteFile(file, challenge.c_str(), challenge.size()) != 200)
-    {
-      Log(SSD_HOST::LL_ERROR, "License server returned failure (%d)", static_cast<int>(sz));
-      host->CloseFile(file);
-      goto FAILURE;
-    }
-
-    // read the file
-    while ((nbRead = host->ReadFile(file, buf, 1024)) > 0)
-      license += std::string((const char*)buf,nbRead);
-
-    host->CloseFile(file);
-
-    if (nbRead != 0)
-    {
-      Log(SSD_HOST::LL_ERROR, "Could not read full license response");
-      goto FAILURE;
-    }
-
-    licStartPos = license.find("\"license\":\"");
-    if (licStartPos == std::string::npos)
-    {
-      Log(SSD_HOST::LL_ERROR, "License start position not found");
-      goto FAILURE;
-    }
-    licStartPos += 11;
-    licEndPos = license.find("\",", licStartPos);
-    if (licEndPos == std::string::npos)
-    {
-      Log(SSD_HOST::LL_ERROR, "License end position not found");
-      goto FAILURE;
-    }
-
-    buf_size = 1024;
-    b64_decode(license.c_str() + licStartPos, licEndPos - licStartPos, buf, buf_size);
-    wv_adapter->UpdateSession(buf, buf_size);
-
-    if (!wv_adapter->KeyIdValid())
-    {
-      Log(SSD_HOST::LL_ERROR, "License update not successful");
-      goto FAILURE;
-    }
-    // forbit auto delete for this object
-    SetParentIsOwner(false);
-    return;
   }
-FAILURE:
-  delete wv_adapter;
-  wv_adapter = 0;
+
+  if (!wv_adapter->KeyIdValid())
+  {
+    Log(SSD_HOST::LL_ERROR, "License update not successful");
+    return false;
+  }
+  Log(SSD_HOST::LL_DEBUG, "License update successful");
+  return true;
+}
+
+bool WV_CencSingleSampleDecrypter::SendSessionMessage()
+{
+  std::vector<std::string> headers, header, blocks = split(license_url_, '|');
+  if (blocks.size() != 4)
+  {
+    Log(SSD_HOST::LL_ERROR, "4 '|' separated blocks in licURL expected (req / header / body / response)");
+    return false;
+  }
+
+  void* file = host->CURLCreate(blocks[0].c_str());
+  size_t nbRead;
+  std::string response;
+  char buf[2048];
+
+  //Set our std headers
+  host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+  host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "seekable", "0");
+  host->CURLAddOption(file, SSD_HOST::OPTION_HEADER, "Expect", "");
+
+  //Process headers
+  headers = split(blocks[1], '&');
+  for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)
+  {
+    header = split(*b, '=');
+    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, trim(header[0]).c_str(), header.size() > 1 ? url_decode(trim(header[1])).c_str() : "");
+  }
+
+  if (!host->CURLOpen(file, SSD_HOST::FILE_POST))
+  {
+    Log(SSD_HOST::LL_ERROR, "Failed to open CURL file");
+    goto SSMFAIL;
+  }
+
+  //Process body
+  size_t result;
+  if (!blocks[2].empty())
+  {
+    std::string::size_type insPos(blocks[2].find("{SSM}"));
+    if (insPos != std::string::npos || insPos == 0)
+    {
+      if (blocks[2][insPos - 1] == 'B')
+      {
+        std::string msgEncoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true);
+        blocks[2].replace(insPos - 1, 6, msgEncoded);
+      }
+      else
+        blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(wv_adapter->GetMessage()), wv_adapter->GetMessageSize());
+      result = host->WriteFile(file, blocks[2].data(), blocks[2].size());
+    }
+    else
+    {
+      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body)");
+      goto SSMFAIL;
+    }
+  }
+  else  //simply write the binary stuff out
+    result = host->WriteFile(file, wv_adapter->GetMessage(), wv_adapter->GetMessageSize());
+
+  if (result != 200)
+  {
+    Log(SSD_HOST::LL_ERROR, "License server returned failure (%d)", static_cast<int>(result));
+    goto SSMFAIL;
+  }
+
+  // read the file
+  while ((nbRead = host->ReadFile(file, buf, 1024)) > 0)
+    response += std::string((const char*)buf, nbRead);
+
+  host->CloseFile(file);
+  file = 0;
+
+  if (nbRead != 0)
+  {
+    Log(SSD_HOST::LL_ERROR, "Could not read full SessionMessage response");
+    goto SSMFAIL;
+  }
+
+  if (!blocks[3].empty())
+  {
+    if (blocks[3][0] == 'J')
+    {
+      jsmn_parser jsn;
+      jsmntok_t tokens[100];
+
+      jsmn_init(&jsn);
+      int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 100);
+
+      for (; i < numTokens; ++i)
+        if (tokens[i].type == JSMN_STRING && tokens[i].size==1
+          && strncmp(response.c_str() + tokens[i].start, blocks[3].c_str() + 2, tokens[i].end - tokens[i].start)==0)
+          break;
+
+      if (i < numTokens)
+      {
+        if (blocks[3][1] == 'B')
+        {
+          unsigned int decoded_size = 2048;
+          uint8_t decoded[2048];
+          b64_decode(response.c_str() + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start, decoded, decoded_size);
+          wv_adapter->UpdateSession(reinterpret_cast<const uint8_t*>(decoded), decoded_size);
+        }
+        else
+          wv_adapter->UpdateSession(reinterpret_cast<const uint8_t*>(response.c_str() + tokens[i + 1].start), tokens[i + 1].end - tokens[i + 1].start);
+      }
+      else
+      {
+        Log(SSD_HOST::LL_ERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
+        goto SSMFAIL;
+      }
+    }
+    else
+    {
+      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (response)");
+      goto SSMFAIL;
+    }
+  } else //its binary - simply push the returned data as update
+    wv_adapter->UpdateSession(reinterpret_cast<const uint8_t*>(response.data()), response.size());
+
+  return true;
+SSMFAIL:
+  if (file)
+    host->CloseFile(file);
+  return false;
 }
 
 /*----------------------------------------------------------------------
@@ -337,8 +454,10 @@ extern "C" {
 #define MODULE_API
 #endif
 
-  class SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h)
+  class SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
   {
+    if (host_version != SSD_HOST::version)
+      return 0;
     host = h;
     return &decrypter;
   };

@@ -37,6 +37,7 @@ endif()
 
 add_library ( ssd_wv SHARED
 	wvdecrypter.cpp
+	jsmn.c
 	../src/helpers.cpp
 	cdm/base/native_library.cc
 	cdm/base/native_library_${CDMTYPE}

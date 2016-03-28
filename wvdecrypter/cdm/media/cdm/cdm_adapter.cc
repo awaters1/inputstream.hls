@@ -67,10 +67,14 @@ typedef void* (*CreateCdmFunc)(int cdm_interface_version,
 
 CdmAdapter::CdmAdapter(
     const std::string& key_system,
-	const std::string& cdm_path,
-    const CdmConfig& cdm_config)
+    const std::string& cdm_path,
+    const std::string& base_path,
+    const CdmConfig& cdm_config,
+    CdmAdapterClient &client)
 : key_system_(key_system)
-,cdm_config_(cdm_config)
+, cdm_base_path_(base_path)
+, cdm_config_(cdm_config)
+, client_(client)
 , cdm_(0)
 , library_(0)
 , active_buffer_(0)
@@ -311,6 +315,8 @@ void CdmAdapter::OnSessionMessage(const char* session_id,
 	session_id_ = std::string(session_id, session_id_size);
 	message_ = std::string(message, message_size);
 	message_type_ = message_type;
+
+  client_.OnCDMMessage(CdmAdapterClient::kSessionMessage);
 }
 
 void CdmAdapter::OnSessionKeysChange(const char* session_id,
@@ -328,6 +334,7 @@ void CdmAdapter::OnExpirationChange(const char* session_id,
                                     uint32_t session_id_size,
                                     cdm::Time new_expiry_time)
 {
+  client_.OnCDMMessage(CdmAdapterClient::kSessionExpired);
 }
 
 void CdmAdapter::OnSessionClosed(const char* session_id,
@@ -369,12 +376,86 @@ void CdmAdapter::OnDeferredInitializationDone(cdm::StreamType stream_type,
 // The CDM owns the returned object and must call FileIO::Close() to release it.
 cdm::FileIO* CdmAdapter::CreateFileIO(cdm::FileIOClient* client)
 {
-  return nullptr;
+  return new CdmFileIoImpl(cdm_base_path_, client);
 }
 
 bool CdmAdapter::SessionValid()
 {
 	return !session_id_.empty() && !message_.empty();
+}
+
+/*******************************         CdmFileIoImpl        ****************************************/
+
+CdmFileIoImpl::CdmFileIoImpl(std::string base_path, cdm::FileIOClient* client)
+  : base_path_(base_path)
+  , client_(client)
+  , file_descriptor_(0)
+  , data_buffer_(0)
+  , opened_(false)
+{
+}
+
+void CdmFileIoImpl::Open(const char* file_name, uint32_t file_name_size)
+{
+  if (!opened_)
+  {
+    opened_ = true;
+    base_path_ += std::string(file_name, file_name_size);
+    client_->OnOpenComplete(cdm::FileIOClient::kSuccess);
+  }
+  else
+    client_->OnOpenComplete(cdm::FileIOClient::kInUse);
+}
+
+void CdmFileIoImpl::Read()
+{
+  cdm::FileIOClient::Status status(cdm::FileIOClient::kError);
+  size_t sz(0);
+
+  free(reinterpret_cast<void*>(data_buffer_));
+  data_buffer_ = 0;
+
+  file_descriptor_ = fopen(base_path_.c_str(), "rb");
+
+  if (file_descriptor_)
+  {
+    status = cdm::FileIOClient::kSuccess;
+    fseek(file_descriptor_, 0, SEEK_END);
+    sz = ftell(file_descriptor_);
+    if (sz)
+    {
+      fseek(file_descriptor_, 0, SEEK_SET);
+      if ((data_buffer_ = reinterpret_cast<uint8_t*>(malloc(sz))) == nullptr || fread(data_buffer_, 1, sz, file_descriptor_) != sz)
+        status = cdm::FileIOClient::kError;
+    }
+  }
+  client_->OnReadComplete(status, data_buffer_, sz);
+}
+
+void CdmFileIoImpl::Write(const uint8_t* data, uint32_t data_size)
+{
+  cdm::FileIOClient::Status status(cdm::FileIOClient::kError);
+  file_descriptor_ = fopen(base_path_.c_str(), "wb");
+
+  if (file_descriptor_)
+  {
+    if (fwrite(data, 1, data_size, file_descriptor_) == data_size)
+      status = cdm::FileIOClient::kSuccess;
+  }
+  client_->OnWriteComplete(status);
+}
+
+void CdmFileIoImpl::Close()
+{
+  if (file_descriptor_)
+  {
+    fclose(file_descriptor_);
+    file_descriptor_ = 0;
+  }
+  client_ = 0;
+  free(reinterpret_cast<void*>(data_buffer_));
+  data_buffer_ = 0;
+  delete this;
 }
 
 }  // namespace media
