@@ -65,7 +65,7 @@ public:
     const XFILE::CURLOPTIONTYPE xbmcmap[] = {XFILE::CURL_OPTION_PROTOCOL, XFILE::CURL_OPTION_HEADER};
     return xbmc->CURLAddOption(file, xbmcmap[opt], name, value);
   }
-  
+
   virtual bool CURLOpen(void* file, CURLFLAGS flags)override
   {
     return xbmc->CURLOpen(file, XFILE::READ_NO_CACHE | (flags ? XFILE::READ_AFTER_WRITE : 0));
@@ -80,7 +80,7 @@ public:
   {
     return xbmc->WriteFile(file, lpBuf, uiBufSize);
   };
-  
+
   virtual void CloseFile(void* file)override
   {
     return xbmc->CloseFile(file);
@@ -97,11 +97,11 @@ public:
     return xbmc->Log(xbmcmap[level], msg);
   };
 
-  void SetAddonPaths(const char *addonPath, const char *profilePath, const char *base64Domain)
+  void SetAddonPaths(const char *addonPath, const char *profilePath, const char *hexDomain)
   {
     m_strDecrypterPath = addonPath;
-    m_strProfilePath = addonPath;
-    m_strHexDomain = base64Domain;
+    m_strProfilePath = profilePath;
+    m_strHexDomain = hexDomain;
 
     const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
 
@@ -110,6 +110,11 @@ public:
 
     if (m_strProfilePath.size() && m_strProfilePath.back() != pathSep[0])
       m_strProfilePath += pathSep;
+
+    //let us make cdm userdata out of the addonpath and share them between addons
+    m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 2));
+    m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1) + 1);
+
     xbmc->CreateDirectory(m_strProfilePath.c_str());
     m_strProfilePath += "cdm";
     m_strProfilePath += pathSep;
@@ -615,7 +620,7 @@ Session::~Session()
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
-  
+
   if (decrypterModule_)
   {
     dlclose(decrypterModule_);
@@ -775,7 +780,7 @@ bool Session::initialize()
     stream.info_.m_Bandwidth = rep->bandwidth_;
     strcpy(stream.info_.m_language, adp->language_.c_str());
   }
-  
+
   // Try to initialize an SingleSampleDecryptor
   if (dashtree_.encryptionState_)
   {
@@ -1060,7 +1065,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
     INPUTSTREAM_IDS iids;
-    
+
     if(session)
     {
         iids.m_streamCount = session->GetStreamCount();
