@@ -40,11 +40,6 @@ kodi host - interface for decrypter libraries
 class KodiHost : public SSD_HOST
 {
 public:
-  virtual const char *GetDecrypterPath() const override
-  {
-    return m_strDecrypterPath.c_str();
-  };
-
   virtual const char *GetProfilePath() const override
   {
     return m_strProfilePath.c_str();
@@ -97,16 +92,12 @@ public:
     return xbmc->Log(xbmcmap[level], msg);
   };
 
-  void SetAddonPaths(const char *addonPath, const char *profilePath, const char *hexDomain)
+  void SetAddonPaths(const char *profilePath, const char *hexDomain)
   {
-    m_strDecrypterPath = addonPath;
     m_strProfilePath = profilePath;
     m_strHexDomain = hexDomain;
 
-    const char *pathSep(addonPath[0] && addonPath[1] == ':' && isalpha(addonPath[0]) ? "\\" : "/");
-
-    if (m_strDecrypterPath.size() && m_strDecrypterPath.back() != pathSep[0])
-      m_strDecrypterPath += pathSep;
+    const char *pathSep(profilePath[0] && profilePath[1] == ':' && isalpha(profilePath[0]) ? "\\" : "/");
 
     if (m_strProfilePath.size() && m_strProfilePath.back() != pathSep[0])
       m_strProfilePath += pathSep;
@@ -122,13 +113,10 @@ public:
 
     if (m_strHexDomain.size() && m_strHexDomain.back() != pathSep[0])
       m_strHexDomain += pathSep;
-
-    m_strDecrypterPath += "decrypter";
-    m_strDecrypterPath += pathSep;
   }
 
 private:
-  std::string m_strDecrypterPath, m_strProfilePath, m_strHexDomain;
+  std::string m_strProfilePath, m_strHexDomain;
 
 }kodihost;
 
@@ -632,7 +620,7 @@ Session::~Session()
 void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 {
   typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host, uint32_t version);
-  const char *path = kodihost.GetDecrypterPath();
+  const char *path = kodihost.GetProfilePath();
 
   VFSDirEntry *items(0);
   unsigned int num_items(0);
@@ -1017,7 +1005,7 @@ extern "C" {
     buffer[(bspos - props.m_strURL) * 2] = 0;
     AP4_FormatHex(reinterpret_cast<const uint8_t*>(props.m_strURL), bspos - props.m_strURL, buffer);
 
-    kodihost.SetAddonPaths(props.m_libFolder, props.m_profileFolder, buffer);
+    kodihost.SetAddonPaths(props.m_profileFolder, buffer);
 
     session = new Session(props.m_strURL, lt, lk);
 

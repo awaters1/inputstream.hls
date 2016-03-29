@@ -15,7 +15,6 @@ public:
   };
   static const uint32_t version = 1;
 
-  virtual const char *GetDecrypterPath() const = 0;
   virtual const char *GetProfilePath() const = 0;
   virtual const char *GetHexDomain() const = 0;
   virtual void* CURLCreate(const char* strURL) = 0;
