@@ -104,6 +104,7 @@ public:
 
     //let us make cdm userdata out of the addonpath and share them between addons
     m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 2));
+    m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1));
     m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1) + 1);
 
     xbmc->CreateDirectory(m_strProfilePath.c_str());
@@ -620,7 +621,13 @@ Session::~Session()
 void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 {
   typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host, uint32_t version);
-  const char *path = kodihost.GetProfilePath();
+  
+  char path[1024];
+  if (!xbmc->GetSetting("DECRYPTERPATH", path))
+  {
+    xbmc->Log(ADDON::LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
+    return;
+  }
 
   VFSDirEntry *items(0);
   unsigned int num_items(0);

@@ -31,3 +31,7 @@ msgstr "The minimum bandwidth which should not be deceeded."
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "Absolute path to the folder containing the decrypters"

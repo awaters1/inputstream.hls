@@ -3,6 +3,7 @@
   <category label="30100">
     <setting id="MINBANDWIDTH" type="number" default="0" label="30101" />
     <setting id="MAXBANDWIDTH" type="number" default = "0" label="30102" />
+    <setting id="DECRYPTERPATH" type="folder" visible="true" label="30103" default="special://home/cdm" />
     <setting id="LASTBANDWIDTH" type="number" visible="false" default="4000000" />
   </category>
   <category label="30000">

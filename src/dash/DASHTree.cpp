@@ -222,6 +222,7 @@ DASHTree::DASHTree()
   :download_speed_(0.0)
   , parser_(0)
   , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
+  , current_period_(0)
 {
 }
 
