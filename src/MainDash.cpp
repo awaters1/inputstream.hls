@@ -628,6 +628,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
     xbmc->Log(ADDON::LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
     return;
   }
+  xbmc->TranslateSpecialProtocol(path, path, 1024);
 
   VFSDirEntry *items(0);
   unsigned int num_items(0);
