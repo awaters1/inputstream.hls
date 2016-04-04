@@ -249,7 +249,7 @@ AP4_KodiFileByteStream::Seek(AP4_Position position)
     // shortcut
     if (position == m_Position) return AP4_SUCCESS;
     
-    size_t result;
+    std::int64_t result;
     result = xbmc->SeekFile(m_File, position, SEEK_SET);
     if (result == position) {
         m_Position = position;
