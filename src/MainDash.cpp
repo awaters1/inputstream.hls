@@ -45,11 +45,6 @@ public:
     return m_strProfilePath.c_str();
   };
 
-  virtual const char *GetHexDomain() const override
-  {
-    return m_strHexDomain.c_str();
-  };
-
   virtual void* CURLCreate(const char* strURL) override
   {
     return xbmc->CURLCreate(strURL);
@@ -92,10 +87,9 @@ public:
     return xbmc->Log(xbmcmap[level], msg);
   };
 
-  void SetAddonPaths(const char *profilePath, const char *hexDomain)
+  void SetAddonPath(const char *profilePath)
   {
     m_strProfilePath = profilePath;
-    m_strHexDomain = hexDomain;
 
     const char *pathSep(profilePath[0] && profilePath[1] == ':' && isalpha(profilePath[0]) ? "\\" : "/");
 
@@ -111,13 +105,10 @@ public:
     m_strProfilePath += "cdm";
     m_strProfilePath += pathSep;
     xbmc->CreateDirectory(m_strProfilePath.c_str());
-
-    if (m_strHexDomain.size() && m_strHexDomain.back() != pathSep[0])
-      m_strHexDomain += pathSep;
   }
 
 private:
-  std::string m_strProfilePath, m_strHexDomain;
+  std::string m_strProfilePath;
 
 }kodihost;
 
@@ -1004,23 +995,7 @@ extern "C" {
       }
     }
 
-    //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
-    const char* bspos(strchr(props.m_strURL, ':'));
-    if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos+3, '/')))
-    {
-      xbmc->Log(ADDON::LOG_ERROR, "Could not find protocol inside url - invalid");
-      return false;
-    }
-    if (bspos - props.m_strURL > 256)
-    {
-      xbmc->Log(ADDON::LOG_ERROR, "length of domain exeeds max. size of 256 - invalid");
-      return false;
-    }
-    char buffer[1024];
-    buffer[(bspos - props.m_strURL) * 2] = 0;
-    AP4_FormatHex(reinterpret_cast<const uint8_t*>(props.m_strURL), bspos - props.m_strURL, buffer);
-
-    kodihost.SetAddonPaths(props.m_profileFolder, buffer);
+    kodihost.SetAddonPath(props.m_profileFolder);
 
     session = new Session(props.m_strURL, lt, lk);
 
