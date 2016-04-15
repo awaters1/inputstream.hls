@@ -264,12 +264,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, trim(header[0]).c_str(), header.size() > 1 ? url_decode(trim(header[1])).c_str() : "");
   }
 
-  if (!host->CURLOpen(file, SSD_HOST::FILE_POST))
-  {
-    Log(SSD_HOST::LL_ERROR, "Failed to open CURL file");
-    goto SSMFAIL;
-  }
-
   //Process body
   size_t result;
   if (!blocks[2].empty())
@@ -284,7 +278,8 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       }
       else
         blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(wv_adapter->GetMessage()), wv_adapter->GetMessageSize());
-      result = host->WriteFile(file, blocks[2].data(), blocks[2].size());
+      std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
+      host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
     }
     else
     {
@@ -293,11 +288,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     }
   }
   else  //simply write the binary stuff out
-    result = host->WriteFile(file, wv_adapter->GetMessage(), wv_adapter->GetMessageSize());
-
-  if (result != 200)
   {
-    Log(SSD_HOST::LL_ERROR, "License server returned failure (%d)", static_cast<int>(result));
+    std::string decoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), false);
+    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
+  }
+
+  if (!host->CURLOpen(file))
+  {
+    Log(SSD_HOST::LL_ERROR, "License server returned failure", static_cast<int>(result));
     goto SSMFAIL;
   }
 
