@@ -56,19 +56,14 @@ public:
     return xbmc->CURLAddOption(file, xbmcmap[opt], name, value);
   }
 
-  virtual bool CURLOpen(void* file, CURLFLAGS flags)override
+  virtual bool CURLOpen(void* file)override
   {
-    return xbmc->CURLOpen(file, XFILE::READ_NO_CACHE | (flags ? XFILE::READ_AFTER_WRITE : 0));
+    return xbmc->CURLOpen(file, XFILE::READ_NO_CACHE);
   };
 
   virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize)override
   {
     return xbmc->ReadFile(file, lpBuf, uiBufSize);
-  };
-
-  virtual size_t WriteFile(void* file, const void* lpBuf, size_t uiBufSize)override
-  {
-    return xbmc->WriteFile(file, lpBuf, uiBufSize);
   };
 
   virtual void CloseFile(void* file)override

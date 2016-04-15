@@ -31,3 +31,5 @@ std::vector<std::string> split(const std::string& s, char seperator);
 std::string &trim(std::string &src);
 
 std::string url_decode(std::string text);
+
+std::string annexb_to_avc(const char *b16_data);
