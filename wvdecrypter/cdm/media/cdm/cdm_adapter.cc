@@ -325,9 +325,13 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
                                      const cdm::KeyInformation* keys_info,
                                      uint32_t keys_info_count)
 {
-	for (uint32_t i(0); i < keys_info_count; ++i)
-		if (keys_info[i].status == cdm::kUsable)
-			usable_key_id_ = std::string(reinterpret_cast<const char*>(keys_info[i].key_id), keys_info[i].key_id_size);
+  for (uint32_t i(0); i < keys_info_count; ++i)
+    if (keys_info[i].status == cdm::kUsable || keys_info[i].status == cdm::kOutputRestricted)
+    {
+      usable_key_id_ = std::string(reinterpret_cast<const char*>(keys_info[i].key_id), keys_info[i].key_id_size);
+      if (keys_info[i].status == cdm::kUsable)
+        break;
+    }
 }
 
 void CdmAdapter::OnExpirationChange(const char* session_id,

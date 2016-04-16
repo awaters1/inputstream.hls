@@ -265,7 +265,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   }
 
   //Process body
-  size_t result;
   if (!blocks[2].empty())
   {
     std::string::size_type insPos(blocks[2].find("{SSM}"));
@@ -295,7 +294,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
 
   if (!host->CURLOpen(file))
   {
-    Log(SSD_HOST::LL_ERROR, "License server returned failure", static_cast<int>(result));
+    Log(SSD_HOST::LL_ERROR, "License server returned failure");
     goto SSMFAIL;
   }
 
