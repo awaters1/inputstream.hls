@@ -14,6 +14,7 @@
 
 #include "DASHTree.h"
 #include "../oscompat.h"
+#include "../helpers.h"
 
 using namespace dash;
 
@@ -413,6 +414,8 @@ start(void *data, const char *el, const char **attr)
               sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32, &dash->current_representation_->fpsRate_, &dash->current_representation_->fpsScale_);
             else if (strcmp((const char*)*attr, "id") == 0)
               dash->current_representation_->id = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
+              dash->current_representation_->codec_private_data_ = annexb_to_avc((const char*)*(attr + 1));
             attr += 2;
           }
           dash->currentNode_ |= DASHTree::MPDNODE_REPRESENTATION;

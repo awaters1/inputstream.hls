@@ -577,8 +577,6 @@ void Session::STREAM::disable()
     SAFE_DELETE(input_file_);
     SAFE_DELETE(input_);
     enabled = false;
-    info_.m_ExtraData = 0;
-    info_.m_ExtraSize = 0;
   }
 }
 
@@ -592,6 +590,7 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , last_pts_(0)
   , decrypterModule_(0)
   , decrypter_(0)
+  , changed_(false)
 {
   int buf;
   xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
@@ -744,6 +743,9 @@ bool Session::initialize()
     default:
       break;
     }
+
+    stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
+    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
 
     // we currently use only the first track!
     std::string::size_type pos = rep->codecs_.find(",");
@@ -1126,12 +1128,16 @@ extern "C" {
 
       stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor());
 
-      // ExtraData is now available......
-      stream->info_.m_ExtraData = stream->reader_->GetExtraData();
-      stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
+      if (!stream->info_.m_ExtraSize)
+      {
+        // ExtraData is now available......
+        stream->info_.m_ExtraData = stream->reader_->GetExtraData();
+        stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
 
-      // Set the session Changed to force new GetStreamInfo call from kodi -> addon
-      session->CheckChange(true);
+        // Set the session Changed to force new GetStreamInfo call from kodi -> addon
+        if(stream->info_.m_ExtraSize)
+          session->CheckChange(true);
+      }
 
       if ((pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, streamid))
       ||(pts <= 0 && !AP4_SUCCEEDED(stream->reader_->ReadSample())))
