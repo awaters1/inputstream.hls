@@ -204,7 +204,12 @@ std::string annexb_to_avc(const char *b16_data)
     return result;
 
   uint8_t buffer[1024], *data(buffer);
-  while (szRun--) { *data++ = (HexNibble(*b16_data++) << 4) + HexNibble(*b16_data++); }
+  while (szRun--)
+  {
+    *data = (HexNibble(*b16_data) << 4) + HexNibble(*(b16_data+1));
+    b16_data += 2;
+    ++data;
+  }
 
   if (sz <= 6 || buffer[0] != 0 || buffer[1] != 0 || buffer[2] != 0 || buffer[3] != 1)
   {
