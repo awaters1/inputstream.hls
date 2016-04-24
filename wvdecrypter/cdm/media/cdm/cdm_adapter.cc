@@ -432,7 +432,8 @@ void CdmFileIoImpl::Read()
       if ((data_buffer_ = reinterpret_cast<uint8_t*>(malloc(sz))) == nullptr || fread(data_buffer_, 1, sz, file_descriptor_) != sz)
         status = cdm::FileIOClient::kError;
     }
-  }
+  } else 
+    status = cdm::FileIOClient::kSuccess;
   client_->OnReadComplete(status, data_buffer_, sz);
 }
 
