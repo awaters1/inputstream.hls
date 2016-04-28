@@ -1087,7 +1087,7 @@ extern "C" {
 
   void EnableStreamAtPTS(int streamid, uint64_t pts)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "EnableStreamAtPTS(%d, %" PRIi64, streamid, pts);
+    xbmc->Log(ADDON::LOG_DEBUG, "EnableStreamAtPTS(%d, %" PRIu64 , streamid, pts);
 
     if (!session)
       return;
