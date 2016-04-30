@@ -35,6 +35,7 @@ else()
 	find_package(EXPAT REQUIRED)
 	include_directories(${EXPAT_INCLUDE_DIRS})
 	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+	add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
 add_subdirectory(lib/libbento4)
