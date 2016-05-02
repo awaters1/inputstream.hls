@@ -907,6 +907,7 @@ extern "C" {
       SAFE_DELETE(xbmc);
       return ADDON_STATUS_PERMANENT_FAILURE;
     }
+    xbmc->Log(ADDON::LOG_DEBUG, "libXBMC_addon successfully loaded");
 
     ipsh = new CHelper_libKODI_inputstream;
     if (!ipsh->RegisterMe(hdl))
