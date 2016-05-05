@@ -29,7 +29,6 @@
 #include "kodi_vfs_types.h"
 #include "SSD_dll.h"
 
-
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
@@ -182,7 +181,7 @@ bool KodiDASHTree::download(const char* url)
   size_t nbRead;
   while ((nbRead = xbmc->ReadFile(file, buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead));
 
-  download_speed_ = xbmc->GetFileDownloadSpeed(file);
+  //download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
   xbmc->CloseFile(file);
 
@@ -202,15 +201,24 @@ bool KodiDASHStream::download(const char* url)
 
   // read the file
   char *buf = (char*)malloc(1024*1024);
-  size_t nbRead;
-  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead));
+  size_t nbRead, nbReadOverall = 0;
+  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall+= nbRead;
   free(buf);
 
-  download_speed_ = xbmc->GetFileDownloadSpeed(file);
+  double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
+  //Calculate the new downloadspeed to 1MB
+  static const size_t ref_packet = 1024 * 1024;
+  if (nbReadOverall >= ref_packet)
+    set_download_speed(current_download_speed_);
+  else
+  {
+    double ratio = (double)nbReadOverall / ref_packet;
+    set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
+  }
 
   xbmc->CloseFile(file);
 
-  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
+  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
 
   return nbRead == 0;
 }
@@ -580,11 +588,12 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(const char *strURL, const char *strLicType, const char* strLicKey)
+Session::Session(const char *strURL, const char *strLicType, const char* strLicKey, const char* profile_path)
   :single_sample_decryptor_(0)
   , mpdFileURL_(strURL)
   , license_type_(strLicType)
   , license_key_(strLicKey)
+  , profile_path_(profile_path)
   , width_(1280)
   , height_(720)
   , last_pts_(0)
@@ -592,9 +601,31 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , decrypter_(0)
   , changed_(false)
 {
+  std::string fn(profile_path_ + "bandwidth.bin");
+  FILE* f = fopen(fn.c_str(), "rb");
+  if (f)
+  {
+    double val;
+    fread(&val, sizeof(double), 1, f);
+    dashtree_.bandwidth_ = static_cast<uint64_t>(val * 8);
+    fclose(f);
+  }
+  else
+    dashtree_.bandwidth_ = 4000000;
+
   int buf;
-  xbmc->GetSetting("LASTBANDWIDTH", (char*)&buf);
-  dashtree_.bandwidth_ = buf;
+  xbmc->GetSetting("MAXRESOLUTION", (char*)&buf);
+  switch (buf)
+  {
+  case 0:
+  case 1:
+    break;
+  case 2:
+    width_ = 1920;
+    height_ = 1080;
+    break;
+  default:;
+  }
 }
 
 Session::~Session()
@@ -608,6 +639,15 @@ Session::~Session()
     dlclose(decrypterModule_);
     decrypterModule_ = 0;
     decrypter_ = 0;
+  }
+
+  std::string fn(profile_path_ + "bandwidth.bin");
+  FILE* f = fopen(fn.c_str(), "wb");
+  if (f)
+  {
+    double val(dashtree_.get_average_download_speed());
+    fwrite((const char*)&val, sizeof(double), 1, f);
+    fclose(f);
   }
 }
 
@@ -884,10 +924,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 #include "kodi_inputstream_dll.h"
 #include "libKODI_inputstream.h"
 
+CHelper_libKODI_inputstream *ipsh = 0;
+
 extern "C" {
 
   ADDON_STATUS curAddonStatus = ADDON_STATUS_UNKNOWN;
-  CHelper_libKODI_inputstream *ipsh = 0;
 
   /***********************************************************
   * Standard AddOn related public library functions
@@ -919,10 +960,6 @@ extern "C" {
 
     xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Create()");
 
-    curAddonStatus = ADDON_STATUS_UNKNOWN;
-
-    //if (XBMC->GetSetting("host", buffer))
-
     curAddonStatus = ADDON_STATUS_OK;
     return curAddonStatus;
   }
@@ -934,9 +971,12 @@ extern "C" {
 
   void ADDON_Destroy()
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Destroy()");
     SAFE_DELETE(session);
-    SAFE_DELETE(xbmc);
+    if (xbmc)
+    {
+      xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Destroy()");
+      SAFE_DELETE(xbmc);
+    }
     SAFE_DELETE(ipsh);
   }
 
@@ -995,7 +1035,7 @@ extern "C" {
 
     kodihost.SetAddonPath(props.m_profileFolder);
 
-    session = new Session(props.m_strURL, lt, lk);
+    session = new Session(props.m_strURL, lt, lk, props.m_profileFolder);
 
     if (!session->initialize())
     {
@@ -1013,28 +1053,7 @@ extern "C" {
 
   const char* GetPathList(void)
   {
-    static std::string strSettings;
-    strSettings.clear();
-
-    char buffer[1024];
-
-    unsigned int nURL(0);
-    while (1)
-    {
-      sprintf(buffer, "URL%d", ++nURL);
-      if (xbmc->GetSetting(buffer, buffer))
-      {
-        if (buffer[0])
-        {
-          if (!strSettings.empty())
-            strSettings += "|";
-          strSettings += buffer;
-        }
-      }
-      else
-        break;
-    }
-    return strSettings.c_str();
+    return "";
   }
 
   struct INPUTSTREAM_IDS GetStreamIds()
@@ -1237,7 +1256,7 @@ extern "C" {
   //callback - will be called from kodi
   void SetVideoResolution(int width, int height)
   {
-
+    xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
   }
 
   int GetTotalTime()

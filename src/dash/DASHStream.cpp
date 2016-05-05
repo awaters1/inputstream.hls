@@ -24,7 +24,6 @@ DASHStream::DASHStream(DASHTree &tree, DASHTree::StreamType type)
   , current_period_(tree_.periods_.empty() ? 0 : tree_.periods_[0])
   , current_adp_(0)
   , current_rep_(0)
-  , download_speed_(tree.get_download_speed())
 {
 }
 
@@ -199,7 +198,7 @@ bool DASHStream::select_stream(bool force, bool justInit)
 
   for (std::vector<DASHTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
   {
-    if ((*br)->width_ <= width_ && (*br)->height_ <= height_ && (*br)->bandwidth_ < bandwidth_
+    if ((*br)->width_ <= width_ && (*br)->height_ <= height_ && (*br)->bandwidth_ <= bandwidth_
     && (!new_rep || ((*br)->bandwidth_ > new_rep->bandwidth_)))
       new_rep = (*br);
     else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)

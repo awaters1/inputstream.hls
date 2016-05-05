@@ -120,8 +120,7 @@ namespace dash
 
     uint32_t bandwidth_;
 
-    double download_speed_;
-    uint64_t download_bytes;
+    double download_speed_, average_download_speed_;
     
     std::pair<std::string, std::string> pssh_, adp_pssh_;
 
@@ -157,6 +156,9 @@ namespace dash
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
+    double get_average_download_speed() const { return average_download_speed_; };
+    void set_download_speed(double speed);
+
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
 protected:

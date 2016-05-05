@@ -221,6 +221,7 @@ static const char* ltranslate(const char * in)
 
 DASHTree::DASHTree()
   :download_speed_(0.0)
+  , average_download_speed_(0.0f)
   , parser_(0)
   , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
   , current_period_(0)
@@ -762,3 +763,12 @@ uint32_t DASHTree::estimate_segcount(uint32_t duration, uint32_t timescale)
   duration /= timescale;
   return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
 }
+
+void DASHTree::set_download_speed(double speed)
+{
+  download_speed_ = speed;
+  if (!average_download_speed_)
+    average_download_speed_ = download_speed_;
+  else
+    average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
+};

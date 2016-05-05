@@ -12,14 +12,6 @@ msgstr ""
 "Language: en\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-msgctxt "#30000"
-msgid "URL Support"
-msgstr ""
-
-msgctxt "#30001"
-msgid "URL"
-msgstr "Insert the prefix (regexp allowed) of the URL here. There must be more than 6 chars match"
-
 msgctxt "#30100"
 msgid "General"
 msgstr ""
@@ -35,3 +27,7 @@ msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Absolute path to the folder containing the decrypters"
+
+msgctxt "#30110"
+msgid "Max. Resolution"
+msgstr "Maximum Resolution"
