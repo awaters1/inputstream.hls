@@ -190,13 +190,15 @@ bool KodiDASHTree::download(const char* url)
   return nbRead == 0;
 }
 
-bool KodiDASHStream::download(const char* url)
+bool KodiDASHStream::download(const char* url, const char* rangeHeader)
 {
   // open the file
   void* file = xbmc->CURLCreate(url);
   if (!file)
     return false;
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
+  if (rangeHeader)
+    xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangeHeader);
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
@@ -221,6 +223,67 @@ bool KodiDASHStream::download(const char* url)
   xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
 
   return nbRead == 0;
+}
+
+bool KodiDASHStream::parseIndexRange()
+{
+  // open the file
+  xbmc->Log(ADDON::LOG_DEBUG, "Downloading %s for SIDX generation", getRepresentation()->url_.c_str());
+
+  void* file = xbmc->CURLCreate(getRepresentation()->url_.c_str());
+  if (!file)
+    return false;
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable", "0");
+  char rangebuf[64];
+  sprintf(rangebuf, "bytes=%u-%u", getRepresentation()->indexRangeMin_, getRepresentation()->indexRangeMax_);
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangebuf);
+  if (!xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO))
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Download SIDX retrieval failed");
+    return false;
+  }
+
+  // read the file into AP4_MemoryByteStream
+  AP4_MemoryByteStream byteStream;
+
+  char buf[16384];
+  size_t nbRead, nbReadOverall = 0;
+  while ((nbRead = xbmc->ReadFile(file, buf, 16384)) > 0 && ~nbRead && AP4_SUCCEEDED(byteStream.Write(buf, nbRead))) nbReadOverall += nbRead;
+  xbmc->CloseFile(file);
+
+  if (nbReadOverall != getRepresentation()->indexRangeMax_ - getRepresentation()->indexRangeMin_ +1)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Size of downloaded SIDX section differs from expected");
+    return false;
+  }
+  byteStream.Seek(0);
+
+  AP4_Atom *atom(NULL);
+  if(AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)) || AP4_DYNAMIC_CAST(AP4_SidxAtom, atom)==0)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
+    return false;
+  }
+  AP4_SidxAtom *sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
+
+  dash::DASHTree::AdaptationSet *adp(const_cast<dash::DASHTree::AdaptationSet*>(getAdaptationSet()));
+  dash::DASHTree::Representation *rep(const_cast<dash::DASHTree::Representation*>(getRepresentation()));
+
+  rep->timescale_ = sidx->GetTimeScale();
+
+  const AP4_Array<AP4_SidxAtom::Reference> &reps(sidx->GetReferences());
+  dash::DASHTree::Segment seg;
+  seg.range_end_ = rep->indexRangeMax_;
+
+  for (unsigned int i(0); i < reps.ItemCount(); ++i)
+  {
+    seg.range_begin_ = seg.range_end_ + 1;
+    seg.range_end_ = seg.range_begin_ + reps[i].m_ReferencedSize - 1;
+    rep->segments_.push_back(seg);
+    if (adp->segment_durations_.size() < rep->segments_.size() - 1)
+      adp->segment_durations_.push_back(reps[i].m_SubsegmentDuration);
+  }
+  return true;
 }
 
 /*******************************************************
@@ -607,7 +670,8 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   {
     double val;
     fread(&val, sizeof(double), 1, f);
-    dashtree_.bandwidth_ = static_cast<uint64_t>(val * 8);
+    dashtree_.bandwidth_ = static_cast<uint32_t>(val * 8);
+    dashtree_.set_download_speed(val);
     fclose(f);
   }
   else

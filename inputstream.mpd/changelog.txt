@@ -1,0 +1,8 @@
+1.0.4
+- support GPAC mpd files, wich transport fragment information in SIDX atom of stream instead inside manifest file
+1.0.3
+- measure bandwidth, start video with quality with is <= bandwidth measured on previous video
+- remove URL seetings from settings dialog
+- add max. resolution setting
+1.0.0
+initial release

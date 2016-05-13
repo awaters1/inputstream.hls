@@ -339,7 +339,20 @@ start(void *data, const char *el, const char **attr)
               dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTLIST;
             }
           }
-
+          else if (strcmp(el, "SegmentBase") == 0)
+          {
+            //<SegmentBase indexRangeExact = "true" indexRange = "867-1618">
+            for (; *attr;)
+            {
+              if (strcmp((const char*)*attr, "indexRange") == 0)
+                sscanf((const char*)*(attr + 1), "%u-%u" , &dash->current_representation_->indexRangeMin_, &dash->current_representation_->indexRangeMax_);
+              else if (strcmp((const char*)*attr, "indexRangeExact") == 0)
+                dash->current_representation_->indexRangeExact_ = strcmp((const char*)*(attr + 1), "true") == 0;
+              attr += 2;
+            }
+            if(dash->current_representation_->indexRangeExact_ && dash->current_representation_->indexRangeMax_)
+              dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTLIST;
+          }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
         {
@@ -417,6 +430,17 @@ start(void *data, const char *el, const char **attr)
               dash->current_representation_->id = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
               dash->current_representation_->codec_private_data_ = annexb_to_avc((const char*)*(attr + 1));
+            else if (dash->current_adaptationset_->mimeType_.empty() && strcmp((const char*)*attr, "mimeType") == 0)
+            {
+              dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
+              if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)
+              {
+                if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "video", 5) == 0)
+                  dash->current_adaptationset_->type_ = DASHTree::VIDEO;
+                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
+                  dash->current_adaptationset_->type_ = DASHTree::AUDIO;
+              }
+            }
             attr += 2;
           }
           dash->currentNode_ |= DASHTree::MPDNODE_REPRESENTATION;
@@ -579,7 +603,7 @@ end(void *data, const char *el)
           }
           else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTLIST)
           {
-            if (strcmp(el, "SegmentList") == 0)
+            if (strcmp(el, "SegmentList") == 0 || strcmp(el, "SegmentBase") == 0)
             {
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTLIST;
               if (!dash->segcount_)

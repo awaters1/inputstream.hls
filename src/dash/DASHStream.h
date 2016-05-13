@@ -48,11 +48,13 @@ namespace dash
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
     bool seek_time(double seek_seconds, double current_seconds, bool &needReset);
+    DASHTree::AdaptationSet const *getAdaptationSet() { return current_adp_; };
     DASHTree::Representation const *getRepresentation(){ return current_rep_; };
     double get_download_speed() const { return tree_.get_download_speed(); };
     void set_download_speed(double speed) { tree_.set_download_speed(speed); };
   protected:
-    virtual bool download(const char* url){ return false; };
+    virtual bool download(const char* url, const char* rangeHeader){ return false; };
+    virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:
     bool download_segment();

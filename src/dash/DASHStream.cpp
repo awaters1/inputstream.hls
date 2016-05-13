@@ -32,39 +32,49 @@ bool DASHStream::download_segment()
   segment_buffer_.clear();
   absolute_position_ = 0;
   segment_read_pos_ = 0;
-  char rangebuf[128];
+
   if (!current_seg_)
     return false;
-  
+
   std::string strURL;
-  
-  if (~current_seg_->range_begin_)
-  {
-    sprintf(rangebuf, "/range/%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-    strURL = current_rep_->url_ + rangebuf;
-    absolute_position_ = current_seg_->range_begin_;
-  }
-  else if (~current_seg_->range_end_) //templated segment
-  {
-    std::string media(current_adp_->segtpl_.media);
-    media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
+  char rangebuf[128], *rangeHeader(0);
 
-    std::string::size_type np(media.find("$Number") + 7), npe(media.find('$', np));
-    
-    char fmt[16];
-    if (np == npe)
-      strcpy(fmt, "%d");
-    else
-      strcpy(fmt, media.substr(np, npe - np).c_str());
-    
-    sprintf(rangebuf, fmt, static_cast<int>(current_seg_->range_end_));
-    media.replace(np - 7, npe - np + 8, rangebuf);
-    strURL = media;
+  if (!current_rep_->indexRangeExact_)
+  {
+    if (~current_seg_->range_begin_)
+    {
+      sprintf(rangebuf, "/range/%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
+      strURL = current_rep_->url_ + rangebuf;
+      absolute_position_ = current_seg_->range_begin_;
+    }
+    else if (~current_seg_->range_end_) //templated segment
+    {
+      std::string media(current_adp_->segtpl_.media);
+      media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
+
+      std::string::size_type np(media.find("$Number") + 7), npe(media.find('$', np));
+
+      char fmt[16];
+      if (np == npe)
+        strcpy(fmt, "%d");
+      else
+        strcpy(fmt, media.substr(np, npe - np).c_str());
+
+      sprintf(rangebuf, fmt, static_cast<int>(current_seg_->range_end_));
+      media.replace(np - 7, npe - np + 8, rangebuf);
+      strURL = media;
+    }
+    else //templated initialization segment
+      strURL = current_rep_->url_;
   }
-  else //templated initialization segment
+  else
+  {
     strURL = current_rep_->url_;
+    sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
+    rangeHeader = rangebuf;
+  }
 
-  return download(strURL.c_str());
+  return download(strURL.c_str(), rangeHeader);
 }
 
 bool DASHStream::write_data(const void *buffer, size_t buffer_size)
@@ -102,9 +112,15 @@ bool DASHStream::start_stream(const uint32_t seg_offset)
   segment_buffer_.clear();
   current_seg_ = current_rep_->get_segment(seg_offset);
   if (!current_seg_ || !current_rep_->get_next_segment(current_seg_))
+  {
+    absolute_position_ = ~0;
     stopped_ = true;
-  absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
-  stopped_ = false;
+  }
+  else
+  {
+    absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
+    stopped_ = false;
+  }
   return true;
 }
 
@@ -222,6 +238,16 @@ bool DASHStream::select_stream(bool force, bool justInit)
 
   if (observer_)
     observer_->OnStreamChange(this, segid);
+
+  /* If we have indexRangeExact SegmentBase, update SegmentList from SIDX */
+  if (current_rep_->indexRangeMax_)
+  {
+    DASHTree::Representation *rep(const_cast<DASHTree::Representation *>(current_rep_));
+    if (!parseIndexRange())
+      return false;
+    rep->indexRangeMin_ = rep->indexRangeMax_ = 0;
+    stopped_ = false;
+  }
 
   /* lets download the initialization */
   if ((current_seg_ = current_rep_->get_initialization()))

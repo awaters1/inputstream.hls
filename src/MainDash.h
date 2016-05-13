@@ -63,7 +63,8 @@ public:
   KodiDASHStream(dash::DASHTree &tree, dash::DASHTree::StreamType type)
     :dash::DASHStream(tree, type){};
 protected:
-  virtual bool download(const char* url);
+  virtual bool download(const char* url, const char* rangeHeader) override;
+  virtual bool parseIndexRange() override;
 };
 
 class Session

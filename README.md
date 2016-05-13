@@ -27,7 +27,7 @@ Simply check out the sources of this addon and you are able to build decrypters 
 When using inputstream.mpd the first time, the selection of stream quality / stream resolution is done with a guess of 4MBit/s. This default value will be updated at the time you watch your first movie by measuring the download speed of the media streams.  
 Always you start a new video, the average bandwidth of the previous media watched will be taken to calculate the initial stream representation from the set of existing qualities.  
 If this leads to problems in your environment, you can override / adjust this value using Min. bandwidth in the inputstream.mpd settings dialog. Setting Min. bandwidth e.g. to 10.000.000, the media selection will never be done with a bandwidth value below this value.  
-Currently the complete media is played with the selection from this initial step, adaptive stream changes during a running video is still under development.
+Currently the complete media is played with the selection from this initial step, adaptive stream changes during a running video is still under development.  
 There is a new Max. resolution select field in the inputstream.mpd settings dialog.
 Auto and 720p are doing the same currently (selecting videos with max resolution of 720p), but Auto will be the one wich will react in the near future to size changes of the kodi application and bandwidth changes.  
 If you want to watch 1080p videos right now, pls select 1080p in this option.

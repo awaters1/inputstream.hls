@@ -42,7 +42,8 @@ namespace dash
     struct Representation
     {
       Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
-        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), hasInitialization_(false){};
+        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), hasInitialization_(false),
+        indexRangeMin_(0), indexRangeMax_(0), indexRangeExact_(false){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -53,6 +54,8 @@ namespace dash
       uint32_t fpsRate_, fpsScale_;
       float aspect_;
       bool hasInitialization_;
+      bool indexRangeExact_;
+      uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_;
       //SegmentList
       uint32_t duration_, timescale_;
