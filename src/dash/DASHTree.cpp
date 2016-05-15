@@ -597,7 +597,14 @@ end(void *data, const char *el)
           {
             if (strcmp(el, "BaseURL") == 0)
             {
-              dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+              while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+                dash->strXMLText_.erase(dash->strXMLText_.begin());
+
+              if (dash->strXMLText_.compare(0, 7, "http://") == 0
+                || dash->strXMLText_.compare(0, 8, "https://") == 0)
+                dash->current_representation_->url_ = dash->strXMLText_;
+              else
+                dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
               dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
             }
           }
