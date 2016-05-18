@@ -1,3 +1,5 @@
+1.1.0
+- cmake: rename find_package kodi to Kodi
 1.0.4
 - support GPAC mpd files, wich transport fragment information in SIDX atom of stream instead inside manifest file
 1.0.3
