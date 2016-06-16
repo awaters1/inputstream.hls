@@ -1,7 +1,7 @@
 /*
 * DASHTree.cpp
 *****************************************************************************
-* Copyright (C) 2015, liberty_developer
+* Copyright (C) 2015-2016, liberty_developer
 *
 * Email: liberty.developer@xmail.net
 *
@@ -216,7 +216,7 @@ static const char* ltranslate(const char * in)
   }
   else if (strlen(in) == 3)
     return in;
-  return "";
+  return "unk";
 }
 
 DASHTree::DASHTree()
@@ -258,6 +258,31 @@ static uint8_t GetChannels(const char **attr)
     }
   }
   return 0;
+}
+
+
+static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl, bool adp)
+{
+  for (; *attr;)
+  {
+    if (strcmp((const char*)*attr, "timescale") == 0)
+      tpl.timescale = atoi((const char*)*(attr + 1));
+    else if (strcmp((const char*)*attr, "duration") == 0)
+      tpl.duration = atoi((const char*)*(attr + 1));
+    else if (strcmp((const char*)*attr, "media") == 0)
+      tpl.media = (const char*)*(attr + 1);
+    else if (strcmp((const char*)*attr, "startNumber") == 0)
+      tpl.startNumber = atoi((const char*)*(attr + 1));
+    else if (strcmp((const char*)*attr, "initialization") == 0)
+      tpl.initialization = (const char*)*(attr + 1);
+    attr += 2;
+  }
+  //We only support templates with id and number so far.......
+  if ((adp && tpl.media.find("$RepresentationID$") == std::string::npos)
+  || tpl.media.find("$Number") == std::string::npos)
+    tpl.media.clear();
+  else
+    tpl.media = baseURL + tpl.media;
 }
 
 /*----------------------------------------------------------------------
@@ -305,11 +330,64 @@ start(void *data, const char *el, const char **attr)
                 }
                 attr += 2;
               }
-              dash->current_representation_->hasInitialization_ = true;
+              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
             }
             else
               return;
             dash->current_representation_->segments_.push_back(seg);
+          }
+          else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
+          {
+            if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
+            {
+              // <S t="3600" d="900000" r="2398"/>
+              unsigned int t(0), d(0), r(1);
+              for (; *attr;)
+              {
+                if (strcmp((const char*)*attr, "t") == 0)
+                  t = atoi((const char*)*(attr + 1));
+                else if (strcmp((const char*)*attr, "d") == 0)
+                  d = atoi((const char*)*(attr + 1));
+                if (strcmp((const char*)*attr, "r") == 0)
+                  r = atoi((const char*)*(attr + 1));
+                attr += 2;
+              }
+              if (t && d && r)
+              {
+                DASHTree::Segment s;
+                if (dash->current_representation_->segments_.empty())
+                {
+                  if (dash->current_representation_->segtpl_.duration && dash->current_representation_->segtpl_.timescale)
+                    dash->current_representation_->segments_.reserve((unsigned int)(dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
+
+                  if (dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION)
+                  {
+                    s.range_begin_ = s.range_end_ = ~0;
+                    dash->current_representation_->segments_.push_back(s);
+                  }
+                  s.range_end_ = dash->current_representation_->segtpl_.startNumber;
+                }
+                else
+                  s.range_end_ = dash->current_representation_->segments_.back().range_end_ + 1;
+                s.range_begin_ = t;
+                for (; r; --r)
+                {
+                  dash->current_representation_->segments_.push_back(s);
+                  ++s.range_end_;
+                  s.range_begin_ += d;
+                }
+              }
+              else //Failure
+              {
+                dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTIMELINE;
+                dash->current_representation_->timescale_ = 0;
+              }
+            }
+            else if (strcmp(el, "SegmentTimeline") == 0)
+            {
+              dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
+              dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTIMELINE;
+            }
           }
           else if (strcmp(el, "AudioChannelConfiguration") == 0)
           {
@@ -346,12 +424,23 @@ start(void *data, const char *el, const char **attr)
             {
               if (strcmp((const char*)*attr, "indexRange") == 0)
                 sscanf((const char*)*(attr + 1), "%u-%u" , &dash->current_representation_->indexRangeMin_, &dash->current_representation_->indexRangeMax_);
-              else if (strcmp((const char*)*attr, "indexRangeExact") == 0)
-                dash->current_representation_->indexRangeExact_ = strcmp((const char*)*(attr + 1), "true") == 0;
+              else if (strcmp((const char*)*attr, "indexRangeExact") == 0 && strcmp((const char*)*(attr + 1), "true") == 0)
+                dash->current_representation_->flags_ |= DASHTree::Representation::INDEXRANGEEXACT;
               attr += 2;
             }
-            if(dash->current_representation_->indexRangeExact_ && dash->current_representation_->indexRangeMax_)
+            if((dash->current_representation_->flags_ & DASHTree::Representation::INDEXRANGEEXACT) && dash->current_representation_->indexRangeMax_)
               dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTLIST;
+          }
+          else if (strcmp(el, "SegmentTemplate") == 0)
+          {
+            ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->current_representation_->segtpl_, false);
+            dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
+            if (!dash->current_representation_->segtpl_.initialization.empty())
+            {
+              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
+              dash->current_representation_->url_ += dash->current_representation_->segtpl_.initialization;
+            }
+            dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
@@ -384,33 +473,15 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "timescale") == 0)
-              dash->current_adaptationset_->segtpl_.timescale = atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "duration") == 0)
-              dash->current_adaptationset_->segtpl_.duration = atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "media") == 0)
-              dash->current_adaptationset_->segtpl_.media = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "startNumber") == 0)
-              dash->current_adaptationset_->segtpl_.startNumber = atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "initialization") == 0)
-              dash->current_adaptationset_->segtpl_.initialization = (const char*)*(attr + 1);
-            attr += 2;
-          }
-          //We only support templates with id and number so far.......
-          std::string &media(dash->current_adaptationset_->segtpl_.media);
-          if (media.find("$RepresentationID$") == std::string::npos
-            || media.find("$Number") == std::string::npos)
-            media.clear();
-          else
-            media = dash->current_adaptationset_->base_url_ + media;
+          ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_, true);
+          dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
         }
         else if (strcmp(el, "Representation") == 0)
         {
           dash->current_representation_ = new DASHTree::Representation();
           dash->current_representation_->channelCount_ = dash->adpChannelCount_;
           dash->current_representation_->codecs_ = dash->current_adaptationset_->codecs_;
+          dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
           for (; *attr;)
           {
@@ -604,7 +675,7 @@ end(void *data, const char *el)
                 || dash->strXMLText_.compare(0, 8, "https://") == 0)
                 dash->current_representation_->url_ = dash->strXMLText_;
               else
-                dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+                dash->current_representation_->url_ += dash->strXMLText_;
               dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
             }
           }
@@ -616,6 +687,16 @@ end(void *data, const char *el)
               if (!dash->segcount_)
                 dash->segcount_ = dash->current_representation_->segments_.size();
             }
+          }
+          else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
+          {
+            if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
+            {
+              if (strcmp(el, "SegmentTimeline") == 0)
+                dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTIMELINE;
+            }
+            else if (strcmp(el, "SegmentTemplate") == 0)
+              dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
           else if (strcmp(el, "Representation") == 0)
           {
@@ -631,18 +712,19 @@ end(void *data, const char *el)
                   DASHTree::Segment seg;
                   seg.range_begin_ = ~0;
 
+                  dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
                   dash->current_representation_->segments_.reserve(countSegs + 1);
                   if (!dash->current_adaptationset_->segtpl_.initialization.empty())
                   {
                     seg.range_end_ = ~0;
-                    dash->current_representation_->url_ = dash->current_adaptationset_->base_url_ + dash->current_adaptationset_->segtpl_.initialization;
-                    
+                    dash->current_representation_->url_ += dash->current_adaptationset_->segtpl_.initialization;
+
                     std::string::size_type repPos = dash->current_representation_->url_.find("$RepresentationID$");
                     if (repPos != std::string::npos)
                       dash->current_representation_->url_.replace(repPos, 18, dash->current_representation_->id);
-                    
+
                     dash->current_representation_->segments_.push_back(seg);
-                    dash->current_representation_->hasInitialization_ = true;
+                    dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
                   }
                   unsigned int numberEnd(dash->current_adaptationset_->segtpl_.startNumber + countSegs);
                   for (seg.range_end_ = dash->current_adaptationset_->segtpl_.startNumber; seg.range_end_ < numberEnd; ++seg.range_end_)
@@ -685,12 +767,21 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
           }
         }
+        else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
+        {
+          if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
+          {
+            if (strcmp(el, "SegmentTimeline") == 0)
+              dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTIMELINE;
+          }
+          else if (strcmp(el, "SegmentTemplate") == 0)
+            dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
+        }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
           || ((dash->encryptionState_ & DASHTree::ENCRYTIONSTATE_ENCRYPTED) && dash->adp_pssh_.second.empty())
-          || (!dash->current_adaptationset_->language_.empty() && dash->current_adaptationset_->language_.size()!=3)
           || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;

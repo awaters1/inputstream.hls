@@ -1,3 +1,6 @@
+1.1.1
+- implement manual stream selection (Configuration::StreamSelection)
+- implement MPD::SegmentTimeline
 1.1.0
 - cmake: rename find_package kodi to Kodi
 1.0.4

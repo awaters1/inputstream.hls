@@ -90,12 +90,13 @@ public:
     FragmentedSampleReader *reader_;
   };
 
-  STREAM *GetStream(unsigned int sid) const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   double GetTotalTime()const { return dashtree_.overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
+  void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w < maxwidth_ ? w : maxwidth_; height_ = h < maxheight_ ? h : maxheight_;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
 
 protected:
@@ -114,8 +115,10 @@ private:
   std::vector<STREAM*> streams_;
 
   uint16_t width_, height_;
+  uint16_t maxwidth_, maxheight_;
   uint32_t fixed_bandwidth_;
   bool changed_;
+  bool manual_streams_;
   double last_pts_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;

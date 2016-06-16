@@ -31,3 +31,7 @@ msgstr "Absolute path to the folder containing the decrypters"
 msgctxt "#30110"
 msgid "Max. Resolution"
 msgstr "Maximum Resolution"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "Stream Selection"

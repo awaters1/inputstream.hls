@@ -34,16 +34,22 @@ namespace dash
     struct Segment
     {
       void SetRange(const char *range);
-
       uint64_t range_begin_;
       uint64_t range_end_;
+    };
+
+    struct SegmentTemplate
+    {
+      std::string initialization;
+      std::string media;
+      unsigned int startNumber;
+      unsigned int timescale, duration;
     };
 
     struct Representation
     {
       Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
-        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), hasInitialization_(false),
-        indexRangeMin_(0), indexRangeMax_(0), indexRangeExact_(false){};
+        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), flags_(0), indexRangeMin_(0), indexRangeMax_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -53,14 +59,21 @@ namespace dash
       uint16_t width_, height_;
       uint32_t fpsRate_, fpsScale_;
       float aspect_;
-      bool hasInitialization_;
-      bool indexRangeExact_;
+      //Flags
+      static const unsigned int BYTERANGE = 0;
+      static const unsigned int INDEXRANGEEXACT = 1;
+      static const unsigned int TEMPLATE = 2;
+      static const unsigned int TIMELINE = 4;
+      static const unsigned int INITIALIZATION = 8;
+      uint32_t flags_;
+
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_;
+      SegmentTemplate segtpl_;
       //SegmentList
       uint32_t duration_, timescale_;
       std::vector<Segment> segments_;
-      const Segment *get_initialization()const { return hasInitialization_ ? &segments_[0] : 0; };
+      const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &segments_[0] : 0; };
       const Segment *get_next_segment(const Segment *seg)const
       {
         uint32_t curpos = static_cast<uint32_t>(seg - &segments_[0] + 1);
@@ -70,7 +83,7 @@ namespace dash
       };
       const Segment *get_segment(uint32_t pos, bool respectInit = false)const
       {
-        if (respectInit && hasInitialization_)
+        if (respectInit && (flags_ & INITIALIZATION))
         {
           if (~pos) ++pos; else return 0;
         }
@@ -84,7 +97,7 @@ namespace dash
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0){};
+      AdaptationSet() :type_(NOTYPE), timescale_(0) { language_ = "unk"; };
       ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
@@ -94,14 +107,7 @@ namespace dash
       std::string codecs_;
       std::vector<Representation*> repesentations_;
       std::vector<uint32_t> segment_durations_;
-
-      struct SegmentTemplate
-      {
-        std::string initialization;
-        std::string media;
-        unsigned int startNumber;
-        unsigned int timescale, duration;
-      }segtpl_;
+      SegmentTemplate segtpl_;
     }*current_adaptationset_;
 
     struct Period
@@ -135,7 +141,7 @@ namespace dash
     };
     unsigned int  encryptionState_;
     uint8_t adpChannelCount_;
-    
+
     enum
     {
       MPDNODE_MPD = 1 << 0,
@@ -149,7 +155,9 @@ namespace dash
       MPDNODE_SEGMENTURL = 1 << 8,
       MPDNODE_SEGMENTDURATIONS = 1 << 9,
       MPDNODE_S = 1 << 11,
-      MPDNODE_PSSH = 1 << 12
+      MPDNODE_PSSH = 1 << 12,
+      MPDNODE_SEGMENTTEMPLATE = 1 << 13,
+      MPDNODE_SEGMENTTIMELINE = 1 << 14
     };
     std::string strXMLText_;
 

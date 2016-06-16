@@ -663,6 +663,7 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , decrypterModule_(0)
   , decrypter_(0)
   , changed_(false)
+  , manual_streams_(false)
 {
   std::string fn(profile_path_ + "bandwidth.bin");
   FILE* f = fopen(fn.c_str(), "rb");
@@ -682,14 +683,20 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   switch (buf)
   {
   case 0:
-  case 1:
+    maxwidth_ = 0xFFFF;
+    maxheight_ = 0xFFFF;
     break;
   case 2:
-    width_ = 1920;
-    height_ = 1080;
+    maxwidth_ = 1920;
+    maxheight_ = 1080;
     break;
-  default:;
+  default:
+    maxwidth_ = 1280;
+    maxheight_ = 720;
   }
+
+  xbmc->GetSetting("STREAMSELECTION", (char*)&buf);
+  manual_streams_ = buf != 0;
 }
 
 Session::~Session()
@@ -823,57 +830,60 @@ bool Session::initialize()
 
   while ((adp = dashtree_.GetAdaptationSet(i++)))
   {
-    streams_.push_back(new STREAM(dashtree_, adp->type_));
-    STREAM &stream(*streams_.back());
-    stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth);
+    size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
 
-    const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
+    do {
+      streams_.push_back(new STREAM(dashtree_, adp->type_));
+      STREAM &stream(*streams_.back());
+      stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth, repId);
+      const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
 
-    stream.info_.m_Width = rep->width_;
-    stream.info_.m_Height = rep->height_;
-    stream.info_.m_Aspect = rep->aspect_;
-    stream.info_.m_pID = i;
-    switch (adp->type_)
-    {
-    case dash::DASHTree::VIDEO:
-      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-      break;
-    case dash::DASHTree::AUDIO:
-      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
-      break;
-    case dash::DASHTree::TEXT:
-      stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
-      break;
-    default:
-      break;
-    }
+      stream.info_.m_Width = rep->width_;
+      stream.info_.m_Height = rep->height_;
+      stream.info_.m_Aspect = rep->aspect_;
+      stream.info_.m_pID = i | (repId << 16);
+      switch (adp->type_)
+      {
+      case dash::DASHTree::VIDEO:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+        break;
+      case dash::DASHTree::AUDIO:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+        break;
+      case dash::DASHTree::TEXT:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
+        break;
+      default:
+        break;
+      }
 
-    stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
-    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
+      stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
+      stream.info_.m_ExtraSize = rep->codec_private_data_.size();
 
-    // we currently use only the first track!
-    std::string::size_type pos = rep->codecs_.find(",");
-    if (pos == std::string::npos)
-      pos = rep->codecs_.size();
+      // we currently use only the first track!
+      std::string::size_type pos = rep->codecs_.find(",");
+      if (pos == std::string::npos)
+        pos = rep->codecs_.size();
 
-    strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
-    stream.info_.m_codecInternalName[pos] = 0;
+      strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
+      stream.info_.m_codecInternalName[pos] = 0;
 
-    if (rep->codecs_.find("mp4a") == 0)
-      strcpy(stream.info_.m_codecName, "aac");
-    else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
-      strcpy(stream.info_.m_codecName, "eac3");
-    else if (rep->codecs_.find("avc") == 0)
-      strcpy(stream.info_.m_codecName, "h264");
-    else if (rep->codecs_.find("hevc") == 0)
-      strcpy(stream.info_.m_codecName, "hevc");
+      if (rep->codecs_.find("mp4a") == 0)
+        strcpy(stream.info_.m_codecName, "aac");
+      else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
+        strcpy(stream.info_.m_codecName, "eac3");
+      else if (rep->codecs_.find("avc") == 0)
+        strcpy(stream.info_.m_codecName, "h264");
+      else if (rep->codecs_.find("hevc") == 0)
+        strcpy(stream.info_.m_codecName, "hevc");
 
-    stream.info_.m_FpsRate = rep->fpsRate_;
-    stream.info_.m_FpsScale = rep->fpsScale_;
-    stream.info_.m_SampleRate = rep->samplingRate_;
-    stream.info_.m_Channels = rep->channelCount_;
-    stream.info_.m_Bandwidth = rep->bandwidth_;
-    strcpy(stream.info_.m_language, adp->language_.c_str());
+      stream.info_.m_FpsRate = rep->fpsRate_;
+      stream.info_.m_FpsScale = rep->fpsScale_;
+      stream.info_.m_SampleRate = rep->samplingRate_;
+      stream.info_.m_Channels = rep->channelCount_;
+      stream.info_.m_Bandwidth = rep->bandwidth_;
+      strcpy(stream.info_.m_language, adp->language_.c_str());
+    } while (repId--);
   }
 
   // Try to initialize an SingleSampleDecryptor
@@ -1189,7 +1199,7 @@ extern "C" {
       stream->enabled = true;
 
       stream->stream_.start_stream(0);
-      stream->stream_.select_stream(true);
+      stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
       stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
