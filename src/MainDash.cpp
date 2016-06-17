@@ -1331,6 +1331,8 @@ extern "C" {
   void SetVideoResolution(int width, int height)
   {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
+    if (session)
+      session->SetVideoResolution(width, height);
   }
 
   int GetTotalTime()
