@@ -33,7 +33,7 @@ namespace dash
     bool prepare_stream(const DASHTree::AdaptationSet *adp,
       const uint32_t width, const uint32_t height,
       uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId);
-    bool start_stream(const uint32_t seg_offset);
+    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
     void stop(){ stopped_ = true; };
     void clear();

@@ -110,7 +110,7 @@ bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp,
   return select_stream(false, true, repId);
 }
 
-bool DASHStream::start_stream(const uint32_t seg_offset)
+bool DASHStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
 {
   segment_buffer_.clear();
   current_seg_ = current_rep_->get_segment(seg_offset);
@@ -121,6 +121,9 @@ bool DASHStream::start_stream(const uint32_t seg_offset)
   }
   else
   {
+    width_ = type_ == DASHTree::VIDEO ? width : 0;
+    height_ = type_ == DASHTree::VIDEO ? height : 0;
+
     absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
     stopped_ = false;
   }
@@ -224,11 +227,16 @@ bool DASHStream::select_stream(bool force, bool justInit, unsigned int repId)
 
   if (!repId || repId > current_adp_->repesentations_.size())
   {
+    unsigned int bestDist(~0);
     for (std::vector<DASHTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
     {
-      if ((*br)->width_ <= width_ && (*br)->height_ <= height_ && (*br)->bandwidth_ <= bandwidth_
+      unsigned int dist;
+      if ((dist = abs((*br)->width_ * (*br)->height_ - width_ * height_)) < bestDist && (*br)->bandwidth_ <= bandwidth_
         && (!new_rep || ((*br)->bandwidth_ > new_rep->bandwidth_)))
+      {
+        bestDist = dist;
         new_rep = (*br);
+      }
       else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)
         min_rep = (*br);
     }

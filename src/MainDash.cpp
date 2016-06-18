@@ -836,12 +836,7 @@ bool Session::initialize()
       streams_.push_back(new STREAM(dashtree_, adp->type_));
       STREAM &stream(*streams_.back());
       stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth, repId);
-      const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
 
-      stream.info_.m_Width = rep->width_;
-      stream.info_.m_Height = rep->height_;
-      stream.info_.m_Aspect = rep->aspect_;
-      stream.info_.m_pID = i | (repId << 16);
       switch (adp->type_)
       {
       case dash::DASHTree::VIDEO:
@@ -856,33 +851,11 @@ bool Session::initialize()
       default:
         break;
       }
-
-      stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
-      stream.info_.m_ExtraSize = rep->codec_private_data_.size();
-
-      // we currently use only the first track!
-      std::string::size_type pos = rep->codecs_.find(",");
-      if (pos == std::string::npos)
-        pos = rep->codecs_.size();
-
-      strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
-      stream.info_.m_codecInternalName[pos] = 0;
-
-      if (rep->codecs_.find("mp4a") == 0)
-        strcpy(stream.info_.m_codecName, "aac");
-      else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
-        strcpy(stream.info_.m_codecName, "eac3");
-      else if (rep->codecs_.find("avc") == 0)
-        strcpy(stream.info_.m_codecName, "h264");
-      else if (rep->codecs_.find("hevc") == 0)
-        strcpy(stream.info_.m_codecName, "hevc");
-
-      stream.info_.m_FpsRate = rep->fpsRate_;
-      stream.info_.m_FpsScale = rep->fpsScale_;
-      stream.info_.m_SampleRate = rep->samplingRate_;
-      stream.info_.m_Channels = rep->channelCount_;
-      stream.info_.m_Bandwidth = rep->bandwidth_;
+      stream.info_.m_pID = i | (repId << 16);
       strcpy(stream.info_.m_language, adp->language_.c_str());
+
+      UpdateStream(stream);
+
     } while (repId--);
   }
 
@@ -908,7 +881,7 @@ bool Session::initialize()
       Session::STREAM *stream(streams_[0]);
 
       stream->enabled = true;
-      stream->stream_.start_stream(0);
+      stream->stream_.start_stream(0, width_, height_);
       stream->stream_.select_stream(true);
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
@@ -946,6 +919,41 @@ bool Session::initialize()
     return (single_sample_decryptor_ = CreateSingleSampleDecrypter(init_data))!=0;
   }
   return true;
+}
+
+void Session::UpdateStream(STREAM &stream)
+{
+  const dash::DASHTree::Representation *rep(stream.stream_.getRepresentation());
+
+  stream.info_.m_Width = rep->width_;
+  stream.info_.m_Height = rep->height_;
+  stream.info_.m_Aspect = rep->aspect_;
+
+  stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
+  stream.info_.m_ExtraSize = rep->codec_private_data_.size();
+
+  // we currently use only the first track!
+  std::string::size_type pos = rep->codecs_.find(",");
+  if (pos == std::string::npos)
+    pos = rep->codecs_.size();
+
+  strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
+  stream.info_.m_codecInternalName[pos] = 0;
+
+  if (rep->codecs_.find("mp4a") == 0)
+    strcpy(stream.info_.m_codecName, "aac");
+  else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
+    strcpy(stream.info_.m_codecName, "eac3");
+  else if (rep->codecs_.find("avc") == 0)
+    strcpy(stream.info_.m_codecName, "h264");
+  else if (rep->codecs_.find("hevc") == 0)
+    strcpy(stream.info_.m_codecName, "hevc");
+
+  stream.info_.m_FpsRate = rep->fpsRate_;
+  stream.info_.m_FpsScale = rep->fpsScale_;
+  stream.info_.m_SampleRate = rep->samplingRate_;
+  stream.info_.m_Channels = rep->channelCount_;
+  stream.info_.m_Bandwidth = rep->bandwidth_;
 }
 
 FragmentedSampleReader *Session::GetNextSample()
@@ -1198,8 +1206,14 @@ extern "C" {
 
       stream->enabled = true;
 
-      stream->stream_.start_stream(0);
+      stream->stream_.start_stream(0, session->GetWidth(), session->GetHeight());
+      const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
       stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
+      if(rep != stream->stream_.getRepresentation())
+      {
+        session->UpdateStream(*stream);
+        session->CheckChange(true);
+      }
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
       stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
@@ -1229,7 +1243,7 @@ extern "C" {
         stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
 
         // Set the session Changed to force new GetStreamInfo call from kodi -> addon
-        if(stream->info_.m_ExtraSize)
+        if (stream->info_.m_ExtraSize)
           session->CheckChange(true);
       }
 

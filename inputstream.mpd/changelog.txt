@@ -1,3 +1,6 @@
+1.1.2
+- Consider the SetVideoResolution on Startup
+- Change resolution logic from "must be smaller" to "smalles diff of area"
 1.1.1
 - implement manual stream selection (Configuration::StreamSelection)
 - implement MPD::SegmentTimeline

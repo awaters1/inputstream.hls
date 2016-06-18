@@ -90,8 +90,12 @@ public:
     FragmentedSampleReader *reader_;
   };
 
+  void UpdateStream(STREAM &stream);
+
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
+  std::uint16_t GetWidth()const { return width_; };
+  std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   double GetTotalTime()const { return dashtree_.overallSeconds_; };
   double GetPTS()const { return last_pts_; };

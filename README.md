@@ -1,4 +1,4 @@
-# inputstream.mpd (1.0.3)
+# inputstream.mpd (1.1.2)
 
 This is a dash mpd file addon for kodi's new InputStream Interface.
 
@@ -29,12 +29,13 @@ Always you start a new video, the average bandwidth of the previous media watche
 If this leads to problems in your environment, you can override / adjust this value using Min. bandwidth in the inputstream.mpd settings dialog. Setting Min. bandwidth e.g. to 10.000.000, the media selection will never be done with a bandwidth value below this value.  
 Currently the complete media is played with the selection from this initial step, adaptive stream changes during a running video is still under development.  
 There is a new Max. resolution select field in the inputstream.mpd settings dialog.
-Auto and 720p are doing the same currently (selecting videos with max resolution of 720p), but Auto will be the one wich will react in the near future to size changes of the kodi application and bandwidth changes.  
-If you want to watch 1080p videos right now, pls select 1080p in this option.
+Auto will select the best resolution matching to your videoplayer display rect without any limits.
+If your display resolution is 720p, you will not be able to watch 1080p videos if there are video representations available closer to 720p.  
+
 
 ##### TODO's:
 - Adaptive bitrate switching is prepared but currently not yet activated  
-- Automatic / fixed video stream selection depending on max. visible display rect (some work has to be done at the inputstream interface). Currently videos > 720p will not be selected if videos <= 720p exist.
+- Automatic / fixed video stream selection depending on max. visible display rect (some work has to be done at the inputstream interface).
 - Currently always a full segment is read from source into memory before it is processed. Reading in smaller chunks could be lead to faster start of the media and better cache fill strategy.
 - DASH implementation of periods (currently only the first period is considered)
 - There will be a lot of dash mpd implementations with unsupported xml syntax - must be extended. 
