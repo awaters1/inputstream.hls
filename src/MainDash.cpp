@@ -32,6 +32,7 @@
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
+std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
 
 /*******************************************************
 kodi host - interface for decrypter libraries
@@ -657,8 +658,8 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   , license_type_(strLicType)
   , license_key_(strLicKey)
   , profile_path_(profile_path)
-  , width_(1280)
-  , height_(720)
+  , width_(kodiDisplayWidth)
+  , height_(kodiDisplayHeight)
   , last_pts_(0)
   , decrypterModule_(0)
   , decrypter_(0)
@@ -694,6 +695,11 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
     maxwidth_ = 1280;
     maxheight_ = 720;
   }
+  if (width_ > maxwidth_)
+    width_ = maxwidth_;
+
+  if (height_ > maxheight_)
+    height_ = maxheight_;
 
   xbmc->GetSetting("STREAMSELECTION", (char*)&buf);
   manual_streams_ = buf != 0;
@@ -1020,6 +1026,8 @@ extern "C" {
   {
     // initialize globals
     session = nullptr;
+    kodiDisplayWidth = 1280;
+    kodiDisplayHeight = 720;
 
     if (!hdl)
       return ADDON_STATUS_UNKNOWN;
@@ -1347,6 +1355,11 @@ extern "C" {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
     if (session)
       session->SetVideoResolution(width, height);
+    else
+    {
+      kodiDisplayWidth = width;
+      kodiDisplayHeight = height;
+    }
   }
 
   int GetTotalTime()
