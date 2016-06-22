@@ -547,6 +547,7 @@ public:
       if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
       {
         xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
+        Reset(true);
         return result;
       }
     }

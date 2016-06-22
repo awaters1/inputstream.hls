@@ -55,7 +55,11 @@ bool DASHStream::download_segment()
       else
         media = current_rep_->segtpl_.media;
 
-      std::string::size_type np(media.find("$Number") + 7), npe(media.find('$', np));
+      std::string::size_type np(media.find("$Number") + 7);
+      if(np == std::string::npos)
+        np = media.find("$Time") + 5;
+
+      std::string::size_type npe(media.find('$', np));
 
       char fmt[16];
       if (np == npe)
