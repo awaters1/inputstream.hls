@@ -246,7 +246,24 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
+  //Process placeholder in GET String
+  std::string::size_type insPos(blocks[0].find("{SSM}"));
+  if (insPos != std::string::npos)
+  {
+    if (insPos >= 0 && blocks[0][insPos - 1] == 'B')
+    {
+      std::string msgEncoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true);
+      blocks[0].replace(insPos - 1, 6, msgEncoded);
+    }
+    else
+    {
+      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (cmd)");
+      return false;
+    }
+  }
+  
   void* file = host->CURLCreate(blocks[0].c_str());
+  
   size_t nbRead;
   std::string response;
   char buf[2048];
@@ -267,28 +284,26 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   //Process body
   if (!blocks[2].empty())
   {
-    std::string::size_type insPos(blocks[2].find("{SSM}"));
-    if (insPos != std::string::npos || insPos == 0)
+    insPos = blocks[2].find("{SSM}");
+    if (insPos != std::string::npos)
     {
-      if (blocks[2][insPos - 1] == 'B')
+      if (insPos >= 0)
       {
-        std::string msgEncoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true);
-        blocks[2].replace(insPos - 1, 6, msgEncoded);
+        if (blocks[2][insPos - 1] == 'B')
+        {
+          std::string msgEncoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true);
+          blocks[2].replace(insPos - 1, 6, msgEncoded);
+        }
+        else
+          blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(wv_adapter->GetMessage()), wv_adapter->GetMessageSize());
       }
       else
-        blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(wv_adapter->GetMessage()), wv_adapter->GetMessageSize());
-      std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
-      host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
+      {
+        Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body)");
+        goto SSMFAIL;
+      }
     }
-    else
-    {
-      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body)");
-      goto SSMFAIL;
-    }
-  }
-  else  //simply write the binary stuff out
-  {
-    std::string decoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), false);
+    std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
   }
 
