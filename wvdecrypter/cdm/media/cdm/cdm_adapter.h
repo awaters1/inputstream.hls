@@ -22,7 +22,10 @@ public:
   {
     kError,
     kSessionMessage,
-    kSessionExpired
+    kSessionExpired,
+    kSessionKeysChange,
+    kSessionClosed,
+    kLegacySessionError
   };
   virtual void OnCDMMessage(CDMADPMSG msg) = 0;
 };

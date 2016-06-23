@@ -107,6 +107,7 @@ public:
 
   virtual void OnCDMMessage(media::CdmAdapterClient::CDMADPMSG msg) override
   {
+    Log(SSD_HOST::LL_DEBUG, "CDMMessage: %u arrived!", msg);
     messages_.push_back(msg);
   };
 
@@ -225,6 +226,8 @@ bool WV_CencSingleSampleDecrypter::GetLicense()
       if (!SendSessionMessage())
         return false;
       break;
+    default:
+      ;
     }
   }
 

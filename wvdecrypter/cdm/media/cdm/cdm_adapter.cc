@@ -4,6 +4,7 @@
 
 #include "cdm_adapter.h"
 #include <chrono>
+#include <thread>
 
 #define DCHECK(condition) assert(condition)
 
@@ -212,7 +213,10 @@ cdm::Status CdmAdapter::Decrypt(const cdm::InputBuffer& encrypted_buffer,
 		timer_expired_ = 0;
 		TimerExpired(timer_context_);
 	}
-  //Sleep(10);
+  //We need this wait here for fast systems, during buffering
+  //widewine stopps if some seconds (5??) are fetched too fast
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
   active_buffer_ = decrypted_buffer->DecryptedBuffer();
 	cdm::Status ret = cdm_->Decrypt(encrypted_buffer, decrypted_buffer);
 	active_buffer_ = 0;
@@ -332,6 +336,7 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
       if (keys_info[i].status == cdm::kUsable)
         break;
     }
+  client_.OnCDMMessage(CdmAdapterClient::kSessionKeysChange);
 }
 
 void CdmAdapter::OnExpirationChange(const char* session_id,
@@ -344,6 +349,7 @@ void CdmAdapter::OnExpirationChange(const char* session_id,
 void CdmAdapter::OnSessionClosed(const char* session_id,
                                  uint32_t session_id_size)
 {
+  client_.OnCDMMessage(CdmAdapterClient::kSessionClosed);
 }
 
 void CdmAdapter::OnLegacySessionError(const char* session_id,
@@ -353,6 +359,7 @@ void CdmAdapter::OnLegacySessionError(const char* session_id,
                                       const char* error_message,
                                       uint32_t error_message_size)
 {
+  client_.OnCDMMessage(CdmAdapterClient::kLegacySessionError);
 }
 
 void CdmAdapter::SendPlatformChallenge(const char* service_id,
