@@ -1,3 +1,5 @@
+1.1.3
+- implement MPD::AdaptationSet::SegmentTemplate::SegmentTimeline
 1.1.2
 - Consider the SetVideoResolution on Startup
 - Change resolution logic from "must be smaller" to "smalles diff of area"
