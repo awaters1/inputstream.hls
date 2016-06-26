@@ -566,7 +566,7 @@ start(void *data, const char *el, const char **attr)
           {
             if (strcmp((const char*)*attr, "schemeIdUri") == 0)
             {
-              urnFound = dash->adp_pssh_.first == (const char*)*(attr + 1);
+              urnFound = stricmp(dash->adp_pssh_.first.c_str(), (const char*)*(attr + 1))==0;
               break;
             }
             attr += 2;

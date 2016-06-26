@@ -874,7 +874,8 @@ bool Session::initialize()
     if (dashtree_.adp_pssh_.second == "FILE")
     {
       std::string strkey(dashtree_.adp_pssh_.first.substr(9));
-      while (size_t pos = strkey.find('-') != std::string::npos)
+      size_t pos;
+      while ((pos = strkey.find('-')) != std::string::npos)
         strkey.erase(pos, 1);
       if (strkey.size() != 32)
       {
