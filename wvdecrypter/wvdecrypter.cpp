@@ -359,6 +359,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       else
       {
         Log(SSD_HOST::LL_ERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
+
+#ifdef _DEBUG
+        std::string strDbg = host->GetProfilePath();
+        strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
+        FILE*f = fopen(strDbg.c_str(), "wb");
+        fwrite(response.c_str(), 1, response.size(), f);
+        fclose(f);
+#endif
         goto SSMFAIL;
       }
     }
