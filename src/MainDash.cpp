@@ -956,6 +956,12 @@ void Session::UpdateStream(STREAM &stream)
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hevc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
+  else if (rep->codecs_.find("vp9") == 0)
+    strcpy(stream.info_.m_codecName, "vp9");
+  else if (rep->codecs_.find("opus") == 0)
+    strcpy(stream.info_.m_codecName, "opus");
+  else if (rep->codecs_.find("vorbis") == 0)
+    strcpy(stream.info_.m_codecName, "vorbis");
 
   stream.info_.m_FpsRate = rep->fpsRate_;
   stream.info_.m_FpsScale = rep->fpsScale_;
