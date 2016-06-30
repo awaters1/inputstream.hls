@@ -54,10 +54,14 @@ bool DASHStream::download_segment()
         media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
       else
         media = current_rep_->segtpl_.media;
-
-      std::string::size_type np(media.find("$Number") + 7);
-      if(np == std::string::npos)
-        np = media.find("$Time") + 5;
+      std::string::size_type lenReplace(7);
+      std::string::size_type np(media.find("$Number"));
+      if (np == std::string::npos)
+      {
+        lenReplace = 5;
+        np = media.find("$Time");
+      }
+      np += lenReplace;
 
       std::string::size_type npe(media.find('$', np));
 
@@ -68,7 +72,7 @@ bool DASHStream::download_segment()
         strcpy(fmt, media.substr(np, npe - np).c_str());
 
       sprintf(rangebuf, fmt, static_cast<int>(current_seg_->range_end_));
-      media.replace(np - 7, npe - np + 8, rangebuf);
+      media.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
       strURL = media;
     }
     else //templated initialization segment
