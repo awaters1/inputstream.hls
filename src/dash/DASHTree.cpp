@@ -742,6 +742,9 @@ end(void *data, const char *el)
                   seg.range_begin_ = ~0;
 
                   dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
+                  if(!dash->current_adaptationset_->segment_durations_.empty())
+                    dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
+
                   dash->current_representation_->segments_.reserve(countSegs + 1);
                   if (!dash->current_adaptationset_->segtpl_.initialization.empty())
                   {
