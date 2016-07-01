@@ -679,9 +679,11 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   }
   else
     dashtree_.bandwidth_ = 4000000;
+  xbmc->Log(ADDON::LOG_DEBUG, "Initial bandwidth: %u ", dashtree_.bandwidth_);
 
   int buf;
   xbmc->GetSetting("MAXRESOLUTION", (char*)&buf);
+  xbmc->Log(ADDON::LOG_DEBUG, "MAXRESOLUTION selected: %d ", buf);
   switch (buf)
   {
   case 0:
@@ -703,6 +705,7 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
     height_ = maxheight_;
 
   xbmc->GetSetting("STREAMSELECTION", (char*)&buf);
+  xbmc->Log(ADDON::LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
   manual_streams_ = buf != 0;
 }
 
@@ -1224,6 +1227,8 @@ extern "C" {
 
       stream->stream_.start_stream(0, session->GetWidth(), session->GetHeight());
       const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
+      xbmc->Log(ADDON::LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
+        stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
       stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
       if(rep != stream->stream_.getRepresentation())
       {

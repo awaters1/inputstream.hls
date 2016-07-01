@@ -38,8 +38,9 @@ namespace dash
     void stop(){ stopped_ = true; };
     void clear();
     void info(std::ostream &s);
-
-    void set_bandwidth(uint32_t fixed_bandwidth){ bandwidth_ = fixed_bandwidth; };
+    unsigned int getWidth() const { return width_; };
+    unsigned int getHeight() const { return height_; };
+    unsigned int getBandwidth() const { return bandwidth_; };
 
     unsigned int get_type()const{ return type_; };
 
