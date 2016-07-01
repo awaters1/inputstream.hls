@@ -260,9 +260,10 @@ static uint8_t GetChannels(const char **attr)
   return 0;
 }
 
-
 static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl, bool adp)
 {
+  tpl.duration = tpl.startNumber = tpl.timescale = 0;
+
   for (; *attr;)
   {
     if (strcmp((const char*)*attr, "timescale") == 0)
@@ -731,7 +732,8 @@ end(void *data, const char *el)
             if (dash->current_representation_->segments_.empty())
             {
               if (!dash->current_adaptationset_->segtpl_.media.empty() && dash->overallSeconds_ > 0
-                && dash->current_adaptationset_->segtpl_.timescale > 0 && dash->current_adaptationset_->segtpl_.duration > 0)
+                && dash->current_adaptationset_->segtpl_.timescale > 0 &&
+                (dash->current_adaptationset_->segtpl_.duration > 0 || dash->current_adaptationset_->segment_durations_.size()))
               {
                 unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.empty()? dash->current_adaptationset_->segment_durations_.size() + 1:
                   (unsigned int)(dash->overallSeconds_ / (((double)dash->current_adaptationset_->segtpl_.duration) / dash->current_adaptationset_->segtpl_.timescale)) + 1;
