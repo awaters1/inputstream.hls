@@ -78,7 +78,7 @@ public:
   struct STREAM
   {
     STREAM(dash::DASHTree &t, dash::DASHTree::StreamType s) :stream_(t, s), enabled(false), current_segment_(0), input_(0), reader_(0), input_file_(0) { memset(&info_, 0, sizeof(info_)); };
-    ~STREAM(){ disable(); };
+    ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
     void disable();
 
     bool enabled;

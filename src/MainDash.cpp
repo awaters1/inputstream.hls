@@ -863,6 +863,8 @@ bool Session::initialize()
       }
       stream.info_.m_pID = i | (repId << 16);
       strcpy(stream.info_.m_language, adp->language_.c_str());
+      stream.info_.m_ExtraData = nullptr;
+      stream.info_.m_ExtraSize = 0;
 
       UpdateStream(stream);
 
@@ -893,7 +895,7 @@ bool Session::initialize()
 
       stream->enabled = true;
       stream->stream_.start_stream(0, width_, height_);
-      stream->stream_.select_stream(true);
+      stream->stream_.select_stream(true,false, stream->info_.m_pID>>16);
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
       stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
@@ -940,8 +942,12 @@ void Session::UpdateStream(STREAM &stream)
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
 
-  stream.info_.m_ExtraData = reinterpret_cast<const uint8_t *>(rep->codec_private_data_.data());
-  stream.info_.m_ExtraSize = rep->codec_private_data_.size();
+  if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
+  {
+    stream.info_.m_ExtraData = (const uint8_t*)malloc(stream.info_.m_ExtraSize);
+    memcpy((void*)stream.info_.m_ExtraData, rep->codec_private_data_.data(), stream.info_.m_ExtraSize);
+    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
+  }
 
   // we currently use only the first track!
   std::string::size_type pos = rep->codecs_.find(",");
@@ -1164,9 +1170,9 @@ extern "C" {
 
     if(session)
     {
-        iids.m_streamCount = session->GetStreamCount();
-        for (unsigned int i(0); i < iids.m_streamCount;++i)
-          iids.m_streamIds[i] = i+1;
+        iids.m_streamCount = 0;
+        for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
+            iids.m_streamIds[iids.m_streamCount++] = i;
     } else
         iids.m_streamCount = 0;
     return iids;
@@ -1260,15 +1266,18 @@ extern "C" {
       if (!stream->info_.m_ExtraSize)
       {
         // ExtraData is now available......
-        stream->info_.m_ExtraData = stream->reader_->GetExtraData();
         stream->info_.m_ExtraSize = stream->reader_->GetExtraDataSize();
 
         // Set the session Changed to force new GetStreamInfo call from kodi -> addon
         if (stream->info_.m_ExtraSize)
+        {
+          stream->info_.m_ExtraData = (const uint8_t*)malloc(stream->info_.m_ExtraSize);
+          memcpy((void*)stream->info_.m_ExtraData, stream->reader_->GetExtraData(), stream->info_.m_ExtraSize);
           session->CheckChange(true);
+        }
       }
 
-      if ((pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, streamid))
+      if ((pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, stream->info_.m_pID))
       ||(pts <= 0 && !AP4_SUCCEEDED(stream->reader_->ReadSample())))
         return stream->disable();
 

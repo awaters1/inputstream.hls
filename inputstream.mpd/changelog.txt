@@ -1,3 +1,6 @@
+1.1.5
+- make sure that codec private data remains valid if stream is disabled
+- transport ADP::SegTpl::timescale to REP::SegTpl::timescale to be able to seek_time.
 1.1.4
 - Initialize SegmentTemplate struct members / (re)enable SegmentTimeline'd representations
 - Added debug output regarding stream quality selection

@@ -732,8 +732,8 @@ end(void *data, const char *el)
             if (dash->current_representation_->segments_.empty())
             {
               if (!dash->current_adaptationset_->segtpl_.media.empty() && dash->overallSeconds_ > 0
-                && dash->current_adaptationset_->segtpl_.timescale > 0 &&
-                (dash->current_adaptationset_->segtpl_.duration > 0 || dash->current_adaptationset_->segment_durations_.size()))
+                && dash->current_adaptationset_->segtpl_.timescale > 0
+                && (dash->current_adaptationset_->segtpl_.duration > 0 || dash->current_adaptationset_->segment_durations_.size()))
               {
                 unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.empty()? dash->current_adaptationset_->segment_durations_.size() + 1:
                   (unsigned int)(dash->overallSeconds_ / (((double)dash->current_adaptationset_->segtpl_.duration) / dash->current_adaptationset_->segtpl_.timescale)) + 1;
@@ -744,8 +744,11 @@ end(void *data, const char *el)
                   seg.range_begin_ = ~0;
 
                   dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-                  if(!dash->current_adaptationset_->segment_durations_.empty())
+                  if (!dash->current_adaptationset_->segment_durations_.empty())
+                  {
                     dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
+                    dash->current_representation_->segtpl_.timescale = dash->current_adaptationset_->segtpl_.timescale; // needed for seek_time
+                  }
 
                   dash->current_representation_->segments_.reserve(countSegs + 1);
                   if (!dash->current_adaptationset_->segtpl_.initialization.empty())
