@@ -944,9 +944,9 @@ void Session::UpdateStream(STREAM &stream)
 
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
   {
+    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
     stream.info_.m_ExtraData = (const uint8_t*)malloc(stream.info_.m_ExtraSize);
     memcpy((void*)stream.info_.m_ExtraData, rep->codec_private_data_.data(), stream.info_.m_ExtraSize);
-    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
   }
 
   // we currently use only the first track!
