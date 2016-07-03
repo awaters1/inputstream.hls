@@ -14,6 +14,7 @@
 #include <iostream>
 #include <cstring>
 #include "../oscompat.h"
+#include <math.h>
 
 using namespace dash;
 
