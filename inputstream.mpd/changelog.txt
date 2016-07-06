@@ -1,3 +1,5 @@
+1.1.7
+- Fix selecting stream with min bandwith if all streams above limit (segfault in updatestream)
 1.1.6
 - Better streamselection using score
 - Fix broken decoder private data handling
