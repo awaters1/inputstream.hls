@@ -342,7 +342,9 @@ start(void *data, const char *el, const char **attr)
             if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
             {
               // <S t="3600" d="900000" r="2398"/>
-              unsigned int t(0), d(0), r(1);
+              unsigned int d(0), r(1);
+              static uint64_t t(0);
+
               for (; *attr;)
               {
                 if (strcmp((const char*)*attr, "t") == 0)
@@ -350,10 +352,10 @@ start(void *data, const char *el, const char **attr)
                 else if (strcmp((const char*)*attr, "d") == 0)
                   d = atoi((const char*)*(attr + 1));
                 if (strcmp((const char*)*attr, "r") == 0)
-                  r = atoi((const char*)*(attr + 1));
+                  r = atoi((const char*)*(attr + 1))+1;
                 attr += 2;
               }
-              if (t && d && r)
+              if (d && r)
               {
                 DASHTree::Segment s;
                 if (dash->current_representation_->segments_.empty())
@@ -371,11 +373,12 @@ start(void *data, const char *el, const char **attr)
                 else
                   s.range_end_ = dash->current_representation_->segments_.back().range_end_ + 1;
                 s.range_begin_ = t;
+                
                 for (; r; --r)
                 {
                   dash->current_representation_->segments_.push_back(s);
                   ++s.range_end_;
-                  s.range_begin_ += d;
+                  s.range_begin_ = t += d;
                 }
               }
               else //Failure
@@ -457,7 +460,7 @@ start(void *data, const char *el, const char **attr)
               else if (strcmp((const char*)*attr, "d") == 0)
                 d = atoi((const char*)*(attr + 1));
               if (strcmp((const char*)*attr, "r") == 0)
-                r = atoi((const char*)*(attr + 1));
+                r = atoi((const char*)*(attr + 1))+1;
               attr += 2;
             }
             if (d && r)
@@ -735,7 +738,7 @@ end(void *data, const char *el)
                 && dash->current_adaptationset_->segtpl_.timescale > 0
                 && (dash->current_adaptationset_->segtpl_.duration > 0 || dash->current_adaptationset_->segment_durations_.size()))
               {
-                unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.empty()? dash->current_adaptationset_->segment_durations_.size() + 1:
+                unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.empty()? dash->current_adaptationset_->segment_durations_.size():
                   (unsigned int)(dash->overallSeconds_ / (((double)dash->current_adaptationset_->segtpl_.duration) / dash->current_adaptationset_->segtpl_.timescale)) + 1;
 
                 if (countSegs < 65536)
@@ -772,7 +775,7 @@ end(void *data, const char *el)
                   for (;countSegs;--countSegs)
                   {
                     dash->current_representation_->segments_.push_back(seg);
-                    seg.range_end_ += timeBased ? *sdb : 1;
+                    seg.range_end_ += timeBased ? *(sdb++) : 1;
                   }
                   return;
                 }
