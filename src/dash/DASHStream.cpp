@@ -188,20 +188,20 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
 
   uint32_t choosen_seg(~0);
   
-  if (!current_adp_->segment_durations_.empty())
+  if (current_rep_->flags_ & DASHTree::Representation::TIMELINE)
+  {
+    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->segtpl_.timescale);
+    choosen_seg = (current_rep_->flags_ & DASHTree::Representation::INITIALIZATION) != 0 ? 1 : 0; //Skip initialization
+    while (choosen_seg < current_rep_->segments_.size() && sec_in_ts > current_rep_->segments_[choosen_seg].range_begin_)
+      ++choosen_seg;
+  }
+  else if (!current_adp_->segment_durations_.empty())
   {
     uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_adp_->timescale_);
     choosen_seg = 0;
     while (choosen_seg < current_adp_->segment_durations_.size() && sec_in_ts > current_adp_->segment_durations_[choosen_seg])
       sec_in_ts -= current_adp_->segment_durations_[choosen_seg++];
   } 
-  else if (current_rep_->flags_ & DASHTree::Representation::TIMELINE)
-  {
-    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->segtpl_.timescale);
-    choosen_seg = (current_rep_->flags_ & DASHTree::Representation::INITIALIZATION)!=0 ? 1 : 0; //Skip initialization
-    while (choosen_seg < current_rep_->segments_.size() && sec_in_ts > current_rep_->segments_[choosen_seg].range_begin_)
-      ++choosen_seg;
-  }
   else if (current_rep_->duration_ > 0 && current_rep_->timescale_ > 0)
   {
     uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
