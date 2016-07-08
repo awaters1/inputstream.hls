@@ -1,3 +1,5 @@
+1.1.8
+- Fix seeking for SegmentTimeline in adaptationset (credits to frankr612)
 1.1.7
 - Fix selecting stream with min bandwith if all streams above limit (segfault in updatestream)
 - Fix counting of SegmentTimeLine segments
