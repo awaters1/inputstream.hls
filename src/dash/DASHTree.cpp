@@ -505,6 +505,7 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
           ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_, true);
+          dash->current_adaptationset_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
         }
         else if (strcmp(el, "Representation") == 0)
@@ -747,11 +748,6 @@ end(void *data, const char *el)
                   seg.range_begin_ = ~0;
 
                   dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-                  if (!dash->current_adaptationset_->segment_durations_.empty())
-                  {
-                    dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
-                    dash->current_representation_->segtpl_.timescale = dash->current_adaptationset_->segtpl_.timescale; // needed for seek_time
-                  }
 
                   dash->current_representation_->segments_.reserve(countSegs + 1);
                   if (!dash->current_adaptationset_->segtpl_.initialization.empty())
