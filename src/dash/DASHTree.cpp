@@ -437,6 +437,8 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "SegmentTemplate") == 0)
           {
+            dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
+
             ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->current_representation_->segtpl_, false);
             dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
             if (!dash->current_representation_->segtpl_.initialization.empty())

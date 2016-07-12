@@ -1,4 +1,4 @@
-# inputstream.mpd (1.1.2)
+# inputstream.mpd (1.1.9)
 
 This is a dash mpd file addon for kodi's new InputStream Interface.
 

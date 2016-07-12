@@ -1,3 +1,5 @@
+1.1.9
+- copy adp::segmenttemplate before parsing rep::segmenttemplate
 1.1.8
 - Fix seeking for SegmentTimeline in adaptationset (credits to frankr612)
 1.1.7
