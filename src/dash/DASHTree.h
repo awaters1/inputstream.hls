@@ -40,6 +40,7 @@ namespace dash
 
     struct SegmentTemplate
     {
+      SegmentTemplate() :duration(0), startNumber(0), timescale(0) {};
       std::string initialization;
       std::string media;
       unsigned int startNumber;
