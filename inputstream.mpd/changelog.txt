@@ -1,3 +1,6 @@
+1.2.0
+- pass default keyid (seig atom) from stream to decrypters (version bump of ssd interface!!!!)
+- first step of live stream support (still need some kodi changes to pass timeshift window)
 1.1.9
 - copy adp::segmenttemplate before parsing rep::segmenttemplate
 1.1.8

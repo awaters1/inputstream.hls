@@ -121,8 +121,17 @@ bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp,
 
 bool DASHStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
 {
+  if (!~seg_offset && tree_.live_start_ && current_rep_->segments_.data.size()>1)
+  {
+    //go at least 12 secs back
+    std::int32_t pos(static_cast<int32_t>(current_rep_->segments_.data.size() - 1));
+    uint64_t duration(current_rep_->get_segment(pos)->startPTS_ - current_rep_->get_segment(pos - 1)->startPTS_);
+    pos -= 12 * current_rep_->timescale_ / duration;
+    current_seg_ = current_rep_->get_segment(pos < 0 ? 0: pos);
+  }
+  else
+    current_seg_ = current_rep_->get_segment(~seg_offset? seg_offset:0);
   segment_buffer_.clear();
-  current_seg_ = current_rep_->get_segment(seg_offset);
   if (!current_seg_ || !current_rep_->get_next_segment(current_seg_))
   {
     absolute_position_ = ~0;
@@ -148,7 +157,10 @@ uint32_t DASHStream::read(void* buffer, uint32_t  bytesToRead)
   {
     current_seg_ = current_rep_->get_next_segment(current_seg_);
     if (!download_segment() || segment_buffer_.empty())
+    {
+      stopped_ = true;
       return 0;
+    }
   }
   if (bytesToRead)
   {
@@ -188,27 +200,15 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
 
   uint32_t choosen_seg(~0);
   
-  if (current_rep_->flags_ & DASHTree::Representation::TIMELINE)
-  {
-    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->segtpl_.timescale);
-    choosen_seg = (current_rep_->flags_ & DASHTree::Representation::INITIALIZATION) != 0 ? 1 : 0; //Skip initialization
-    while (choosen_seg < current_rep_->segments_.size() && sec_in_ts > current_rep_->segments_[choosen_seg].range_begin_)
-      ++choosen_seg;
-  }
-  else if (!current_adp_->segment_durations_.empty())
-  {
-    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_adp_->timescale_);
-    choosen_seg = 0;
-    while (choosen_seg < current_adp_->segment_durations_.size() && sec_in_ts > current_adp_->segment_durations_[choosen_seg])
-      sec_in_ts -= current_adp_->segment_durations_[choosen_seg++];
-  } 
-  else if (current_rep_->duration_ > 0 && current_rep_->timescale_ > 0)
-  {
-    uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
-    choosen_seg = static_cast<uint32_t>(sec_in_ts / current_rep_->duration_);
-  }
+  uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
+  choosen_seg = 0; //Skip initialization
+  while (choosen_seg < current_rep_->segments_.data.size() && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
+    ++choosen_seg;
+  if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
+    --choosen_seg;
+
   const DASHTree::Segment* old_seg(current_seg_);
-  if ((current_seg_ = current_rep_->get_segment(choosen_seg, true)))
+  if ((current_seg_ = current_rep_->get_segment(choosen_seg)))
   {
     needReset = true;
     if (current_seg_ != old_seg)
@@ -285,11 +285,11 @@ bool DASHStream::select_stream(bool force, bool justInit, unsigned int repId)
   }
 
   /* lets download the initialization */
-  if ((current_seg_ = current_rep_->get_initialization()))
-    return download_segment();
+  if ((current_seg_ = current_rep_->get_initialization()) && !download_segment())
+    return false;
 
-  stopped_ = true;
-  return false;
+  current_seg_ = current_rep_->get_segment(segid - 1);
+  return true;
 }
 
 void DASHStream::info(std::ostream &s)

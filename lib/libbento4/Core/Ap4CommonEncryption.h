@@ -518,6 +518,7 @@ public:
     // methods
 		AP4_CencSingleSampleDecrypter(AP4_StreamCipher* cipher) : m_Cipher(cipher), m_FullBlocksOnly(false), m_ParentIsOwner(true){}
 		virtual ~AP4_CencSingleSampleDecrypter();
+    virtual AP4_Result SetKeyId(const AP4_UI16 keyid_size, const AP4_UI08* keyid) { return AP4_ERROR_NOT_SUPPORTED; };
     virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out,
                                          
@@ -532,7 +533,7 @@ public:
                                          
                                          // array of <subsample_count> integers. NULL if subsample_count is 0
                                          const AP4_UI32* bytes_of_encrypted_data);
-		bool GetParentIsOwner()const { return m_ParentIsOwner; };
+    bool GetParentIsOwner()const { return m_ParentIsOwner; };
 		void SetParentIsOwner(bool parent_is_owner){ m_ParentIsOwner = parent_is_owner; };
 
 private:
@@ -594,9 +595,8 @@ public:
     virtual ~AP4_CencSampleDecrypter();
     virtual AP4_Result SetSampleIndex(AP4_Ordinal sample_index);
     virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
-                                         AP4_DataBuffer& data_out,
-                                         const AP4_UI08* iv);
-                                             
+      AP4_DataBuffer& data_out,
+      const AP4_UI08* iv);
 protected:
     AP4_CencSingleSampleDecrypter* m_SingleSampleDecrypter;
     AP4_CencSampleInfoTable*       m_SampleInfoTable;

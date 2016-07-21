@@ -9,7 +9,7 @@ public:
     OPTION_PROTOCOL,
     OPTION_HEADER
   };
-  static const uint32_t version = 2;
+  static const uint32_t version = 3;
 
   virtual const char *GetProfilePath() const = 0;
   virtual void* CURLCreate(const char* strURL) = 0;

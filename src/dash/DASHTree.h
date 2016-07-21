@@ -18,6 +18,48 @@
 
 namespace dash
 {
+  template <typename T>
+  struct SPINCACHE
+  {
+    SPINCACHE() :basePos(0) {};
+
+    size_t basePos;
+
+    const T *operator[](size_t pos) const
+    {
+      if (!~pos)
+        return 0;
+      size_t realPos = basePos + pos;
+      if (realPos >= data.size())
+      {
+        realPos -= data.size();
+        if (realPos == basePos)
+          return 0;
+      }
+      return &data[realPos];
+    };
+
+    size_t pos(const T* elem) const
+    {
+      size_t realPos = elem - &data[0];
+      if (realPos < basePos)
+        realPos += data.size() - basePos;
+      else
+        realPos -= basePos;
+      return realPos;
+    };
+
+    void insert(const T &elem)
+    {
+      data[basePos] = elem;
+      ++basePos;
+      if (basePos == data.size())
+        basePos = 0;
+    }
+
+    std::vector<T> data;
+  };
+
   class DASHTree
   {
   public:
@@ -36,15 +78,17 @@ namespace dash
       void SetRange(const char *range);
       uint64_t range_begin_;
       uint64_t range_end_;
+      uint64_t startPTS_;
     };
 
     struct SegmentTemplate
     {
-      SegmentTemplate() :duration(0), startNumber(0), timescale(0) {};
+      SegmentTemplate() :duration(0), startNumber(0), timescale(0), presentationTimeOffset(0){};
       std::string initialization;
       std::string media;
       unsigned int startNumber;
       unsigned int timescale, duration;
+      double presentationTimeOffset;
     };
 
     struct Representation
@@ -73,41 +117,45 @@ namespace dash
       SegmentTemplate segtpl_;
       //SegmentList
       uint32_t duration_, timescale_;
-      std::vector<Segment> segments_;
-      const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &segments_[0] : 0; };
+      Segment initialization_;
+      SPINCACHE<Segment> segments_;
+      const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
       const Segment *get_next_segment(const Segment *seg)const
       {
-        uint32_t curpos = static_cast<uint32_t>(seg - &segments_[0] + 1);
-        if (curpos < segments_.size())
-          return &segments_[0] + curpos;
-        return 0;
+        if (!seg || seg == &initialization_)
+          return segments_[0];
+        else
+          return segments_[segments_.pos(seg) + 1];
       };
-      const Segment *get_segment(uint32_t pos, bool respectInit = false)const
+
+      const Segment *get_segment(uint32_t pos)const
       {
-        if (respectInit && (flags_ & INITIALIZATION))
-        {
-          if (~pos) ++pos; else return 0;
-        }
-        return pos < segments_.size() ? &segments_[pos] : 0;
+        return segments_[pos];
       };
+
       const uint32_t get_segment_pos(const Segment *segment)const
       {
-        return segment ? segment - &segments_[0] : 0;
+        return segments_.pos(segment);
       }
     }*current_representation_;
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0) { language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0){ language_ = "unk"; };
       ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
+      uint64_t startPTS_;
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
       std::string codecs_;
       std::vector<Representation*> repesentations_;
-      std::vector<uint32_t> segment_durations_;
+      SPINCACHE<uint32_t> segment_durations_;
+      const uint32_t get_segment_duration(uint32_t pos)const
+      {
+        return *segment_durations_[pos];
+      };
       SegmentTemplate segtpl_;
     }*current_adaptationset_;
 
@@ -127,6 +175,8 @@ namespace dash
     uint32_t currentNode_;
     uint32_t segcount_;
     double overallSeconds_;
+    uint64_t stream_start_, live_start_, publish_time_, base_time_;
+    double minPresentationOffset;
 
     uint32_t bandwidth_;
 
@@ -170,6 +220,7 @@ namespace dash
     double get_download_speed() const { return download_speed_; };
     double get_average_download_speed() const { return average_download_speed_; };
     void set_download_speed(double speed);
+    void SetFragmentDuration(const AdaptationSet* adp, size_t pos, uint32_t fragmentDuration);
 
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };

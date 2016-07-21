@@ -1596,8 +1596,9 @@ AP4_CencSampleDecrypter::SetSampleIndex(AP4_Ordinal sample_index)
 +---------------------------------------------------------------------*/
 AP4_Result 
 AP4_CencSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
-                                           AP4_DataBuffer& data_out,
-                                           const AP4_UI08* iv)
+  AP4_DataBuffer& data_out,
+  const AP4_UI08* iv)
+
 {
     // increment the sample cursor
     unsigned int sample_cursor = m_SampleCursor++;
@@ -1622,7 +1623,13 @@ AP4_CencSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
     }
     
     // decrypt the sample
-    return m_SingleSampleDecrypter->DecryptSampleData(data_in, data_out, iv_block, subsample_count, bytes_of_cleartext_data, bytes_of_encrypted_data);
+    return m_SingleSampleDecrypter->DecryptSampleData(
+      data_in,
+      data_out,
+      iv_block,
+      subsample_count,
+      bytes_of_cleartext_data,
+      bytes_of_encrypted_data);
 }
 
 /*----------------------------------------------------------------------

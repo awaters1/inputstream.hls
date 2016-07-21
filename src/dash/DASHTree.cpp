@@ -11,6 +11,7 @@
 
 #include <string>
 #include <cstring>
+#include <time.h>
 
 #include "DASHTree.h"
 #include "../oscompat.h"
@@ -225,6 +226,10 @@ DASHTree::DASHTree()
   , parser_(0)
   , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
   , current_period_(0)
+  , live_start_(0)
+  , stream_start_(0)
+  , base_time_(0)
+  , publish_time_(0)
 {
 }
 
@@ -262,6 +267,7 @@ static uint8_t GetChannels(const char **attr)
 
 static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl, bool adp)
 {
+  uint64_t pto(0);
   for (; *attr;)
   {
     if (strcmp((const char*)*attr, "timescale") == 0)
@@ -274,14 +280,36 @@ static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTre
       tpl.startNumber = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "initialization") == 0)
       tpl.initialization = (const char*)*(attr + 1);
+    else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
+      pto = atoll((const char*)*(attr + 1));
     attr += 2;
   }
+  tpl.presentationTimeOffset = tpl.timescale ? (double)pto / tpl.timescale : 0;
+
   //We only support templates with id and number so far.......
   if ((adp && tpl.media.find("$RepresentationID$") == std::string::npos)
   || (tpl.media.find("$Number") == std::string::npos && tpl.media.find("$Time") == std::string::npos))
     tpl.media.clear();
   else
     tpl.media = baseURL + tpl.media;
+}
+
+static time_t getTime(const char* timeStr)
+{
+  int year, mon, day, hour, minu, sec;
+  if (sscanf(timeStr, "%d-%d-%dT%d:%d:%d", &year, &mon, &day, &hour, &minu, &sec) == 6)
+  {
+    struct tm tmd;
+    memset(&tmd, 0, sizeof(tmd));
+    tmd.tm_year = year - 1900;
+    tmd.tm_mon = mon - 1;
+    tmd.tm_mday = day;
+    tmd.tm_hour = hour;
+    tmd.tm_min = minu;
+    tmd.tm_sec = sec;
+    return mktime(&tmd);
+  }
+  return ~0;
 }
 
 /*----------------------------------------------------------------------
@@ -317,6 +345,7 @@ start(void *data, const char *el, const char **attr)
                 }
                 attr += 2;
               }
+              dash->current_representation_->segments_.data.push_back(seg);
             }
             else if (strcmp(el, "Initialization") == 0)
             {
@@ -330,10 +359,10 @@ start(void *data, const char *el, const char **attr)
                 attr += 2;
               }
               dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
+              dash->current_representation_->initialization_ = seg;
             }
             else
               return;
-            dash->current_representation_->segments_.push_back(seg);
           }
           else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
           {
@@ -346,7 +375,7 @@ start(void *data, const char *el, const char **attr)
               for (; *attr;)
               {
                 if (strcmp((const char*)*attr, "t") == 0)
-                  t = atoi((const char*)*(attr + 1));
+                  t = atoll((const char*)*(attr + 1));
                 else if (strcmp((const char*)*attr, "d") == 0)
                   d = atoi((const char*)*(attr + 1));
                 if (strcmp((const char*)*attr, "r") == 0)
@@ -356,27 +385,29 @@ start(void *data, const char *el, const char **attr)
               if (d && r)
               {
                 DASHTree::Segment s;
-                if (dash->current_representation_->segments_.empty())
+                if (dash->current_representation_->segments_.data.empty())
                 {
                   if (dash->current_representation_->segtpl_.duration && dash->current_representation_->segtpl_.timescale)
-                    dash->current_representation_->segments_.reserve((unsigned int)(dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
+                    dash->current_representation_->segments_.data.reserve((unsigned int)(dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
 
                   if (dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION)
                   {
                     s.range_begin_ = s.range_end_ = ~0;
-                    dash->current_representation_->segments_.push_back(s);
+                    dash->current_representation_->initialization_ = s;
                   }
                   s.range_end_ = dash->current_representation_->segtpl_.startNumber;
                 }
                 else
-                  s.range_end_ = dash->current_representation_->segments_.back().range_end_ + 1;
-                s.range_begin_ = t;
+                  s.range_end_ = dash->current_representation_->segments_.data.back().range_end_ + 1;
+                s.range_begin_ = s.startPTS_ = t;
+                s.startPTS_ -= (dash->base_time_)*dash->current_representation_->segtpl_.timescale;
                 
                 for (; r; --r)
                 {
-                  dash->current_representation_->segments_.push_back(s);
+                  dash->current_representation_->segments_.data.push_back(s);
                   ++s.range_end_;
-                  s.range_begin_ = t += d;
+                  s.range_begin_ = (t += d);
+                  s.startPTS_ += d;
                 }
               }
               else //Failure
@@ -413,7 +444,7 @@ start(void *data, const char *el, const char **attr)
             }
             if (dash->current_representation_->timescale_)
             {
-              dash->current_representation_->segments_.reserve(dash->estimate_segcount(
+              dash->current_representation_->segments_.data.reserve(dash->estimate_segcount(
                 dash->current_representation_->duration_,
                 dash->current_representation_->timescale_));
               dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTLIST;
@@ -443,6 +474,7 @@ start(void *data, const char *el, const char **attr)
             {
               dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
               dash->current_representation_->url_ += dash->current_representation_->segtpl_.initialization;
+              dash->current_representation_->timescale_ = dash->current_representation_->segtpl_.timescale;
             }
             dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
@@ -456,17 +488,19 @@ start(void *data, const char *el, const char **attr)
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "t") == 0)
-                t = atoi((const char*)*(attr + 1));
+                t = atoll((const char*)*(attr + 1));
               else if (strcmp((const char*)*attr, "d") == 0)
                 d = atoi((const char*)*(attr + 1));
               if (strcmp((const char*)*attr, "r") == 0)
                 r = atoi((const char*)*(attr + 1))+1;
               attr += 2;
             }
+            if(dash->current_adaptationset_->segment_durations_.data.empty())
+              dash->current_adaptationset_->startPTS_ = t-(dash->base_time_)*dash->current_adaptationset_->timescale_;
             if (d && r)
             {
               for (; r; --r)
-                dash->current_adaptationset_->segment_durations_.push_back(d);
+                dash->current_adaptationset_->segment_durations_.data.push_back(d);
             }
           }
           else if (strcmp(el, "SegmentTimeline") == 0)
@@ -477,7 +511,7 @@ start(void *data, const char *el, const char **attr)
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
         {
           if (strcmp(el, "S") == 0 && *(const char*)*attr == 'd')
-            dash->current_adaptationset_->segment_durations_.push_back(atoi((const char*)*(attr + 1)));
+            dash->current_adaptationset_->segment_durations_.data.push_back(atoi((const char*)*(attr + 1)));
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
         {
@@ -550,7 +584,7 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "SegmentDurations") == 0)
         {
-          dash->current_adaptationset_->segment_durations_.reserve(dash->segcount_);
+          dash->current_adaptationset_->segment_durations_.data.reserve(dash->segcount_);
           for (; *attr;)
           {
             if (strcmp((const char*)*attr, "timescale") == 0)
@@ -646,8 +680,14 @@ start(void *data, const char *el, const char **attr)
         mpt = (const char*)*(attr + 1);
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
         tsbd = (const char*)*(attr + 1);
+      else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
+        dash->live_start_ = getTime((const char*)*(attr + 1));
+      else if (strcmp((const char*)*attr, "publishTime") == 0)
+        dash->publish_time_ = getTime((const char*)*(attr + 1));
       attr += 2;
     }
+    dash->stream_start_ = time(0);
+
     if (!mpt) mpt = tsbd;
 
     if (mpt && *mpt++ == 'P' && *mpt++ == 'T')
@@ -666,6 +706,10 @@ start(void *data, const char *el, const char **attr)
       if (next)
         dash->overallSeconds_ += atof(mpt);
     }
+    if (dash->publish_time_ && dash->live_start_ && dash->publish_time_ - dash->live_start_ > dash->overallSeconds_)
+      dash->base_time_ = dash->publish_time_ - dash->live_start_ - dash->overallSeconds_;
+    dash->minPresentationOffset = DBL_MAX;
+
     dash->currentNode_ |= DASHTree::MPDNODE_MPD;
   }
 }
@@ -691,7 +735,7 @@ end(void *data, const char *el)
 
   if (dash->currentNode_ & DASHTree::MPDNODE_MPD)
   {
-    if (dash->currentNode_ & DASHTree::MPDNODE_MPD)
+    if (dash->currentNode_ & DASHTree::MPDNODE_PERIOD)
     {
       if (dash->currentNode_ & DASHTree::MPDNODE_ADAPTIONSET)
       {
@@ -718,7 +762,7 @@ end(void *data, const char *el)
             {
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTLIST;
               if (!dash->segcount_)
-                dash->segcount_ = dash->current_representation_->segments_.size();
+                dash->segcount_ = dash->current_representation_->segments_.data.size();
             }
           }
           else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
@@ -729,20 +773,25 @@ end(void *data, const char *el)
                 dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTIMELINE;
             }
             else if (strcmp(el, "SegmentTemplate") == 0)
+            {
+              if (dash->current_representation_->segtpl_.presentationTimeOffset < dash->minPresentationOffset)
+                dash->minPresentationOffset = dash->current_representation_->segtpl_.presentationTimeOffset;
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
+            }
           }
           else if (strcmp(el, "Representation") == 0)
           {
             dash->currentNode_ &= ~DASHTree::MPDNODE_REPRESENTATION;
-            if (dash->current_representation_->segments_.empty())
+
+            if (dash->current_representation_->segments_.data.empty())
             {
               bool isSegmentTpl(!dash->current_representation_->segtpl_.media.empty());
               DASHTree::SegmentTemplate &tpl(isSegmentTpl ? dash->current_representation_->segtpl_ : dash->current_adaptationset_->segtpl_);
 
               if (!tpl.media.empty() && dash->overallSeconds_ > 0
-                && tpl.timescale > 0 && (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.size()))
+                && tpl.timescale > 0 && (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.data.size()))
               {
-                unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.empty()? dash->current_adaptationset_->segment_durations_.size():
+                unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.data.empty()? dash->current_adaptationset_->segment_durations_.data.size():
                   (unsigned int)(dash->overallSeconds_ / (((double)tpl.duration) / tpl.timescale)) + 1;
 
                 if (countSegs < 65536)
@@ -752,7 +801,7 @@ end(void *data, const char *el)
 
                   dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
 
-                  dash->current_representation_->segments_.reserve(countSegs + 1);
+                  dash->current_representation_->segments_.data.reserve(countSegs);
                   if (!tpl.initialization.empty())
                   {
                     seg.range_end_ = ~0;
@@ -763,18 +812,23 @@ end(void *data, const char *el)
                     if (repPos != std::string::npos)
                       dash->current_representation_->url_.replace(repPos, 18, dash->current_representation_->id);
 
-                    dash->current_representation_->segments_.push_back(seg);
+                    dash->current_representation_->initialization_ = seg;
                     dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
                   }
 
-                  std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.begin()),
-                    sde(dash->current_adaptationset_->segment_durations_.end());
+                  std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.data.begin()),
+                    sde(dash->current_adaptationset_->segment_durations_.data.end());
                   bool timeBased = sdb!=sde && tpl.media.find("$Time") != std::string::npos;
                   seg.range_end_ = timeBased ? 0 : tpl.startNumber;
+                  seg.startPTS_ = dash->current_adaptationset_->startPTS_;
+
+                  if (!timeBased && dash->live_start_ && !dash->publish_time_ && dash->stream_start_ - dash->live_start_ > dash->overallSeconds_) //we need to adjust the start-segment
+                    seg.range_end_ += ((dash->stream_start_ - dash->live_start_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
 
                   for (;countSegs;--countSegs)
                   {
-                    dash->current_representation_->segments_.push_back(seg);
+                    dash->current_representation_->segments_.data.push_back(seg);
+                    seg.startPTS_ += (sdb != sde) ? *sdb : tpl.duration;
                     seg.range_end_ += timeBased ? *(sdb++) : 1;
                   }
                   return;
@@ -823,7 +877,11 @@ end(void *data, const char *el)
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTIMELINE;
           }
           else if (strcmp(el, "SegmentTemplate") == 0)
+          {
+            if (dash->current_adaptationset_->segtpl_.presentationTimeOffset < dash->minPresentationOffset)
+              dash->minPresentationOffset = dash->current_adaptationset_->segtpl_.presentationTimeOffset;
             dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
+          }
         }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
@@ -839,7 +897,7 @@ end(void *data, const char *el)
           {
             dash->pssh_ = dash->adp_pssh_;
             
-            if (dash->current_adaptationset_->segment_durations_.empty()
+            if (dash->current_adaptationset_->segment_durations_.data.empty()
               && !dash->current_adaptationset_->segtpl_.media.empty())
             {
               for (std::vector<DASHTree::Representation*>::iterator 
@@ -850,6 +908,25 @@ end(void *data, const char *el)
                 {
                   (*b)->duration_ = dash->current_adaptationset_->segtpl_.duration;
                   (*b)->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
+                }
+              }
+            }
+            else if (!dash->current_adaptationset_->segment_durations_.data.empty())
+            //If representation are not timelined, we have to adjust startPTS_ in rep::segments
+            {
+              for (std::vector<DASHTree::Representation*>::iterator
+                b(dash->current_adaptationset_->repesentations_.begin()),
+                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+              {
+                if ((*b)->flags_ & DASHTree::Representation::TIMELINE)
+                  continue;
+                std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.data.begin()),
+                  sde(dash->current_adaptationset_->segment_durations_.data.end());
+                uint64_t spts(0);
+                for (std::vector<DASHTree::Segment>::iterator sb((*b)->segments_.data.begin()), se((*b)->segments_.data.end()); sb != se && sdb != sde; ++sb, ++sdb)
+                {
+                  sb->startPTS_ = spts;
+                  spts += *sdb;
                 }
               }
             }
@@ -942,3 +1019,21 @@ void DASHTree::set_download_speed(double speed)
   else
     average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
 };
+
+void DASHTree::SetFragmentDuration(const AdaptationSet* adp, size_t pos, uint32_t fragmentDuration)
+{
+  // Check if its the last frame we watch
+  if (live_start_ && pos == adp->segment_durations_.data.size() - 1)
+  {
+    //Get a modifiable adaptationset
+    AdaptationSet *adpm(static_cast<AdaptationSet *>((void*)adp));
+
+    adpm->segment_durations_.insert(fragmentDuration);
+    //Get segment currently played
+    Segment seg(*(adpm->repesentations_.front()->segments_[pos]));
+    seg.range_end_ += fragmentDuration;
+
+    for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
+      (*b)->segments_.insert(seg);
+  }
+}

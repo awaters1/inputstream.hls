@@ -53,6 +53,8 @@ namespace dash
     DASHTree::Representation const *getRepresentation(){ return current_rep_; };
     double get_download_speed() const { return tree_.get_download_speed(); };
     void set_download_speed(double speed) { tree_.set_download_speed(speed); };
+    size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
+    uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
   protected:
     virtual bool download(const char* url, const char* rangeHeader){ return false; };
     virtual bool parseIndexRange() { return false; };

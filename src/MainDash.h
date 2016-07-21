@@ -67,7 +67,14 @@ protected:
   virtual bool parseIndexRange() override;
 };
 
-class Session
+class FragmentObserver
+{
+public:
+  virtual void BeginFragment(AP4_UI32 streamId) = 0;
+  virtual void EndFragment(AP4_UI32 streamId) = 0;
+};
+
+class Session: public FragmentObserver
 {
 public:
   Session(const char *strURL, const char *strLicType, const char* strLicKey, const char* profile_path);
@@ -97,11 +104,16 @@ public:
   std::uint16_t GetWidth()const { return width_; };
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
+  double GetPresentationTimeOffset() { return dashtree_.minPresentationOffset < DBL_MAX? dashtree_.minPresentationOffset:0; };
   double GetTotalTime()const { return dashtree_.overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w < maxwidth_ ? w : maxwidth_; height_ = h < maxheight_ ? h : maxheight_;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
+
+  //Observer Section
+  void BeginFragment(AP4_UI32 streamId) override;
+  void EndFragment(AP4_UI32 streamId) override;
 
 protected:
   void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);
