@@ -110,6 +110,7 @@ namespace dash
       static const unsigned int TEMPLATE = 2;
       static const unsigned int TIMELINE = 4;
       static const unsigned int INITIALIZATION = 8;
+      static const unsigned int TIMETEMPLATE = 16;
       uint32_t flags_;
 
       uint32_t indexRangeMin_, indexRangeMax_;
@@ -220,7 +221,7 @@ namespace dash
     double get_download_speed() const { return download_speed_; };
     double get_average_download_speed() const { return average_download_speed_; };
     void set_download_speed(double speed);
-    void SetFragmentDuration(const AdaptationSet* adp, size_t pos, uint32_t fragmentDuration);
+    void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration);
 
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };

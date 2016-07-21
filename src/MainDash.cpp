@@ -1060,7 +1060,7 @@ void Session::BeginFragment(AP4_UI32 streamId)
 void Session::EndFragment(AP4_UI32 streamId)
 {
   STREAM *s(streams_[streamId - 1]);
-  dashtree_.SetFragmentDuration(s->stream_.getAdaptationSet(), s->stream_.getSegmentPos(), s->reader_->GetFragmentDuration());
+  dashtree_.SetFragmentDuration(s->stream_.getAdaptationSet(), s->stream_.getRepresentation(), s->stream_.getSegmentPos(), s->reader_->GetFragmentDuration());
 }
 
 /***************************  Interface *********************************/
@@ -1224,8 +1224,8 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = true;
-    caps.m_supportsPause = true;
+    caps.m_supportsSeek = session && !session->IsLive();
+    caps.m_supportsPause = caps.m_supportsSeek;
     caps.m_supportsEnableAtPTS = true;
     return caps;
   }
@@ -1448,7 +1448,7 @@ extern "C" {
 
   bool CanSeekStream(void)
   {
-    return true;
+    return session && !session->IsLive();
   }
 
   bool PosTime(int)

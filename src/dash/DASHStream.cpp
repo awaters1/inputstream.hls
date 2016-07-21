@@ -204,6 +204,10 @@ bool DASHStream::seek_time(double seek_seconds, double current_seconds, bool &ne
   choosen_seg = 0; //Skip initialization
   while (choosen_seg < current_rep_->segments_.data.size() && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
     ++choosen_seg;
+
+  if (choosen_seg == current_rep_->segments_.data.size())
+    return false;
+
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
 

@@ -111,6 +111,7 @@ public:
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w < maxwidth_ ? w : maxwidth_; height_ = h < maxheight_ ? h : maxheight_;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
+  bool IsLive() const { return dashtree_.live_start_ != 0; };
 
   //Observer Section
   void BeginFragment(AP4_UI32 streamId) override;

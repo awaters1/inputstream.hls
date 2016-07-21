@@ -821,6 +821,9 @@ end(void *data, const char *el)
                   std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.data.begin()),
                     sde(dash->current_adaptationset_->segment_durations_.data.end());
                   bool timeBased = sdb!=sde && tpl.media.find("$Time") != std::string::npos;
+                  if(timeBased)
+                    dash->current_representation_->flags_ |= DASHTree::Representation::TIMETEMPLATE;
+
                   seg.range_end_ = timeBased ? 0 : tpl.startNumber;
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_;
 
@@ -1022,23 +1025,32 @@ void DASHTree::set_download_speed(double speed)
     average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
 };
 
-void DASHTree::SetFragmentDuration(const AdaptationSet* adp, size_t pos, uint32_t fragmentDuration)
+void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration)
 {
+  if (!live_start_ || !(rep->flags_ & DASHTree::Representation::TIMELINE))
+    return;
+
+  //Get a modifiable adaptationset
+  AdaptationSet *adpm(static_cast<AdaptationSet *>((void*)adp));
+
   // Check if its the last frame we watch
-  if (live_start_ && pos == adp->segment_durations_.data.size() - 1)
+  if (adp->segment_durations_.data.size())
   {
-    //Get a modifiable adaptationset
-    AdaptationSet *adpm(static_cast<AdaptationSet *>((void*)adp));
-
-    adpm->segment_durations_.insert(fragmentDuration);
-    //Get segment currently played
-    Representation *rep(adpm->repesentations_.front());
-    Segment seg(*(rep->segments_[pos]));
-
-    seg.range_begin_ += (rep->flags_ & DASHTree::Representation::TIMELINE)?fragmentDuration:1;
-    seg.startPTS_ += fragmentDuration;
-
-    for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
-      (*b)->segments_.insert(seg);
+    if (pos == adp->segment_durations_.data.size() - 1)
+    {
+      adpm->segment_durations_.insert(fragmentDuration);
+    }
+    else
+      return;
   }
+  else if (pos != rep->segments_.data.size() - 1)
+    return;
+
+  Segment seg(*(rep->segments_[pos]));
+  seg.range_begin_ += fragmentDuration;
+  seg.range_end_ += (rep->flags_ & DASHTree::Representation::TIMETEMPLATE)?fragmentDuration:1;
+  seg.startPTS_ += fragmentDuration;
+
+  for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
+    (*b)->segments_.insert(seg);
 }

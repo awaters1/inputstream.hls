@@ -171,6 +171,7 @@ AP4_FragmentSampleTable::AddTrun(AP4_TrunAtom*   trun,
 
     // parse all trun entries to setup the samples
     AP4_UI64 dts = dts_origin;
+    m_Duration = 0;
     for (unsigned int i=0; i<trun->GetEntries().ItemCount(); i++) {
         const AP4_TrunAtom::Entry& entry  = trun->GetEntries()[i];
         AP4_Sample&                sample = m_Samples[start+i];
