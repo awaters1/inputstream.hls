@@ -1032,8 +1032,11 @@ void DASHTree::SetFragmentDuration(const AdaptationSet* adp, size_t pos, uint32_
 
     adpm->segment_durations_.insert(fragmentDuration);
     //Get segment currently played
-    Segment seg(*(adpm->repesentations_.front()->segments_[pos]));
-    seg.range_end_ += fragmentDuration;
+    Representation *rep(adpm->repesentations_.front());
+    Segment seg(*(rep->segments_[pos]));
+
+    seg.range_begin_ += (rep->flags_ & DASHTree::Representation::TIMELINE)?fragmentDuration:1;
+    seg.startPTS_ += fragmentDuration;
 
     for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
