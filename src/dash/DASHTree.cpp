@@ -549,6 +549,7 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->channelCount_ = dash->adpChannelCount_;
           dash->current_representation_->codecs_ = dash->current_adaptationset_->codecs_;
           dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
+          dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
           for (; *attr;)
           {
