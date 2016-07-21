@@ -111,6 +111,8 @@ public:
     messages_.push_back(msg);
   };
 
+  virtual AP4_Result SetKeyId(const AP4_UI16 key_size, const AP4_UI08 *key)override;
+
   virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
     AP4_DataBuffer& data_out,
 
@@ -135,6 +137,8 @@ private:
   cdm::SubsampleEntry *subsample_buffer_;
   std::deque<media::CdmAdapterClient::CDMADPMSG> messages_;
   std::string pssh_, license_url_;
+  AP4_UI16 key_size_;
+  const AP4_UI08 *key_;
 };
 
 /*----------------------------------------------------------------------
@@ -386,6 +390,18 @@ SSMFAIL:
 }
 
 /*----------------------------------------------------------------------
+|   WV_CencSingleSampleDecrypter::SetKeyId
++---------------------------------------------------------------------*/
+
+AP4_Result WV_CencSingleSampleDecrypter::SetKeyId(const AP4_UI16 key_size, const AP4_UI08 *key)
+{
+  key_size_ = key_size;
+  key_ = key;
+  return AP4_SUCCESS;
+}
+
+
+/*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
@@ -429,8 +445,18 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
   cdm_in.data_size = data_in.GetDataSize();
   cdm_in.iv = iv;
   cdm_in.iv_size = 16; //Always 16, see AP4_CencSingleSampleDecrypter declaration.
-  cdm_in.key_id = wv_adapter->GetKeyId();
-  cdm_in.key_id_size = wv_adapter->GetKeyIdSize();
+
+  if (key_size_)
+  {
+    cdm_in.key_id = key_;
+    cdm_in.key_id_size = key_size_;
+  }
+  else
+  {
+    cdm_in.key_id = wv_adapter->GetKeyId();
+    cdm_in.key_id_size = wv_adapter->GetKeyIdSize();
+  }
+
   cdm_in.num_subsamples = subsample_count;
   cdm_in.subsamples = subsample_buffer_;
 
