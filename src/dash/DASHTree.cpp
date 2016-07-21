@@ -12,6 +12,7 @@
 #include <string>
 #include <cstring>
 #include <time.h>
+#include <float.h>
 
 #include "DASHTree.h"
 #include "../oscompat.h"
