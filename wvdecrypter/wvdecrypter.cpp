@@ -152,6 +152,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   , subsample_buffer_(0)
   , license_url_(licenseURL)
   , pssh_(std::string(reinterpret_cast<const char*>(pssh), pssh_size))
+  , key_size_(0)
+  , key_(0)
 {
   if (pssh_size > 256)
   {
