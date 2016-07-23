@@ -25,7 +25,7 @@ namespace dash
 
     size_t basePos;
 
-    const T *operator[](size_t pos) const
+    const T *operator[](uint32_t pos) const
     {
       if (!~pos)
         return 0;
@@ -39,14 +39,14 @@ namespace dash
       return &data[realPos];
     };
 
-    size_t pos(const T* elem) const
+    uint32_t pos(const T* elem) const
     {
       size_t realPos = elem - &data[0];
       if (realPos < basePos)
         realPos += data.size() - basePos;
       else
         realPos -= basePos;
-      return realPos;
+      return static_cast<std::uint32_t>(realPos);
     };
 
     void insert(const T &elem)
