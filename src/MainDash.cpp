@@ -486,6 +486,7 @@ public:
     , m_dts(0.0)
     , m_pts(0.0)
     , m_eos(false)
+    , m_started(false)
     , m_StreamId(streamId)
     , m_SingleSampleDecryptor(ssd)
     , m_Decrypter(0)
@@ -528,6 +529,14 @@ public:
   {
     delete m_Decrypter;
     delete m_codecHandler;
+  }
+
+  AP4_Result Start()
+  {
+    if (m_started)
+      return AP4_SUCCESS;
+    m_started = true;
+    return ReadSample();
   }
 
   AP4_Result ReadSample()
@@ -591,6 +600,7 @@ public:
     {
       if (m_Decrypter)
         m_Decrypter->SetSampleIndex(sampleIndex);
+      m_started = true;
       return AP4_SUCCEEDED(ReadSample());
     }
     return false;
@@ -647,7 +657,7 @@ protected:
 private:
   AP4_Track *m_Track;
   AP4_UI32 m_StreamId;
-  bool m_eos;
+  bool m_eos, m_started;
   double m_dts, m_pts;
   double m_presentationTimeOffset;
 
@@ -1014,7 +1024,7 @@ FragmentedSampleReader *Session::GetNextSample()
     && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
         res = *b;
 
-  if (res)
+  if (res && AP4_SUCCEEDED(res->reader_->Start()))
   {
     if (res->reader_->GetVideoInformation(res->info_.m_Width, res->info_.m_Height)
     || res->reader_->GetAudioInformation(res->info_.m_Channels))
@@ -1226,7 +1236,6 @@ extern "C" {
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = session && !session->IsLive();
     caps.m_supportsPause = caps.m_supportsSeek;
-    caps.m_supportsEnableAtPTS = true;
     return caps;
   }
 
@@ -1249,12 +1258,7 @@ extern "C" {
 
   void EnableStream(int streamid, bool enable)
   {
-    return EnableStreamAtPTS(streamid, enable ? 0 : ~0 );
-  }
-
-  void EnableStreamAtPTS(int streamid, uint64_t pts)
-  {
-    xbmc->Log(ADDON::LOG_DEBUG, "EnableStreamAtPTS(%d, %" PRIu64 , streamid, pts);
+    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
 
     if (!session)
       return;
@@ -1264,7 +1268,7 @@ extern "C" {
     if (!stream)
       return;
 
-    if (~pts)
+    if (enable)
     {
       if (stream->enabled)
         return;
@@ -1317,14 +1321,6 @@ extern "C" {
           session->CheckChange(true);
         }
       }
-
-      if ((pts > 0 && !session->SeekTime(static_cast<double>(pts)*0.000001f, stream->info_.m_pID))
-      ||(pts <= 0 && !AP4_SUCCEEDED(stream->reader_->ReadSample())))
-        return stream->disable();
-
-      // Maybe we have changed information for hints after parsing the first packet...
-      stream->reader_->GetVideoInformation(stream->info_.m_Width, stream->info_.m_Height);
-      stream->reader_->GetAudioInformation(stream->info_.m_Channels);
       return;
     }
     return stream->disable();
@@ -1367,6 +1363,8 @@ extern "C" {
     if (!session)
       return NULL;
 
+    FragmentedSampleReader *sr(session->GetNextSample());
+
     if (session->CheckChange())
     {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
@@ -1374,8 +1372,6 @@ extern "C" {
       xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
       return p;
     }
-
-    FragmentedSampleReader *sr(session->GetNextSample());
 
     if (sr)
     {

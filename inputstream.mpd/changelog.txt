@@ -1,3 +1,5 @@
+1.2.1
+- Remove EnableStreamAtPTS callback as it has gone in kodi implementation
 1.2.0
 - pass default keyid (seig atom) from stream to decrypters (version bump of ssd interface!!!!)
 - first step of live stream support (still need some kodi changes to pass timeshift window)
