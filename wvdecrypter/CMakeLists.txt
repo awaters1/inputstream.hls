@@ -14,14 +14,14 @@ project(wvdecrypter)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 
 include_directories (
-	../lib/libbento4/Core/
+   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core/
+   ${CMAKE_CURRENT_SOURCE_DIR}/cdm
 )
 
 set(BENTOUSESTCFS 1)
 
 subdirs (
-	../lib/libbento4
-    cdm
+   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4
 )
 
 if(WIN32)
@@ -43,8 +43,6 @@ add_library ( ssd_wv SHARED
 	cdm/base/native_library_${CDMTYPE}
 	cdm/media/cdm/cdm_adapter.cc
 )
-
-include_directories(cdm/)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 target_link_libraries (ssd_wv
