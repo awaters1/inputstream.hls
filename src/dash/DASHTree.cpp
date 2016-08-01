@@ -301,14 +301,15 @@ static time_t getTime(const char* timeStr)
   if (sscanf(timeStr, "%d-%d-%dT%d:%d:%d", &year, &mon, &day, &hour, &minu, &sec) == 6)
   {
     struct tm tmd;
-    memset(&tmd, 0, sizeof(tmd));
+
+    memset(&tmd,0,sizeof(tmd));
     tmd.tm_year = year - 1900;
     tmd.tm_mon = mon - 1;
     tmd.tm_mday = day;
     tmd.tm_hour = hour;
     tmd.tm_min = minu;
     tmd.tm_sec = sec;
-    return mktime(&tmd);
+    return _mkgmtime(&tmd);
   }
   return ~0;
 }

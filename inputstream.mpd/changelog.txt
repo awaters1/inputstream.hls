@@ -1,3 +1,5 @@
+1.2.2
+- Fix UTC -> time_t conversation when reading LIVE stream infos
 1.2.1
 - Remove EnableStreamAtPTS callback as it has gone in kodi implementation
 1.2.0
