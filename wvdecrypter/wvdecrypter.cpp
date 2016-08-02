@@ -161,7 +161,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     return;
   }
 
-  std::string strLibPath = host->GetProfilePath();
+  std::string strLibPath = host->GetLibraryPath();
   if (strLibPath.empty())
   {
     Log(SSD_HOST::LL_ERROR, "Absolute path to widevine in settings expected");
