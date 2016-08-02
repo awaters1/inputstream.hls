@@ -15,6 +15,7 @@ set(MPD_SOURCES
 	src/dash/DASHTree.cpp
 	src/dash/DASHStream.cpp
 	src/helpers.cpp
+  src/oscompat.cpp
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})

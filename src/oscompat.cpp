@@ -16,12 +16,23 @@
  *
  */
 
-#pragma once
-
-#include <time.h>
-
 #ifndef _WIN32
-#define stricmp strcasecmp
-#define strnicmp strncasecmp
-time_t _mkgmtime(struct tm *tm);
+#include <stdlib.h>
+
+time_t _mkgmtime(struct tm *tm)
+{
+  time_t ret;
+  char *tz;
+
+  tz = getenv("TZ");
+  setenv("TZ", "", 1);
+  tzset();
+  ret = mktime(tm);
+  if (tz)
+    setenv("TZ", tz, 1);
+  else
+    unsetenv("TZ");
+  tzset();
+  return ret;
+}
 #endif
