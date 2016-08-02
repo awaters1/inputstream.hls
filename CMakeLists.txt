@@ -28,9 +28,10 @@ include_directories(${INCLUDES}
 )
                     
 if(WIN32)
+ 	add_definitions(-DXML_STATIC)
 	include_directories(lib/expat/include)
 	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-    list(APPEND DEPLIBS ws2_32 libexpat)
+	list(APPEND DEPLIBS ws2_32 expat)
 else()
 	include(FindEXPAT)
 	find_package(EXPAT REQUIRED)
