@@ -18,6 +18,7 @@
 
 #ifndef _WIN32
 #include <stdlib.h>
+#include "oscompat.h"
 
 time_t _mkgmtime(struct tm *tm)
 {
