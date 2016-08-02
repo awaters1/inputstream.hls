@@ -21,5 +21,5 @@
 #ifndef _WIN32
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
-#define _mkgmtime timegn
+#define _mkgmtime timegm
 #endif

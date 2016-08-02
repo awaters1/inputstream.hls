@@ -40,6 +40,11 @@ kodi host - interface for decrypter libraries
 class KodiHost : public SSD_HOST
 {
 public:
+  virtual const char *GetLibraryPath() const override
+  {
+    return m_strLibraryPath.c_str();
+  };
+
   virtual const char *GetProfilePath() const override
   {
     return m_strProfilePath.c_str();
@@ -82,7 +87,17 @@ public:
     return xbmc->Log(xbmcmap[level], msg);
   };
 
-  void SetAddonPath(const char *profilePath)
+  void SetLibraryPath(const char *libraryPath)
+  {
+    m_strLibraryPath = libraryPath;
+
+    const char *pathSep(libraryPath[0] && libraryPath[1] == ':' && isalpha(libraryPath[0]) ? "\\" : "/");
+
+    if (m_strLibraryPath.size() && m_strLibraryPath.back() != pathSep[0])
+      m_strLibraryPath += pathSep;
+  }
+
+  void SetProfilePath(const char *profilePath)
   {
     m_strProfilePath = profilePath;
 
@@ -103,7 +118,7 @@ public:
   }
 
 private:
-  std::string m_strProfilePath;
+  std::string m_strProfilePath, m_strLibraryPath;
 
 }kodihost;
 
@@ -781,6 +796,8 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
   }
   addonstring path(xbmc->TranslateSpecialProtocol(specialpath));
   
+  kodihost.SetLibraryPath(path.c_str());
+  
   VFSDirEntry *items(0);
   unsigned int num_items(0);
 
@@ -1189,7 +1206,7 @@ extern "C" {
       }
     }
 
-    kodihost.SetAddonPath(props.m_profileFolder);
+    kodihost.SetProfilePath(props.m_profileFolder);
 
     session = new Session(props.m_strURL, lt, lk, props.m_profileFolder);
 
