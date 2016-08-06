@@ -1,3 +1,5 @@
+1.2.4
+- some more corrections regarding live stream entry position
 1.2.3
 - new SSD interface version 5 / Bump kodi version to 1.0.5 (!!!new decrypters are needed)
 1.2.2

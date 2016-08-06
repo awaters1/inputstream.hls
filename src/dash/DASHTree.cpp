@@ -828,7 +828,7 @@ end(void *data, const char *el)
                   seg.range_end_ = timeBased ? 0 : tpl.startNumber;
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_;
 
-                  if (!timeBased && dash->live_start_ && !dash->publish_time_ && dash->stream_start_ - dash->live_start_ > dash->overallSeconds_) //we need to adjust the start-segment
+                  if (!timeBased && dash->live_start_ /*&& !dash->publish_time_*/ && dash->stream_start_ - dash->live_start_ > dash->overallSeconds_) //we need to adjust the start-segment
                     seg.range_end_ += ((dash->stream_start_ - dash->live_start_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
 
                   for (;countSegs;--countSegs)
@@ -1028,7 +1028,7 @@ void DASHTree::set_download_speed(double speed)
 
 void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration)
 {
-  if (!live_start_ || !(rep->flags_ & DASHTree::Representation::TIMELINE))
+  if (!live_start_ /*|| !(rep->flags_ & DASHTree::Representation::TIMELINE)*/)
     return;
 
   //Get a modifiable adaptationset
