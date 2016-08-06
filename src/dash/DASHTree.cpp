@@ -288,7 +288,7 @@ static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTre
   tpl.presentationTimeOffset = tpl.timescale ? (double)pto / tpl.timescale : 0;
 
   //We only support templates with id and number so far.......
-  if ((adp && tpl.media.find("$RepresentationID$") == std::string::npos)
+  if ((adp && tpl.media.find("$RepresentationID$") == std::string::npos && tpl.media.find("$Bandwidth$") == std::string::npos)
   || (tpl.media.find("$Number") == std::string::npos && tpl.media.find("$Time") == std::string::npos))
     tpl.media.clear();
   else
@@ -731,6 +731,22 @@ text(void *data, const char *s, int len)
 /*----------------------------------------------------------------------
 |   expat end
 +---------------------------------------------------------------------*/
+
+static void ReplacePlaceHolders(std::string &rep, const std::string &id, uint32_t bandwidth)
+{
+  std::string::size_type repPos = rep.find("$RepresentationID$");
+  if (repPos != std::string::npos)
+    rep.replace(repPos, 18, id);
+
+  repPos = rep.find("$Bandwidth$");
+  if (repPos != std::string::npos)
+  {
+    char bw[32];
+    sprintf(bw, "%u", bandwidth);
+    rep.replace(repPos, 11, bw);
+  }
+}
+
 static void XMLCALL
 end(void *data, const char *el)
 {
@@ -808,12 +824,13 @@ end(void *data, const char *el)
                   if (!tpl.initialization.empty())
                   {
                     seg.range_end_ = ~0;
-                    if(!isSegmentTpl)
+                    if (!isSegmentTpl)
+                    {
                       dash->current_representation_->url_ += tpl.initialization;
-
-                    std::string::size_type repPos = dash->current_representation_->url_.find("$RepresentationID$");
-                    if (repPos != std::string::npos)
-                      dash->current_representation_->url_.replace(repPos, 18, dash->current_representation_->id);
+                      ReplacePlaceHolders(dash->current_representation_->url_, dash->current_representation_->id, dash->current_representation_->bandwidth_);
+                      dash->current_representation_->segtpl_.media = tpl.media;
+                      ReplacePlaceHolders(dash->current_representation_->segtpl_.media, dash->current_representation_->id, dash->current_representation_->bandwidth_);
+                    }
 
                     dash->current_representation_->initialization_ = seg;
                     dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
@@ -825,7 +842,7 @@ end(void *data, const char *el)
                   if(timeBased)
                     dash->current_representation_->flags_ |= DASHTree::Representation::TIMETEMPLATE;
 
-                  seg.range_end_ = timeBased ? 0 : tpl.startNumber;
+                  seg.range_end_ = timeBased ? dash->current_adaptationset_->startPTS_ : tpl.startNumber;
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->live_start_ /*&& !dash->publish_time_*/ && dash->stream_start_ - dash->live_start_ > dash->overallSeconds_) //we need to adjust the start-segment

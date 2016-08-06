@@ -223,6 +223,12 @@ bool KodiDASHStream::download(const char* url, const char* rangeHeader)
   while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall+= nbRead;
   free(buf);
 
+  if (!nbReadOverall)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+    return false;
+  }
+
   double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
   //Calculate the new downloadspeed to 1MB
   static const size_t ref_packet = 1024 * 1024;
@@ -1296,7 +1302,13 @@ extern "C" {
       const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
       xbmc->Log(ADDON::LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
         stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
-      stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
+
+      if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
+      {
+        xbmc->Log(ADDON::LOG_ERROR, "Unable to select stream!");
+        return stream->disable();
+      }
+
       if(rep != stream->stream_.getRepresentation())
       {
         session->UpdateStream(*stream);

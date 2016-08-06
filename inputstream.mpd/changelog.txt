@@ -1,3 +1,5 @@
+1.2.5
+- support of zattoo like streams
 1.2.4
 - some more corrections regarding live stream entry position
 1.2.3

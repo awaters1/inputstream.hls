@@ -50,11 +50,7 @@ bool DASHStream::download_segment()
     }
     else if (~current_seg_->range_end_) //templated segment
     {
-      std::string media(current_adp_->segtpl_.media);
-      if(!media.empty())
-        media.replace(media.find("$RepresentationID$"), 18, current_rep_->id);
-      else
-        media = current_rep_->segtpl_.media;
+      std::string media = current_rep_->segtpl_.media;
       std::string::size_type lenReplace(7);
       std::string::size_type np(media.find("$Number"));
       if (np == std::string::npos)
