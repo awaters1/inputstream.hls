@@ -1,3 +1,5 @@
+1.2.6
+- no restriction of placeholders (alow adp.segtpl's without rep placeholders)
 1.2.5
 - support of zattoo like streams
 1.2.4
