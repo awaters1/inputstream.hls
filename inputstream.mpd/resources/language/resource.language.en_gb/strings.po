@@ -35,3 +35,7 @@ msgstr "Maximum Resolution"
 msgctxt "#30111"
 msgid "Stream Selection"
 msgstr "Stream Selection"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Media"

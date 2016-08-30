@@ -1,3 +1,6 @@
+1.2.7
+- Avoid double DMX_GENERAL_STREAMCHANGE calls on startup
+- Allow restricting stream components (Audio / Video) for debug purpose
 1.2.6
 - no restriction of placeholders (alow adp.segtpl's without rep placeholders)
 1.2.5

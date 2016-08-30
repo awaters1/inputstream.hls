@@ -552,11 +552,13 @@ public:
     delete m_codecHandler;
   }
 
-  AP4_Result Start()
+  AP4_Result Start(bool &bStarted)
   {
+    bStarted = false;
     if (m_started)
       return AP4_SUCCESS;
     m_started = true;
+    bStarted = true;
     return ReadSample();
   }
 
@@ -765,6 +767,19 @@ Session::Session(const char *strURL, const char *strLicType, const char* strLicK
   xbmc->GetSetting("STREAMSELECTION", (char*)&buf);
   xbmc->Log(ADDON::LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
   manual_streams_ = buf != 0;
+
+  xbmc->GetSetting("MEDIATYPE", (char*)&buf);
+  switch (buf)
+  {
+  case 1:
+    media_type_mask_ = static_cast<uint8_t>(1U) << dash::DASHTree::AUDIO;
+    break;
+  case 2:
+    media_type_mask_ = static_cast<uint8_t>(1U) << dash::DASHTree::VIDEO;
+    break;
+  default:
+    media_type_mask_ = static_cast<uint8_t>(~0);
+  }
 }
 
 Session::~Session()
@@ -1043,11 +1058,18 @@ FragmentedSampleReader *Session::GetNextSample()
 {
   STREAM *res(0);
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && !(*b)->reader_->EOS()
-    && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
-        res = *b;
+  {
+    bool bStarted(false);
+    if ((*b)->enabled && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
+      && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
+      res = *b;
+    
+    if (bStarted && ((*b)->reader_->GetVideoInformation((*b)->info_.m_Width, res->info_.m_Height) ||
+    (*b)->reader_->GetAudioInformation((*b)->info_.m_Channels)))
+      changed_ = true;
+  }
 
-  if (res && AP4_SUCCEEDED(res->reader_->Start()))
+  if (res)
   {
     if (res->reader_->GetVideoInformation(res->info_.m_Width, res->info_.m_Height)
     || res->reader_->GetAudioInformation(res->info_.m_Channels))
@@ -1244,6 +1266,7 @@ extern "C" {
     {
         iids.m_streamCount = 0;
         for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
+          if(session->getMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
             iids.m_streamIds[iids.m_streamCount++] = i;
     } else
         iids.m_streamCount = 0;

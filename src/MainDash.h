@@ -102,6 +102,7 @@ public:
 
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
+  uint8_t getMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetWidth()const { return width_; };
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
@@ -138,6 +139,7 @@ private:
   bool changed_;
   bool manual_streams_;
   double last_pts_;
+  uint8_t media_type_mask_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 };
