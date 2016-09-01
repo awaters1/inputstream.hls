@@ -858,6 +858,11 @@ end(void *data, const char *el)
               delete dash->current_representation_;
               dash->current_adaptationset_->repesentations_.pop_back();
             }
+            else
+            {
+              ReplacePlaceHolders(dash->current_representation_->url_, dash->current_representation_->id, dash->current_representation_->bandwidth_);
+              ReplacePlaceHolders(dash->current_representation_->segtpl_.media, dash->current_representation_->id, dash->current_representation_->bandwidth_);
+            }
           }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
