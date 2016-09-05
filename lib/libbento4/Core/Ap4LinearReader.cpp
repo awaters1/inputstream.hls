@@ -316,7 +316,7 @@ AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof,
         tracker->m_SampleTable = NULL;
         tracker->m_NextSampleIndex = 0;
         for (unsigned int j=0; j<ids.ItemCount(); j++) {
-            if (ids[j] == tracker->m_Track->GetId()) {
+            if (ids.ItemCount()==1 || ids[j] == tracker->m_Track->GetId()) {
                 AP4_FragmentSampleTable* sample_table = NULL;
                 result = m_Fragment->CreateSampleTable(&m_Movie, 
                                                        ids[j], 

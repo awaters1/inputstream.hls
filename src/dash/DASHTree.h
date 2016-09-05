@@ -194,6 +194,8 @@ namespace dash
     };
     unsigned int  encryptionState_;
     uint8_t adpChannelCount_;
+    uint16_t adpwidth_, adpheight_;
+    uint32_t adpfpsRate_;
 
     enum
     {

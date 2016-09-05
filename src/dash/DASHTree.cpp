@@ -548,6 +548,9 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
           dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
+          dash->current_representation_->width_ = dash->adpwidth_;
+          dash->current_representation_->height_ = dash->adpheight_;
+          dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
           for (; *attr;)
           {
             if (strcmp((const char*)*attr, "bandwidth") == 0)
@@ -633,7 +636,10 @@ start(void *data, const char *el, const char **attr)
         dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_;
         dash->adp_pssh_.second.clear();
         dash->adpChannelCount_ = 0;
-        
+        dash->adpwidth_ = 0;
+        dash->adpheight_ = 0;
+        dash->adpfpsRate_ = 0;
+
         for (; *attr;)
         {
           if (strcmp((const char*)*attr, "contentType") == 0)
@@ -647,6 +653,12 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "codecs") == 0)
             dash->current_adaptationset_->codecs_ = (const char*)*(attr + 1);
+          else if (strcmp((const char*)*attr, "width") == 0)
+            dash->adpwidth_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+          else if (strcmp((const char*)*attr, "height") == 0)
+            dash->adpheight_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+          else if (strcmp((const char*)*attr, "frameRate") == 0)
+            dash->adpfpsRate_ = static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
           attr += 2;
         }
         if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)
