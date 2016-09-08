@@ -577,6 +577,9 @@ public:
 
     if (m_Protected_desc)
     {
+      if (!m_Decrypter)
+        return AP4_ERROR_EOS;
+
       // Make sure that the decrypter is NOT allocating memory!
       // If decrypter and addon are compiled with different DEBUG / RELEASE
       // options freeing HEAP memory will fail.
@@ -713,11 +716,12 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(const char *strURL, const char *strLicType, const char* strLicKey, const char* profile_path)
+Session::Session(const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* profile_path)
   :single_sample_decryptor_(0)
   , mpdFileURL_(strURL)
   , license_type_(strLicType)
   , license_key_(strLicKey)
+  , license_data_(strLicData)
   , profile_path_(profile_path)
   , width_(kodiDisplayWidth)
   , height_(kodiDisplayHeight)
@@ -951,51 +955,81 @@ bool Session::initialize()
   {
     AP4_DataBuffer init_data;
 
-    if (dashtree_.adp_pssh_.second == "FILE")
+    if (dashtree_.pssh_.second == "FILE")
     {
-      std::string strkey(dashtree_.adp_pssh_.first.substr(9));
-      size_t pos;
-      while ((pos = strkey.find('-')) != std::string::npos)
-        strkey.erase(pos, 1);
-      if (strkey.size() != 32)
+      if (dashtree_.defaultKID_.empty())
       {
-        xbmc->Log(ADDON::LOG_ERROR, "Key system mismatch (%s)!", dashtree_.adp_pssh_.first.c_str());
-        return false;
-      }
+        std::string strkey(dashtree_.adp_pssh_.first.substr(9));
+        size_t pos;
+        while ((pos = strkey.find('-')) != std::string::npos)
+          strkey.erase(pos, 1);
+        if (strkey.size() != 32)
+        {
+          xbmc->Log(ADDON::LOG_ERROR, "Key system mismatch (%s)!", dashtree_.adp_pssh_.first.c_str());
+          return false;
+        }
 
-      unsigned char key_system[16];
-      AP4_ParseHex(strkey.c_str(), key_system, 16);
+        unsigned char key_system[16];
+        AP4_ParseHex(strkey.c_str(), key_system, 16);
 
-      Session::STREAM *stream(streams_[0]);
+        Session::STREAM *stream(streams_[0]);
 
-      stream->enabled = true;
-      stream->stream_.start_stream(0, width_, height_);
-      stream->stream_.select_stream(true,false, stream->info_.m_pID>>16);
+        stream->enabled = true;
+        stream->stream_.start_stream(0, width_, height_);
+        stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
 
-      stream->input_ = new AP4_DASHStream(&stream->stream_);
-      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
-      AP4_Movie* movie = stream->input_file_->GetMovie();
-      if (movie == NULL)
-      {
-        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+        stream->input_ = new AP4_DASHStream(&stream->stream_);
+        stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
+        AP4_Movie* movie = stream->input_file_->GetMovie();
+        if (movie == NULL)
+        {
+          xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+          stream->disable();
+          return false;
+        }
+        AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
+
+        for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+        {
+          if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
+            init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
+        }
+
+        if (!init_data.GetDataSize())
+        {
+          xbmc->Log(ADDON::LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
+          stream->disable();
+          return false;
+        }
         stream->disable();
-        return false;
       }
-      AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
-
-      for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+      else
       {
-        if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
-          init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
+        init_data.SetDataSize(16);
+        AP4_Byte *data(init_data.UseData());
+        const char *src(dashtree_.defaultKID_.c_str());
+        AP4_ParseHex(src, data, 4);
+        AP4_ParseHex(src+9, data+4, 2);
+        AP4_ParseHex(src + 14, data + 6, 2);
+        AP4_ParseHex(src + 19, data + 8, 2);
+        AP4_ParseHex(src + 24, data + 10, 6);
       }
-
-      if (!init_data.GetDataSize())
+      if (!license_data_.empty())
       {
-        xbmc->Log(ADDON::LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
-        stream->disable();
-        return false;
+        uint8_t ld[1024];
+        unsigned int ld_size(1014);
+        b64_decode(license_data_.c_str(), license_data_.size(), ld, ld_size);
+
+        uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{KID}"));
+        if (uuid)
+        {
+          memmove(uuid+11, uuid, ld_size - (uuid - ld));
+          memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
+          init_data.SetData(ld, ld_size + 11);
+        }
+        else
+          init_data.SetData(ld, ld_size);
       }
-      stream->disable();
     }
     else
     {
@@ -1219,7 +1253,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
-    const char *lt(""), *lk("");
+    const char *lt(""), *lk(""), *ld("");
     for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
     {
       if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_type") == 0)
@@ -1232,11 +1266,16 @@ extern "C" {
         xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.mpd.license_key: [not shown]");
         lk = props.m_ListItemProperties[i].m_strValue;
       }
+      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.mpd.license_data") == 0)
+      {
+        xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.mpd.license_data: [not shown]");
+        ld = props.m_ListItemProperties[i].m_strValue;
+      }
     }
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
-    session = new Session(props.m_strURL, lt, lk, props.m_profileFolder);
+    session = new Session(props.m_strURL, lt, lk, ld, props.m_profileFolder);
 
     if (!session->initialize())
     {

@@ -177,14 +177,16 @@ namespace dash
     uint32_t currentNode_;
     uint32_t segcount_;
     double overallSeconds_;
-    uint64_t stream_start_, live_start_, publish_time_, base_time_;
+    uint64_t stream_start_, available_time_, publish_time_, base_time_;
     double minPresentationOffset;
+    bool has_timeshift_buffer_;
 
     uint32_t bandwidth_;
 
     double download_speed_, average_download_speed_;
     
     std::pair<std::string, std::string> pssh_, adp_pssh_;
+    std::string defaultKID_;
 
     enum
     {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.mpd"
-  version="1.2.9"
+  version="1.2.10"
   name="InputStream MPEG DASH"
   provider-name="peak3d">
   <requires>
@@ -12,7 +12,7 @@
     name="mpd"
     extension=".mpd"
     tags="true"
-    listitemprops="license_type|license_key"
+    listitemprops="license_type|license_key|license_data"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="en">InputStream Client for MPEG DASH files</summary>

@@ -117,10 +117,17 @@ bool DASHStream::prepare_stream(const DASHTree::AdaptationSet *adp,
 
 bool DASHStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
 {
-  if (!~seg_offset && tree_.live_start_ && current_rep_->segments_.data.size()>1)
+  if (!~seg_offset && tree_.available_time_ > 0 && current_rep_->segments_.data.size()>1)
   {
+    std::int32_t pos;
+    if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
+      pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
+    else
+    {
+      pos = static_cast<int32_t>(((tree_.stream_start_ - tree_.available_time_)*current_rep_->timescale_) / current_rep_->duration_);
+      if (!pos) pos = 1;
+    }
     //go at least 12 secs back
-    std::int32_t pos(static_cast<int32_t>(current_rep_->segments_.data.size() - 1));
     uint64_t duration(current_rep_->get_segment(pos)->startPTS_ - current_rep_->get_segment(pos - 1)->startPTS_);
     pos -= 12 * current_rep_->timescale_ / duration;
     current_seg_ = current_rep_->get_segment(pos < 0 ? 0: pos);

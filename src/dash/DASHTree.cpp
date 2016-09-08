@@ -227,10 +227,11 @@ DASHTree::DASHTree()
   , parser_(0)
   , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
   , current_period_(0)
-  , live_start_(0)
+  , available_time_(0)
   , stream_start_(0)
   , base_time_(0)
   , publish_time_(0)
+  , has_timeshift_buffer_(false)
 {
 }
 
@@ -600,16 +601,27 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "ContentProtection") == 0)
         {
+          if (dash->adp_pssh_.second.empty())
+            dash->adp_pssh_.second = "PROTECTED";
+
           dash->strXMLText_.clear();
           dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
-          bool urnFound(false);
+          bool urnFound(false), mpdFound(false);
+          const char *defaultKID(0);
           for (; *attr;)
           {
             if (strcmp((const char*)*attr, "schemeIdUri") == 0)
             {
-              urnFound = stricmp(dash->adp_pssh_.first.c_str(), (const char*)*(attr + 1))==0;
-              break;
+              if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
+                mpdFound = true;
+              else
+              {
+                urnFound = stricmp(dash->adp_pssh_.first.c_str(), (const char*)*(attr + 1)) == 0;
+                break;
+              }
             }
+            else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
+              defaultKID = (const char*)*(attr + 1);
             attr += 2;
           }
           if (urnFound)
@@ -617,6 +629,8 @@ start(void *data, const char *el, const char **attr)
             dash->currentNode_ |= DASHTree::MPDNODE_CONTENTPROTECTION;
             dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
           }
+          else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+            dash->defaultKID_ = defaultKID;
         }
         else if (strcmp(el, "AudioChannelConfiguration") == 0)
         {
@@ -682,7 +696,7 @@ start(void *data, const char *el, const char **attr)
   }
   else if (strcmp(el, "MPD") == 0)
   {
-    const char *mpt(0), *tsbd(0);
+    const char *mpt(0), *tsbd(0), *mpdtype(0);
 
     dash->overallSeconds_ = 0;
     for (; *attr;)
@@ -690,9 +704,12 @@ start(void *data, const char *el, const char **attr)
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
         mpt = (const char*)*(attr + 1);
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
+      {
         tsbd = (const char*)*(attr + 1);
+        dash->has_timeshift_buffer_ = true;
+      }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
-        dash->live_start_ = getTime((const char*)*(attr + 1));
+        dash->available_time_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "publishTime") == 0)
         dash->publish_time_ = getTime((const char*)*(attr + 1));
       attr += 2;
@@ -717,8 +734,8 @@ start(void *data, const char *el, const char **attr)
       if (next)
         dash->overallSeconds_ += atof(mpt);
     }
-    if (dash->publish_time_ && dash->live_start_ && dash->publish_time_ - dash->live_start_ > dash->overallSeconds_)
-      dash->base_time_ = dash->publish_time_ - dash->live_start_ - dash->overallSeconds_;
+    if (dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_)
+      dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_;
     dash->minPresentationOffset = DBL_MAX;
 
     dash->currentNode_ |= DASHTree::MPDNODE_MPD;
@@ -853,8 +870,8 @@ end(void *data, const char *el)
                   seg.range_end_ = timeBased ? dash->current_adaptationset_->startPTS_ : tpl.startNumber;
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_;
 
-                  if (!timeBased && dash->live_start_ /*&& !dash->publish_time_*/ && dash->stream_start_ - dash->live_start_ > dash->overallSeconds_) //we need to adjust the start-segment
-                    seg.range_end_ += ((dash->stream_start_ - dash->live_start_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
+                  if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
+                    seg.range_end_ += ((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
 
                   for (;countSegs;--countSegs)
                   {
@@ -894,7 +911,7 @@ end(void *data, const char *el)
           }
           else if (strcmp(el, "ContentProtection") == 0)
           {
-            if (dash->adp_pssh_.second.empty())
+            if (dash->adp_pssh_.second == "PROTECTED")
               dash->adp_pssh_.second = "FILE";
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
@@ -925,7 +942,7 @@ end(void *data, const char *el)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || ((dash->encryptionState_ & DASHTree::ENCRYTIONSTATE_ENCRYPTED) && dash->adp_pssh_.second.empty())
+          || dash->adp_pssh_.second == "PROTECTED"
           || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;
@@ -933,7 +950,8 @@ end(void *data, const char *el)
           }
           else
           {
-            dash->pssh_ = dash->adp_pssh_;
+            if(!dash->adp_pssh_.second.empty())
+              dash->pssh_ = dash->adp_pssh_;
             
             if (dash->current_adaptationset_->segment_durations_.data.empty()
               && !dash->current_adaptationset_->segtpl_.media.empty())
@@ -1060,7 +1078,7 @@ void DASHTree::set_download_speed(double speed)
 
 void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration)
 {
-  if (!live_start_ /*|| !(rep->flags_ & DASHTree::Representation::TIMELINE)*/)
+  if (!has_timeshift_buffer_)
     return;
 
   //Get a modifiable adaptationset
