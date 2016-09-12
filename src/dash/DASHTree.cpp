@@ -882,10 +882,13 @@ end(void *data, const char *el)
                   return;
                 }
               }
-              else if (dash->current_representation_->flags_ & DASHTree::Representation::SEGMENTBASE)
-                return;
-              delete dash->current_representation_;
-              dash->current_adaptationset_->repesentations_.pop_back();
+              else if (!(dash->current_representation_->flags_ & DASHTree::Representation::SEGMENTBASE))
+              {
+                //Let us try to extract the fragments out of SIDX atom  
+                dash->current_representation_->flags_ |= DASHTree::Representation::SEGMENTBASE;
+                dash->current_representation_->indexRangeMin_ = 0;
+                dash->current_representation_->indexRangeMax_ = 1024 * 200;
+              }
             }
             else
             {

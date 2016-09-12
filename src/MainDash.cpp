@@ -280,33 +280,74 @@ bool KodiDASHStream::parseIndexRange()
   }
   byteStream.Seek(0);
 
-  AP4_Atom *atom(NULL);
-  if(AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)) || AP4_DYNAMIC_CAST(AP4_SidxAtom, atom)==0)
-  {
-    xbmc->Log(ADDON::LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
-    return false;
-  }
-  AP4_SidxAtom *sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
-
-  dash::DASHTree::AdaptationSet *adp(const_cast<dash::DASHTree::AdaptationSet*>(getAdaptationSet()));
   dash::DASHTree::Representation *rep(const_cast<dash::DASHTree::Representation*>(getRepresentation()));
+  dash::DASHTree::AdaptationSet *adp(const_cast<dash::DASHTree::AdaptationSet*>(getAdaptationSet()));
 
-  rep->timescale_ = sidx->GetTimeScale();
-
-  const AP4_Array<AP4_SidxAtom::Reference> &reps(sidx->GetReferences());
-  dash::DASHTree::Segment seg;
-  seg.range_end_ = rep->indexRangeMax_;
-  seg.startPTS_ = 0;
-
-  for (unsigned int i(0); i < reps.ItemCount(); ++i)
+  if (!getRepresentation()->indexRangeMin_)
   {
-    seg.range_begin_ = seg.range_end_ + 1;
-    seg.range_end_ = seg.range_begin_ + reps[i].m_ReferencedSize - 1;
-    rep->segments_.data.push_back(seg);
-    if (adp->segment_durations_.data.size() < rep->segments_.data.size() - 1)
-      adp->segment_durations_.data.push_back(reps[i].m_SubsegmentDuration);
-    seg.startPTS_ += reps[i].m_SubsegmentDuration;
+    AP4_File f(byteStream, AP4_DefaultAtomFactory::Instance, true);
+    AP4_Movie* movie = f.GetMovie();
+    if (movie == NULL)
+    {
+      xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+      return false;
+    }
+    rep->flags_ |= dash::DASHTree::Representation::INITIALIZATION;
+    rep->initialization_.range_begin_ = 0;
+    AP4_Position pos;
+    byteStream.Tell(pos);
+    rep->initialization_.range_end_ = pos - 1;
   }
+
+  dash::DASHTree::Segment seg;
+  seg.startPTS_ = 0;
+  unsigned int numSIDX(1);
+
+  do
+  {
+    AP4_Atom *atom(NULL);
+    if (AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)))
+    {
+      xbmc->Log(ADDON::LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
+      return false;
+    }
+
+    if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
+    {
+      delete atom;
+      break;
+    }
+    else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
+    {
+      delete atom;
+      continue;
+    }
+
+    AP4_SidxAtom *sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
+    const AP4_Array<AP4_SidxAtom::Reference> &refs(sidx->GetReferences());
+    if (refs[0].m_ReferenceType == 1)
+    {
+      numSIDX = refs.ItemCount();
+      delete atom;
+      continue;
+    }
+    AP4_Position pos;
+    byteStream.Tell(pos);
+    seg.range_end_ = pos + sidx->GetFirstOffset() - 1;
+    rep->timescale_ = sidx->GetTimeScale();
+
+    for (unsigned int i(0); i < refs.ItemCount(); ++i)
+    {
+      seg.range_begin_ = seg.range_end_ + 1;
+      seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
+      rep->segments_.data.push_back(seg);
+      if (adp->segment_durations_.data.size() < rep->segments_.data.size() - 1)
+        adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
+      seg.startPTS_ += refs[i].m_SubsegmentDuration;
+    }
+    delete atom;
+    --numSIDX;
+  } while (numSIDX);
   return true;
 }
 
@@ -957,7 +998,7 @@ bool Session::initialize()
 
     if (dashtree_.pssh_.second == "FILE")
     {
-      if (dashtree_.defaultKID_.empty())
+      if (license_data_.empty())
       {
         std::string strkey(dashtree_.adp_pssh_.first.substr(9));
         size_t pos;
@@ -1003,19 +1044,17 @@ bool Session::initialize()
         }
         stream->disable();
       }
-      else
+      else if (!dashtree_.defaultKID_.empty())
       {
         init_data.SetDataSize(16);
         AP4_Byte *data(init_data.UseData());
         const char *src(dashtree_.defaultKID_.c_str());
         AP4_ParseHex(src, data, 4);
-        AP4_ParseHex(src+9, data+4, 2);
+        AP4_ParseHex(src + 9, data + 4, 2);
         AP4_ParseHex(src + 14, data + 6, 2);
         AP4_ParseHex(src + 19, data + 8, 2);
         AP4_ParseHex(src + 24, data + 10, 6);
-      }
-      if (!license_data_.empty())
-      {
+
         uint8_t ld[1024];
         unsigned int ld_size(1014);
         b64_decode(license_data_.c_str(), license_data_.size(), ld, ld_size);
@@ -1023,13 +1062,15 @@ bool Session::initialize()
         uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{KID}"));
         if (uuid)
         {
-          memmove(uuid+11, uuid, ld_size - (uuid - ld));
+          memmove(uuid + 11, uuid, ld_size - (uuid - ld));
           memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
           init_data.SetData(ld, ld_size + 11);
         }
         else
           init_data.SetData(ld, ld_size);
       }
+      else
+        return false;
     }
     else
     {
