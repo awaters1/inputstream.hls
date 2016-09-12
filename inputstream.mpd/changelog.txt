@@ -1,3 +1,6 @@
+1.2.12
+- parse SampleDescription after reading MOOF to get correct SampleDescriptionIndex
+- Fix YT IndexRangeExact videos
 1.2.11
 - Use Default KID only if license_data is given
 - Extract MOOV from stream if mpd does not support it
