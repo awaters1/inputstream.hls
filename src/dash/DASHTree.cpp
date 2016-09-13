@@ -699,6 +699,8 @@ start(void *data, const char *el, const char **attr)
     const char *mpt(0), *tsbd(0), *mpdtype(0);
 
     dash->overallSeconds_ = 0;
+    dash->stream_start_ = time(0);
+
     for (; *attr;)
     {
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
@@ -709,12 +711,18 @@ start(void *data, const char *el, const char **attr)
         dash->has_timeshift_buffer_ = true;
       }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
+      {
         dash->available_time_ = getTime((const char*)*(attr + 1));
+        if (!dash->available_time_)
+          dash->available_time_ = ~0ULL;
+      }
       else if (strcmp((const char*)*attr, "publishTime") == 0)
         dash->publish_time_ = getTime((const char*)*(attr + 1));
       attr += 2;
     }
-    dash->stream_start_ = time(0);
+
+    if (!~dash->available_time_)
+      dash->available_time_ = dash->publish_time_;
 
     if (!mpt) mpt = tsbd;
 
@@ -1079,7 +1087,7 @@ void DASHTree::set_download_speed(double speed)
     average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
 };
 
-void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration)
+void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration, uint32_t movie_timescale)
 {
   if (!has_timeshift_buffer_)
     return;
@@ -1092,13 +1100,15 @@ void DASHTree::SetFragmentDuration(const AdaptationSet* adp, const Representatio
   {
     if (pos == adp->segment_durations_.data.size() - 1)
     {
-      adpm->segment_durations_.insert(fragmentDuration);
+      adpm->segment_durations_.insert(fragmentDuration*adp->timescale_ / movie_timescale);
     }
     else
       return;
   }
   else if (pos != rep->segments_.data.size() - 1)
     return;
+
+  fragmentDuration = fragmentDuration*rep->timescale_ / movie_timescale;
 
   Segment seg(*(rep->segments_[pos]));
   seg.range_begin_ += fragmentDuration;

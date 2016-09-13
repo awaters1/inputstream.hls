@@ -673,6 +673,7 @@ public:
   void SetObserver(FragmentObserver *observer) { m_Observer = observer; };
   void SetPTSOffset(uint64_t offset) { FindTracker(m_Track->GetId())->m_NextDts = offset; };
   uint64_t GetFragmentDuration() { return dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_Track->GetId())->m_SampleTable)->GetDuration(); };
+  uint32_t GetTimeScale() { return m_Track->GetMediaTimeScale(); };
 
 protected:
   virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
@@ -1239,7 +1240,12 @@ void Session::BeginFragment(AP4_UI32 streamId)
 void Session::EndFragment(AP4_UI32 streamId)
 {
   STREAM *s(streams_[streamId - 1]);
-  dashtree_.SetFragmentDuration(s->stream_.getAdaptationSet(), s->stream_.getRepresentation(), s->stream_.getSegmentPos(), s->reader_->GetFragmentDuration());
+  dashtree_.SetFragmentDuration(
+    s->stream_.getAdaptationSet(),
+    s->stream_.getRepresentation(),
+    s->stream_.getSegmentPos(),
+    s->reader_->GetFragmentDuration(),
+    s->reader_->GetTimeScale());
 }
 
 /***************************  Interface *********************************/
