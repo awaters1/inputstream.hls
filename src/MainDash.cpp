@@ -561,6 +561,10 @@ public:
     , m_bSampleDescChanged(false)
   {
     EnableTrack(m_Track->GetId());
+    
+    AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
+    if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
+      m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
   }
 
   ~FragmentedSampleReader()

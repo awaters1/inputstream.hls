@@ -1,4 +1,6 @@
-1.2.12
+1.2.13
+- fix encrypted media wich broke in 1.2.12
+1.2.12 !!!broken encrypted media!!!
 - parse SampleDescription after reading MOOF to get correct SampleDescriptionIndex
 - Fix YT IndexRangeExact videos
 1.2.11
