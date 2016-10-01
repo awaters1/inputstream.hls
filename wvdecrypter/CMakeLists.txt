@@ -11,12 +11,18 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 project(wvdecrypter)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x -Wl,--no-undefined")
 
-include_directories (
-   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core/
-   ${CMAKE_CURRENT_SOURCE_DIR}/cdm
-)
+if(CORE_SYSTEM_NAME STREQUAL android)
+  include_directories (
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core
+  )
+else()
+  include_directories (
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core/
+    ${CMAKE_CURRENT_SOURCE_DIR}/cdm
+  )
+endif()
 
 set(BENTOUSESTCFS 1)
 
@@ -24,33 +30,46 @@ subdirs (
    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4
 )
 
-if(WIN32)
-   set(CDMTYPE "win.cc")
-   add_definitions("-DWIDEVINECDMFILENAME=\"widevinecdm.dll\"")
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-   set(CDMTYPE "mac.mm")
-   add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.dylib\"")
-else()
-  set(CDMTYPE "posix.cc")
-  add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
-endif()
-
-add_library ( ssd_wv SHARED
-	wvdecrypter.cpp
+if(CORE_SYSTEM_NAME STREQUAL android)
+  add_library ( ssd_wv SHARED
+	wvdecrypter_android.cpp
 	jsmn.c
 	../src/helpers.cpp
-	cdm/base/native_library.cc
-	cdm/base/native_library_${CDMTYPE}
-	cdm/media/cdm/cdm_adapter.cc
-)
+  )
+else()
+  if(WIN32)
+    set(CDMTYPE "win.cc")
+    add_definitions("-DWIDEVINECDMFILENAME=\"widevinecdm.dll\"")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(CDMTYPE "mac.mm")
+    add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.dylib\"")
+  else()
+    set(CDMTYPE "posix.cc")
+    add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
+  endif()
+
+  add_library ( ssd_wv SHARED
+        wvdecrypter.cpp
+        jsmn.c
+        ../src/helpers.cpp
+        cdm/base/native_library.cc
+        cdm/base/native_library_${CDMTYPE}
+        cdm/media/cdm/cdm_adapter.cc
+  )
+endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-target_link_libraries (ssd_wv
-	bento4
-	"-framework CoreFoundation"
-)
+  target_link_libraries (ssd_wv
+    bento4
+    "-framework CoreFoundation"
+  )
+elseif(CORE_SYSTEM_NAME STREQUAL android)
+  target_link_libraries (ssd_wv
+    mediandk
+    bento4
+  )
 else()
-target_link_libraries (ssd_wv
-	bento4
-)
+  target_link_libraries (ssd_wv
+    bento4
+  )
 endif()
