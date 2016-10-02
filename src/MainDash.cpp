@@ -949,6 +949,10 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
       }
       dlclose(mod);
     }
+    else
+    {
+      xbmc->Log(ADDON::LOG_DEBUG, "%s", dlerror());
+    }
   }
   xbmc->FreeDirectory(items, num_items);
 }
