@@ -52,13 +52,6 @@ public:
 
   bool initialized()const { return media_drm_ != 0; };
 
-  /*virtual void OnCDMMessage(media::CdmAdapterClient::CDMADPMSG msg) override
-  {
-    Log(SSD_HOST::LL_DEBUG, "CDMMessage: %u arrived!", msg);
-    messages_.push_back(msg);
-  };
-  */
-
   virtual AP4_Result SetKeyId(const AP4_UI16 key_size, const AP4_UI08 *key)override;
 
   virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
@@ -92,6 +85,24 @@ private:
   uint8_t key_[32];
 };
 
+
+void MediaDrmEventListener(AMediaDrm *media_drm, const AMediaDrmSessionId *sessionId, AMediaDrmEventType eventType, int extra, const uint8_t *data, size_t dataSize)
+{
+  if(eventType == EVENT_PROVISION_REQUIRED)
+  {
+    const uint8_t *pr(0);
+    size_t prs(0);
+    const char *url(0);
+
+    media_status_t status = AMediaDrm_getProvisionRequest(media_drm, &pr, &prs, &url);
+
+    Log(SSD_HOST::LL_DEBUG, "PrivisionData: media_drm: %X, status: %d, size: %u, url: %s", (unsigned int)media_drm, status, prs, url?url:"");
+
+    return;
+  }
+  Log(SSD_HOST::LL_DEBUG, "EVENT occured (%d)", eventType);
+}
+
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
@@ -104,6 +115,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   , pssh_(std::string(reinterpret_cast<const char*>(pssh), pssh_size))
   , key_size_(0)
 {
+  SetParentIsOwner(false);
+
   if (pssh_size > 256)
   {
     Log(SSD_HOST::LL_ERROR, "Init_data with length: %u seems not to be cenc init data!", pssh_size);
@@ -151,13 +164,27 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     Log(SSD_HOST::LL_ERROR, "Unable to initialize media_drm");
     return;
   }
+  Log(SSD_HOST::LL_DEBUG, "Successful implemented media_drm: %X", (unsigned int)media_drm_);
 
-  if(AMediaDrm_openSession(media_drm_, &session_id_) != AMEDIA_OK)
+  media_status_t status;
+  if((status = AMediaDrm_setOnEventListener(media_drm_, MediaDrmEventListener)) != AMEDIA_OK)
   {
-    Log(SSD_HOST::LL_ERROR, "Unable to open DRM session");
+    Log(SSD_HOST::LL_ERROR, "Unable to install Event Listener (%d)", status);
     AMediaDrm_release(media_drm_);
     media_drm_ = 0;
+    return;
   }
+
+  memset(&session_id_, 0, sizeof(session_id_));
+  if((status = AMediaDrm_openSession(media_drm_, &session_id_)) != AMEDIA_OK)
+  {
+    Log(SSD_HOST::LL_ERROR, "Unable to open DRM session (%d)", status);
+    AMediaDrm_release(media_drm_);
+    media_drm_ = 0;
+    return;
+  }
+
+  Log(SSD_HOST::LL_DEBUG, "DRM session opened successfully (length: %u)", session_id_.length);
 
   // For backward compatibility: If no | is found in URL, make the amazon convention out of it
   if (license_url_.find('|') == std::string::npos)
@@ -169,8 +196,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     AMediaDrm_closeSession(media_drm_, &session_id_);
     AMediaDrm_release(media_drm_);
     media_drm_ = 0;
+    return;
   }
-  SetParentIsOwner(false);
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
@@ -205,11 +232,13 @@ bool WV_CencSingleSampleDecrypter::GetLicense()
         0, 0,
         &key_request_, &key_request_size_);
 
-  if (!key_request_size_)
+  if (status != AMEDIA_OK || !key_request_size_)
   {
-    Log(SSD_HOST::LL_ERROR, "License update not successful");
+    Log(SSD_HOST::LL_ERROR, "Key request not successful (%d)", status);
     return false;
   }
+
+  Log(SSD_HOST::LL_DEBUG, "Key request successful, size: %u", reinterpret_cast<unsigned int>(key_request_size_));
 
   if (!SendSessionMessage())
     return false;
