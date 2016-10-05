@@ -44,8 +44,9 @@ bool DASHStream::download_segment()
   {
     if (!(current_rep_->flags_ & DASHTree::Representation::TEMPLATE))
     {
-      sprintf(rangebuf, "/range/%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-      strURL = current_rep_->url_ + rangebuf;
+      strURL = current_rep_->url_;
+      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
+      rangeHeader = rangebuf;
       absolute_position_ = current_seg_->range_begin_;
     }
     else if (~current_seg_->range_end_) //templated segment

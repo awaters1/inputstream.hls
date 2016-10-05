@@ -215,6 +215,9 @@ bool KodiDASHStream::download(const char* url, const char* rangeHeader)
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
   if (rangeHeader)
     xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangeHeader);
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
