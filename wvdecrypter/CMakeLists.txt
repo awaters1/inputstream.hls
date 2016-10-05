@@ -70,6 +70,7 @@ elseif(CORE_SYSTEM_NAME STREQUAL android)
   )
 else()
   target_link_libraries (ssd_wv
+    ${CMAKE_DL_LIBS}
     bento4
   )
 endif()
