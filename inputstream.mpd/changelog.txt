@@ -1,3 +1,5 @@
+1.2.15
+- Range: Header instead /range path postfix. Fixes cloudfront issues
 1.2.14
 - LiveStream: respect different timescales (stream / mpd)
 1.2.13
