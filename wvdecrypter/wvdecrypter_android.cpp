@@ -70,6 +70,7 @@ public:
     const AP4_UI32* bytes_of_encrypted_data);
 
 private:
+  bool ProvisionRequest();
   bool GetLicense();
   bool SendSessionMessage();
 
@@ -164,7 +165,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     Log(SSD_HOST::LL_ERROR, "Unable to initialize media_drm");
     return;
   }
-  Log(SSD_HOST::LL_DEBUG, "Successful implemented media_drm: %X", (unsigned int)media_drm_);
+  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %X", (unsigned int)media_drm_);
 
   media_status_t status;
   if((status = AMediaDrm_setOnEventListener(media_drm_, MediaDrmEventListener)) != AMEDIA_OK)
@@ -184,13 +185,11 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     return;
   }
 
-  Log(SSD_HOST::LL_DEBUG, "DRM session opened successfully (length: %u)", session_id_.length);
-
   // For backward compatibility: If no | is found in URL, make the amazon convention out of it
   if (license_url_.find('|') == std::string::npos)
     license_url_ += "|Content-Type=application%2Fx-www-form-urlencoded|widevine2Challenge=B{SSM}&includeHdcpTestKeyInLicense=false|JBlicense";
 
-  if (!GetLicense())
+  if (/*!ProvisionRequest() ||*/ !GetLicense())
   {
     Log(SSD_HOST::LL_ERROR, "Unable to generate a license");
     AMediaDrm_closeSession(media_drm_, &session_id_);
@@ -209,6 +208,44 @@ WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
     media_drm_ = 0;
   }
 }
+
+
+bool WV_CencSingleSampleDecrypter::ProvisionRequest()
+{
+  const char *url(0);
+
+  media_status_t status = AMediaDrm_getProvisionRequest(media_drm_, &key_request_, &key_request_size_, &url);
+
+  if(status != AMEDIA_OK || !url)
+  {
+    Log(SSD_HOST::LL_ERROR, "PrivisionData request failed with status: %d", status);
+    return false;
+  }
+  Log(SSD_HOST::LL_DEBUG, "PrivisionData: status: %d, size: %u, url: %s", status, key_request_size_, url);
+
+  std::string tmp_str(url);
+  tmp_str += "&signedRequest=";
+  tmp_str += std::string(reinterpret_cast<const char*>(key_request_), key_request_size_);
+
+  void* file = host->CURLCreate(tmp_str.c_str());
+
+  if (!host->CURLOpen(file))
+  {
+    Log(SSD_HOST::LL_ERROR, "Provisioning server returned failure");
+    return false;
+  }
+  tmp_str.clear();
+  char buf[8192];
+  size_t nbRead;
+
+  // read the file
+  while ((nbRead = host->ReadFile(file, buf, 8192)) > 0)
+    tmp_str += std::string((const char*)buf, nbRead);
+
+  Log(SSD_HOST::LL_DEBUG, tmp_str.c_str());
+  return false;
+}
+
 
 bool WV_CencSingleSampleDecrypter::GetLicense()
 {
