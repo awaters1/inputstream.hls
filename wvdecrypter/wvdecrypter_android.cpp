@@ -281,6 +281,23 @@ bool WV_CencSingleSampleDecrypter::GetLicense()
     return false;
 
   Log(SSD_HOST::LL_DEBUG, "License update successful");
+
+  const char *algorithms(0);
+  if((status = AMediaDrm_getPropertyString(media_drm_, "algorithms", &algorithms)) == AMEDIA_OK)
+    Log(SSD_HOST::LL_DEBUG, "Supported Cipher Algorithms: %s", algorithms);
+  else
+    Log(SSD_HOST::LL_DEBUG, "getProperty() for Cipher Algorithms failed (%d)", status);
+
+  size_t nunkv[100];
+  AMediaDrmKeyValue kv[100];
+  if((status = AMediaDrm_queryKeyStatus(media_drm_, &session_id_, kv, &numkv)) == AMEDIA_OK)
+  {
+    for(unsigned int i(0);i< numkv; ++i)
+      Log(SSD_HOST::LL_DEBUG, "Key status: %s / %s", kv[i].mKey, kv[i].mValue);
+  }
+  else
+    Log(SSD_HOST::LL_DEBUG, "queryKeyStatus() failed (%d)", status);
+
   return true;
 }
 
@@ -466,6 +483,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
   const AP4_UI16* bytes_of_cleartext_data,
   const AP4_UI32* bytes_of_encrypted_data)
 {
+   Log(SSD_HOST::LL_DEBUG, "DecryptSampleData() called");
+
   // the output has the same size as the input
   data_out.SetDataSize(data_in.GetDataSize());
 
@@ -510,8 +529,15 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
     input += *bytes_of_cleartext_data;
     output += *bytes_of_cleartext_data;
 
-    status =  AMediaDrm_decrypt(media_drm_, &session_id_,
-      "AESCTR", key_, ivtmp, input, output, *bytes_of_encrypted_data);
+    try{
+      Log(SSD_HOST::LL_DEBUG, "Decrypt %u bytes", *bytes_of_encrypted_data);
+      status =  AMediaDrm_decrypt(media_drm_, &session_id_,
+        "AES/CBC/NoPadding", key_, ivtmp, input, output, *bytes_of_encrypted_data);
+    }
+    catch(...){
+      Log(SSD_HOST::LL_DEBUG, "Oooops, Exception in AMediaDrm_decrypt() call");
+      return false;
+    }
 
     input += *bytes_of_encrypted_data;
     output += *bytes_of_encrypted_data;
@@ -519,6 +545,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
     ++bytes_of_cleartext_data;
     ++bytes_of_encrypted_data;
   }
+  Log(SSD_HOST::LL_DEBUG, "DecryptSampleData() finished");
   return (status == AMEDIA_OK) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;
 }
 
