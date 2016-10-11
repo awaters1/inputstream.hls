@@ -11,9 +11,10 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 project(wvdecrypter)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x -Wl,--no-undefined")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 
 if(CORE_SYSTEM_NAME STREQUAL android)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-undefined")
   include_directories (
     ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core
   )
