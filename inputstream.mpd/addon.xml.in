@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.mpd"
-  version="1.2.15"
+  version="1.2.16"
   name="InputStream MPEG DASH"
   provider-name="peak3d">
   <requires>

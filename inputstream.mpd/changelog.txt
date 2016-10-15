@@ -1,3 +1,5 @@
+1.2.16
+- Start stream from beginning if seek goes before stream's start.
 1.2.15
 - Range: Header instead /range path postfix. Fixes cloudfront issues
 1.2.14

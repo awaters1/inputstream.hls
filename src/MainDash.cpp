@@ -1216,6 +1216,10 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 {
   bool ret(false);
 
+  //we don't have pts < 0 here and work internally with uint64
+  if (seekTime < 0)
+    seekTime = 0;
+
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
