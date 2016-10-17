@@ -1,3 +1,5 @@
+1.2.17
+- Read BaseURL from Period
 1.2.16
 - Start stream from beginning if seek goes before stream's start.
 1.2.15
