@@ -209,22 +209,29 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
 
 bool WV_CencSingleSampleDecrypter::GetLicense()
 {
-  unsigned int buf_size = 32 + pssh_.size();
-  uint8_t buf[1024];
+  if (strcmp(&pssh_[4], "pssh") == 0)
+  {
+    wv_adapter->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, reinterpret_cast<const uint8_t *>(pssh_.data()), pssh_.size());
+  }
+  else
+  {
+    unsigned int buf_size = 32 + pssh_.size();
+    uint8_t buf[1024];
 
-  // This will request a new session and initializes session_id and message members in cdm_adapter.
-  // message will be used to create a license request in the step after CreateSession call.
-  // Initialization data is the widevine cdm pssh code in google proto style found in mpd schemeIdUri
-  static uint8_t proto[] = { 0x00, 0x00, 0x00, 0x63, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00, 0xed, 0xef, 0x8b, 0xa9,
-    0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x00 };
+    // This will request a new session and initializes session_id and message members in cdm_adapter.
+    // message will be used to create a license request in the step after CreateSession call.
+    // Initialization data is the widevine cdm pssh code in google proto style found in mpd schemeIdUri
+    static uint8_t proto[] = { 0x00, 0x00, 0x00, 0x63, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00, 0xed, 0xef, 0x8b, 0xa9,
+      0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x00 };
 
-  proto[3] = static_cast<uint8_t>(buf_size);
-  proto[31] = static_cast<uint8_t>(pssh_.size());
+    proto[3] = static_cast<uint8_t>(buf_size);
+    proto[31] = static_cast<uint8_t>(pssh_.size());
 
-  memcpy(buf, proto, sizeof(proto));
-  memcpy(&buf[32], pssh_.data(), pssh_.size());
+    memcpy(buf, proto, sizeof(proto));
+    memcpy(&buf[32], pssh_.data(), pssh_.size());
 
-  wv_adapter->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
+    wv_adapter->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
+  }
 
   //Now check messages and fire as long there is no error and messages are present.
 
