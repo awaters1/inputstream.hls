@@ -181,9 +181,27 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
   char cSep = strBasePath.back();
   strBasePath += "widevine";
   strBasePath += cSep;
-  host->CreateDirectoryW(strBasePath.c_str());
-  strBasePath += host->GetHexDomain();
-  host->CreateDirectoryW(strBasePath.c_str());
+  host->CreateDirectory(strBasePath.c_str());
+  
+  //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
+  const char* bspos(strchr(license_url_.c_str(), ':'));
+  if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos + 3, '/')))
+  {
+    Log(SSD_HOST::LL_ERROR, "Could not find protocol inside url - invalid");
+    return;
+  }
+  if (bspos - license_url_.c_str() > 256)
+  {
+    Log(SSD_HOST::LL_ERROR, "Length of domain exeeds max. size of 256 - invalid");
+    return;
+  }
+  char buffer[1024];
+  buffer[(bspos - license_url_.c_str()) * 2] = 0;
+  AP4_FormatHex(reinterpret_cast<const uint8_t*>(license_url_.c_str()), bspos - license_url_.c_str(), buffer);
+  
+  strBasePath += buffer;
+  strBasePath += cSep;
+  host->CreateDirectory(strBasePath.c_str());
 
   wv_adapter = new media::CdmAdapter("com.widevine.alpha", strLibPath, strBasePath, media::CdmConfig(false, true), *(dynamic_cast<media::CdmAdapterClient*>(this)));
   if (!wv_adapter->valid())
