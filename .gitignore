@@ -21,3 +21,4 @@ inputstream.mpd/addon.xml
 .cproject
 .project
 .settings/
+*.swp
