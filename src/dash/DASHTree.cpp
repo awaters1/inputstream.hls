@@ -9,6 +9,8 @@
 * and conditions of the applicable license agreement.
 *****************************************************************************/
 
+#include <iostream>
+
 #include <string>
 #include <cstring>
 #include <time.h>
@@ -1049,34 +1051,71 @@ void DASHTree::Segment::SetRange(const char *range)
 
 bool DASHTree::open(const char *url)
 {
-  parser_ = XML_ParserCreate(NULL);
-  if (!parser_)
-    return false;
-  XML_SetUserData(parser_, (void*)this);
-  XML_SetElementHandler(parser_, start, end);
-  XML_SetCharacterDataHandler(parser_, text);
-  currentNode_ = 0;
-  strXMLText_.clear();
-
   bool ret = download(url);
-  
-  XML_ParserFree(parser_);
-  parser_ = 0;
-
   return ret;
 }
 
-bool DASHTree::write_data(void *buffer, size_t buffer_size)
+bool DASHTree::write_data(char *line)
 {
-  bool done(false);
-  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
+  if (!is_m3u8 && strcmp(line, "#EXTM3U")) {
+	  is_m3u8 = true;
+	  // Period
+	  current_period_ = new DASHTree::Period();
+	  current_period_->base_url_ = base_url_;
+	  periods_.push_back(current_period_);
 
-  if (retval == XML_STATUS_ERROR)
-  {
-    unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
-    return false;
+	  // Adaptation Set
+	  current_adaptationset_ = new DASHTree::AdaptationSet();
+	  current_period_->adaptationSets_.push_back(current_adaptationset_);
+	  current_adaptationset_->base_url_ = current_period_->base_url_;
+	  return true;
   }
-  return true;
+  if (is_m3u8) {
+	  if (strstr(line, "#EXT-X-STREAM-INF") != 0) {
+		  // Representation
+		  current_representation_ = new DASHTree::Representation();
+		  current_representation_->channelCount_ = adpChannelCount_;
+		  current_representation_->codecs_ = current_adaptationset_->codecs_;
+		  current_representation_->url_ = current_adaptationset_->base_url_;
+		  current_representation_->timescale_ = current_adaptationset_->timescale_;
+		  current_representation_->width_ = adpwidth_;
+		  current_representation_->height_ = adpheight_;
+		  current_representation_->fpsRate_ = adpfpsRate_;
+
+		  current_adaptationset_->repesentations_.push_back(current_representation_);
+
+		  // Fill attributes
+		  char *startAttributes = strchr(line, ':') + 1;
+		  while(startAttributes) {
+			  std::cout << "Start Attributes: " << startAttributes << "\n";
+			  char *startValue = strchr(startAttributes, '=') + 1;
+			  char *endValue = strchr(startValue, ',');
+			  char *attributeValue;
+			  if (endValue) {
+				  attributeValue = strndup(startValue, strlen(startValue) - strlen(endValue));
+				  std::cout << "Found start: " << startValue << " end: " << endValue << " attributeValue: " << attributeValue << "\n";
+			  } else {
+				  attributeValue = strdup(startValue);
+				  std::cout << "Found start: " << startValue << " attributeValue: " << attributeValue << "\n";
+			  }
+			  if (strncmp(startAttributes, "PROGRAM-ID", 10) == 0) {
+				  current_representation_->id = std::string(attributeValue);
+			  } else if (strncmp(startAttributes, "BANDWIDTH", 9) == 0) {
+				  current_representation_->bandwidth_ = atoi(attributeValue);
+			  }
+			  if (endValue) {
+				  startAttributes = endValue + 2; // ,
+			  } else {
+				  startAttributes = 0;
+			  }
+			  delete attributeValue;
+	  	  }
+	  } else {
+		  current_representation_->url_ += line;
+	  }
+	  return true;
+  }
+  return false;
 }
 
 bool DASHTree::has_type(StreamType t)

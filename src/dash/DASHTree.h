@@ -218,6 +218,8 @@ namespace dash
     };
     std::string strXMLText_;
 
+    bool is_m3u8;
+
     DASHTree();
     ~DASHTree();
     bool open(const char *url);
@@ -232,7 +234,7 @@ namespace dash
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
 protected:
   virtual bool download(const char* url){ return false; };
-  bool write_data(void *buffer, size_t buffer_size);
+  bool write_data(char *line);
 };
 
 }
