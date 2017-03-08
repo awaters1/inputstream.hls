@@ -1515,10 +1515,15 @@ extern "C" {
 
   int ReadStream(unsigned char* buf, unsigned int size)
   {
+	    if (!session)
+	      return -1;
 	  // TODO: Check for segment data pointer
 	  // TODO: If no data request segment and return it
 	  // TODO:
-	  xbmc->Log(ADDON::LOG_DEBUG, "Read stream");
+	Session::STREAM *stream = session->GetStream(0);
+	KodiDASHStream dashStream = stream->stream_;
+	std::cout << "Stream: " << dashStream.getRepresentation()->url_ << "\n";
+	std::cout << "Reading stream of size " << size << "\n";
     return -1;
   }
 
