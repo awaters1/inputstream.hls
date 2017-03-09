@@ -1112,6 +1112,10 @@ bool DASHTree::write_data(char *line)
 	  	  }
 	  } else {
 		  current_representation_->url_ += line;
+		  int lastSlash = current_representation_->url_.find_last_of('/');
+		  if (lastSlash >= 0) {
+			  current_representation_->base_url_ =  current_representation_->url_.substr(0, lastSlash + 1);
+		  }
 	  }
 	  return true;
   }

@@ -18,4 +18,10 @@ HLS
 3. A HLSStream is represented of multiple segments
 
 Need to decrypt the TS before passing it to readStream
-(can use OpenSSL to do this))
+(can use OpenSSL to do this, just fetch the key and IV
+from the playlist file)
+http://stackoverflow.com/questions/15594645/openssl-decrypting-a-base64-string-with-a-key-and-iv
+
+Need to figure out if the TS file can be played without the
+metadata from the HLS file, and if the metadata is only for loading
+up the TS files

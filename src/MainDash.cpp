@@ -1513,6 +1513,8 @@ extern "C" {
     return stream->disable();
   }
 
+  int count = 0;
+
   int ReadStream(unsigned char* buf, unsigned int size)
   {
 	    if (!session)
@@ -1520,10 +1522,17 @@ extern "C" {
 	  // TODO: Check for segment data pointer
 	  // TODO: If no data request segment and return it
 	  // TODO:
-	Session::STREAM *stream = session->GetStream(0);
-	KodiDASHStream dashStream = stream->stream_;
-	std::cout << "Stream: " << dashStream.getRepresentation()->url_ << "\n";
+	Session::STREAM *stream = session->GetStream(1);
+	KodiDASHStream *dashStream = &stream->stream_;
+	std::cout << "Stream: " << dashStream->getRepresentation()->url_ << "\n";
 	std::cout << "Reading stream of size " << size << "\n";
+	if (dashStream->read(buf, size)) {
+		++count;
+		if (count >= 100) {
+			return 0;
+		}
+		return size;
+	}
     return -1;
   }
 
@@ -1539,7 +1548,7 @@ extern "C" {
 
   int64_t LengthStream(void)
   {
-    return -1;
+    return 10;
   }
 
   void DemuxReset(void)
