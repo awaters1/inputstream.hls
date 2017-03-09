@@ -1,0 +1,40 @@
+#EXTM3U
+#EXT-X-VERSION:5
+#EXT-X-MEDIA-SEQUENCE:8
+#EXT-X-TARGETDURATION:8
+#UPLYNK-SEGMENT: 2689c3e5c77a4311bc79b52a3c6a7cf7,000002C8,segment
+#UPLYNK-KEY:https://content-auso3.uplynk.com/check?b=2689c3e5c77a4311bc79b52a3c6a7cf7&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c
+#EXT-X-PROGRAM-DATE-TIME:2017-03-07T00:50:52.925000+00:00
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=2689c3e5c77a4311bc79b52a3c6a7cf7&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x000000000000000000000000000002C8
+#EXTINF:4.0960,
+http://stg-ec-ore-u.uplynk.com/slices/268/d09b16c953aa40c98dd8c513526aca5a/2689c3e5c77a4311bc79b52a3c6a7cf7/H000002C8.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&si=0
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=2689c3e5c77a4311bc79b52a3c6a7cf7&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x000000000000000000000000000002C9
+#EXTINF:4.0960,
+http://stg-ec-ore-u.uplynk.com/slices/268/d09b16c953aa40c98dd8c513526aca5a/2689c3e5c77a4311bc79b52a3c6a7cf7/H000002C9.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&si=0
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=2689c3e5c77a4311bc79b52a3c6a7cf7&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x000000000000000000000000000002CA
+#EXTINF:1.4612,
+http://stg-ec-ore-u.uplynk.com/slices/268/d09b16c953aa40c98dd8c513526aca5a/2689c3e5c77a4311bc79b52a3c6a7cf7/H000002CA.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&si=0
+#UPLYNK-SEGMENT: 15007747d0d7474abb23121ef3ae3b39,00000000,ad
+#UPLYNK-KEY:https://content-auso3.uplynk.com/check?b=15007747d0d7474abb23121ef3ae3b39&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2017-03-07T00:51:02.578167+00:00
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=15007747d0d7474abb23121ef3ae3b39&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x00000000000000000000000000000000
+#EXTINF:4.0960,
+http://stg-ec-east-u.uplynk.com/slices/150/4f59ea65df184a2580ad8fc80d3eaa32/15007747d0d7474abb23121ef3ae3b39/H00000000.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&oid=d09b16c953aa40c98dd8c513526aca5a&si=1
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=15007747d0d7474abb23121ef3ae3b39&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x00000000000000000000000000000001
+#EXTINF:4.0960,
+http://stg-ec-east-u.uplynk.com/slices/150/4f59ea65df184a2580ad8fc80d3eaa32/15007747d0d7474abb23121ef3ae3b39/H00000001.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&oid=d09b16c953aa40c98dd8c513526aca5a&si=1
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=15007747d0d7474abb23121ef3ae3b39&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x00000000000000000000000000000002
+#EXTINF:4.0960,
+http://stg-ec-east-u.uplynk.com/slices/150/4f59ea65df184a2580ad8fc80d3eaa32/15007747d0d7474abb23121ef3ae3b39/H00000002.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&oid=d09b16c953aa40c98dd8c513526aca5a&si=1
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=15007747d0d7474abb23121ef3ae3b39&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x00000000000000000000000000000003
+#EXTINF:2.7520,
+http://stg-ec-east-u.uplynk.com/slices/150/4f59ea65df184a2580ad8fc80d3eaa32/15007747d0d7474abb23121ef3ae3b39/H00000003.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&oid=d09b16c953aa40c98dd8c513526aca5a&si=1
+#UPLYNK-SEGMENT: cf6278aeb99b4929816ea0196349a2d1,00000000,ad
+#UPLYNK-KEY:https://content-auso3.uplynk.com/check?b=cf6278aeb99b4929816ea0196349a2d1&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c
+#EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:2017-03-07T00:51:17.618167+00:00
+#EXT-X-KEY:METHOD=AES-128,URI="https://content-auso3.uplynk.com/check2?b=cf6278aeb99b4929816ea0196349a2d1&v=da4bad1d50c64efa93266fc7de244a5e&r=h&c=da4bad1d50c64efa93266fc7de244a5e&pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c",IV=0x00000000000000000000000000000000
+#EXTINF:4.0960,
+http://stg-ec-ore-u.uplynk.com/slices/cf6/4f59ea65df184a2580ad8fc80d3eaa32/cf6278aeb99b4929816ea0196349a2d1/H00000000.ts?pbs=1c6bdc4369cb4afc9044ad3a8a5bf49c&_jt=l&euid=ESPN3_VDMS&chid=da4bad1d50c64efa93266fc7de244a5e&ptid=ESPN_tvOS_VDMS&oid=d09b16c953aa40c98dd8c513526aca5a&si=2
+

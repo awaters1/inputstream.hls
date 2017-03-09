@@ -194,8 +194,10 @@ bool KodiDASHTree::download(const char* url)
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
-  size_t nbRead;
-  while ((nbRead = xbmc->ReadFile(file, buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead));
+  bool read;
+  while ((read = xbmc->ReadFileString(file, buf, CHUNKSIZE)) > 0 && read && write_data(buf)) {
+	  xbmc->Log(ADDON::LOG_DEBUG, "Read Line %s", buf);
+  }
 
   //download_speed_ = xbmc->GetFileDownloadSpeed(file);
 
@@ -203,7 +205,7 @@ bool KodiDASHTree::download(const char* url)
 
   xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
 
-  return nbRead == 0;
+  return !read;
 }
 
 bool KodiDASHStream::download(const char* url, const char* rangeHeader)
@@ -1423,7 +1425,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
-    caps.m_supportsIDemux = true;
+    caps.m_supportsIDemux = false;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = session && !session->IsLive();
@@ -1511,8 +1513,26 @@ extern "C" {
     return stream->disable();
   }
 
-  int ReadStream(unsigned char*, unsigned int)
+  int count = 0;
+
+  int ReadStream(unsigned char* buf, unsigned int size)
   {
+	    if (!session)
+	      return -1;
+	  // TODO: Check for segment data pointer
+	  // TODO: If no data request segment and return it
+	  // TODO:
+	Session::STREAM *stream = session->GetStream(1);
+	KodiDASHStream *dashStream = &stream->stream_;
+	std::cout << "Stream: " << dashStream->getRepresentation()->url_ << "\n";
+	std::cout << "Reading stream of size " << size << "\n";
+	if (dashStream->read(buf, size)) {
+		++count;
+		if (count >= 100) {
+			return 0;
+		}
+		return size;
+	}
     return -1;
   }
 
@@ -1528,7 +1548,7 @@ extern "C" {
 
   int64_t LengthStream(void)
   {
-    return -1;
+    return 10;
   }
 
   void DemuxReset(void)
@@ -1545,6 +1565,7 @@ extern "C" {
 
   DemuxPacket* __cdecl DemuxRead(void)
   {
+	  xbmc->Log(ADDON::LOG_DEBUG, "DemuxRead");
     if (!session)
       return NULL;
 

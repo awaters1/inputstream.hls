@@ -96,6 +96,7 @@ namespace dash
       Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
         aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), flags_(0), indexRangeMin_(0), indexRangeMax_(0){};
       std::string url_;
+      std::string base_url_;
       std::string id;
       std::string codecs_;
       std::string codec_private_data_;
@@ -218,6 +219,8 @@ namespace dash
     };
     std::string strXMLText_;
 
+    bool is_m3u8;
+
     DASHTree();
     ~DASHTree();
     bool open(const char *url);
@@ -232,7 +235,7 @@ namespace dash
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
 protected:
   virtual bool download(const char* url){ return false; };
-  bool write_data(void *buffer, size_t buffer_size);
+  bool write_data(char *line);
 };
 
 }

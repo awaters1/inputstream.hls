@@ -37,53 +37,11 @@ bool DASHStream::download_segment()
   if (!current_seg_)
     return false;
 
-  std::string strURL;
-  char rangebuf[128], *rangeHeader(0);
+  std::string strURL = current_rep_->base_url_;
+  // TODO: Find proper segment
+  strURL += "fileSequence0.ts";
 
-  if (!(current_rep_->flags_ & DASHTree::Representation::SEGMENTBASE))
-  {
-    if (!(current_rep_->flags_ & DASHTree::Representation::TEMPLATE))
-    {
-      strURL = current_rep_->url_;
-      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-      rangeHeader = rangebuf;
-      absolute_position_ = current_seg_->range_begin_;
-    }
-    else if (~current_seg_->range_end_) //templated segment
-    {
-      std::string media = current_rep_->segtpl_.media;
-      std::string::size_type lenReplace(7);
-      std::string::size_type np(media.find("$Number"));
-      if (np == std::string::npos)
-      {
-        lenReplace = 5;
-        np = media.find("$Time");
-      }
-      np += lenReplace;
-
-      std::string::size_type npe(media.find('$', np));
-
-      char fmt[16];
-      if (np == npe)
-        strcpy(fmt, "%" PRIu64);
-      else
-        strcpy(fmt, media.substr(np, npe - np).c_str());
-
-      sprintf(rangebuf, fmt, static_cast<uint64_t>(current_seg_->range_end_));
-      media.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
-      strURL = media;
-    }
-    else //templated initialization segment
-      strURL = current_rep_->url_;
-  }
-  else
-  {
-    strURL = current_rep_->url_;
-    sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-    rangeHeader = rangebuf;
-  }
-
-  return download(strURL.c_str(), rangeHeader);
+  return download(strURL.c_str(), nullptr);
 }
 
 bool DASHStream::write_data(const void *buffer, size_t buffer_size)

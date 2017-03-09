@@ -1,0 +1,27 @@
+How the addon works
+1. Reads the MPD file to get the URLs and other metadata
+2. When playback is started Kodi is passed 2 streams, one for video 
+one for audio
+3. When kodi requests demuxed data it finds out which stream is next
+and obtains the data for that stream.  If the data isn't in the buffer
+it requests the next segment from the HTTP server
+4. The demuxed data is returned
+
+
+For HLS it would work the same, but instead of using demux we
+would use ReadStream because our data is multiplexed and needs to be
+demuxed by kodi itself
+
+HLS
+1. Read the main playlist file into an HLSObject
+2. Represent the separate HLS playlist as HLSStream
+3. A HLSStream is represented of multiple segments
+
+Need to decrypt the TS before passing it to readStream
+(can use OpenSSL to do this, just fetch the key and IV
+from the playlist file)
+http://stackoverflow.com/questions/15594645/openssl-decrypting-a-base64-string-with-a-key-and-iv
+
+Need to figure out if the TS file can be played without the
+metadata from the HLS file, and if the metadata is only for loading
+up the TS files
