@@ -27,6 +27,7 @@
 
 #include "kodi_inputstream_types.h"
 
+class FragmentedSampleReader;
 class SSD_DECRYPTER;
 
 namespace XBMCFILE
@@ -80,10 +81,11 @@ public:
   Session(const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* profile_path);
   ~Session();
   bool initialize();
+  FragmentedSampleReader *GetNextSample();
 
   struct STREAM
   {
-    STREAM(dash::DASHTree &t, dash::DASHTree::StreamType s) :stream_(t, s), enabled(false), current_segment_(0), input_(0), input_file_(0) { memset(&info_, 0, sizeof(info_)); };
+    STREAM(dash::DASHTree &t, dash::DASHTree::StreamType s) :stream_(t, s), enabled(false), current_segment_(0), input_(0), reader_(0), input_file_(0) { memset(&info_, 0, sizeof(info_)); };
     ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
     void disable();
 
@@ -93,6 +95,7 @@ public:
     AP4_ByteStream *input_;
     AP4_File *input_file_;
     INPUTSTREAM_INFO info_;
+    FragmentedSampleReader *reader_;
   };
 
   void UpdateStream(STREAM &stream);
