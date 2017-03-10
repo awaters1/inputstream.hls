@@ -33,3 +33,5 @@ or if we have to use demux
 -> not sure if we can support this without demux.
 if we use demux then we need to load in
 mpeg2ts and demux it before seding to kodi
+
+Can use https://github.com/clark15b/tsdemuxer as a demuxer
