@@ -33,3 +33,7 @@ or if we have to use demux
 -> not sure if we can support this without demux.
 if we use demux then we need to load in
 mpeg2ts and demux it before seding to kodi
+
+May be able to use
+https://github.com/janbar/demux-mpegts
+to demux
