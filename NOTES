@@ -25,3 +25,11 @@ http://stackoverflow.com/questions/15594645/openssl-decrypting-a-base64-string-w
 Need to figure out if the TS file can be played without the
 metadata from the HLS file, and if the metadata is only for loading
 up the TS files
+
+
+1. Need to determine if we can get away with ReadSteam
+or if we have to use demux
+2. HLS files can have separate audio streams
+-> not sure if we can support this without demux.
+if we use demux then we need to load in
+mpeg2ts and demux it before seding to kodi
