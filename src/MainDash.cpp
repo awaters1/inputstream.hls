@@ -28,6 +28,7 @@
 #include "helpers.h"
 #include "kodi_vfs_types.h"
 #include "SSD_dll.h"
+#include "demux/demux.h"
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
@@ -1425,7 +1426,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
-    caps.m_supportsIDemux = false;
+    caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = session && !session->IsLive();
@@ -1528,6 +1529,7 @@ extern "C" {
 	if (dashStream->read(buf, size)) {
 		++count;
 		if (count >= 100) {
+		    std::cout << "Count is " << count << "\n";
 			return 0;
 		}
 		return size;
@@ -1562,11 +1564,45 @@ extern "C" {
   {
   }
 
+  Demux *demux = nullptr;
+
   DemuxPacket* __cdecl DemuxRead(void)
   {
-	  xbmc->Log(ADDON::LOG_DEBUG, "DemuxRead");
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxRead");
     if (!session)
       return NULL;
+
+    Session::STREAM *stream = session->GetStream(1);
+    KodiDASHStream *dashStream = &stream->stream_;
+    std::cout << "Stream " << dashStream->getRepresentation()->url_ << "\n";
+    if (!demux) {
+        bool downloaded = dashStream->download_segment();
+        demux = new Demux(dashStream->segment_buffer_, 0);
+    }
+    if (demux) {
+      // segment_buffer contains the whole ts, so send it to the demuxer
+
+      TSDemux::STREAM_PKT* pkt = demux->get_next_pkt();
+      if (!pkt) {
+          std::cout << "Error demuxing\n";
+          return nullptr;
+      }
+      if (pkt->streamChange) {
+          DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
+          p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+          xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+          return p;
+      }
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
+      p->dts = pkt->dts * 1000000;
+      p->pts = pkt->pts * 1000000;
+      p->duration = pkt->duration * 1000000;
+      p->iStreamId = pkt->pid;
+      p->iGroupId = 0;
+      p->iSize = pkt->size;
+      memcpy(p->pData, pkt->data, p->iSize);
+      return p;
+    }
 
     FragmentedSampleReader *sr(session->GetNextSample());
 

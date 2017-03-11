@@ -43,15 +43,6 @@ bool DASHStream::download_segment()
   strURL += "fileSequence0.ts";
 
   bool ret = download(strURL.c_str(), nullptr);
-  if (ret) {
-      // segment_buffer contains the whole ts, so send it to the demuxer
-      Demux* demux = new Demux(segment_buffer_, 0);
-      int ret = demux->Do();
-      if (!ret) {
-    	  std::cout << "Error demuxing\n";
-      }
-      delete demux;
-  }
   return ret;
 }
 

@@ -55,12 +55,15 @@ namespace dash
     void set_download_speed(double speed) { tree_.set_download_speed(speed); };
     size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
     uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
+    // TODO: Temp move here
+    bool download_segment();
+    std::string segment_buffer_;
   protected:
     virtual bool download(const char* url, const char* rangeHeader){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:
-    bool download_segment();
+
 
     DASHTree &tree_;
     DASHTree::StreamType type_;
@@ -71,7 +74,7 @@ namespace dash
     const DASHTree::Representation *current_rep_;
     const DASHTree::Segment *current_seg_;
     //We assume that a single segment can build complete frames
-    std::string segment_buffer_;
+
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
 

@@ -36,7 +36,7 @@ public:
   Demux(std::string buffer, uint16_t channel);
   ~Demux();
 
-  int Do(void);
+  TSDemux::STREAM_PKT* get_next_pkt(void);
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 

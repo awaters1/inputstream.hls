@@ -134,11 +134,12 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-int Demux::Do()
+TSDemux::STREAM_PKT* Demux::get_next_pkt()
 {
   int ret = 0;
+  TSDemux::STREAM_PKT *pkt = nullptr;
 
-  while (true)
+  while (!pkt || pkt->size <= 0)
   {
     {
       ret = m_AVContext->TSResync();
@@ -150,12 +151,13 @@ int Demux::Do()
 
     if (m_AVContext->HasPIDStreamData())
     {
-      TSDemux::STREAM_PKT pkt;
-      while (get_stream_data(&pkt))
+      pkt = new TSDemux::STREAM_PKT();
+      while (get_stream_data(pkt))
       {
-        if (pkt.streamChange)
-          show_stream_info(pkt.pid);
-        write_stream_data(&pkt);
+        if (pkt->streamChange)
+          show_stream_info(pkt->pid);
+        write_stream_data(pkt);
+        break;
       }
     }
     if (m_AVContext->HasPIDPayload())
@@ -187,7 +189,7 @@ int Demux::Do()
          TSDemux::AVCONTEXT_IO_ERROR,
          TSDemux::AVCONTEXT_TS_ERROR);
   printf(LOGTAG "%s: stopped with status %d\n", __FUNCTION__, ret);
-  return ret;
+  return pkt;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
