@@ -18,6 +18,8 @@ set(MPD_SOURCES
   src/oscompat.cpp
   src/msl.cpp
   src/demux/demux.cpp
+  src/session.cpp
+  src/KodiDASH.cpp
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
