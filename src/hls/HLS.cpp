@@ -44,14 +44,14 @@ bool hls::MasterPlaylist::write_data(std::string line) {
           std::cerr << "In stream, but no streams found" << std::endl;
           return false;
       }
-      MasterStream *stream = streams.back();
+      MediaPlaylist *stream = streams.back();
       stream->url = base_url + line;
       in_stream = false;
       return true;
   }
   if (line.find("#EXT-X-STREAM-INF") == 0) {
       in_stream = true;
-      MasterStream *stream = new MasterStream();
+      MediaPlaylist *stream = new MediaPlaylist();
       stream->program_id = get_attribute_value(line, "PROGRAM-ID");
       stream->bandwidth = get_number_attribute_value(line, "BANDWIDTH");
       streams.push_back(stream);
@@ -74,7 +74,7 @@ hls::MasterPlaylist::MasterPlaylist()
 }
 
 hls::MasterPlaylist::~MasterPlaylist() {
-  for(std::vector<MasterStream*>::iterator it = streams.begin(); it != streams.end(); ++it) {
+  for(std::vector<MediaPlaylist*>::iterator it = streams.begin(); it != streams.end(); ++it) {
       delete *it;
   }
 }

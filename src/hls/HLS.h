@@ -8,7 +8,7 @@
 
 namespace hls
 {
-  class MasterStream {
+  class MediaPlaylist {
     public:
       uint32_t bandwidth;
       std::string program_id;
@@ -18,7 +18,7 @@ namespace hls
   class MasterPlaylist {
   public:
     std::string get_base_url() { return base_url; };
-    std::vector<MasterStream*> get_streams() { return streams; };
+    std::vector<MediaPlaylist*> get_streams() { return streams; };
     MasterPlaylist();
     ~MasterPlaylist();
   protected:
@@ -33,7 +33,7 @@ namespace hls
     bool in_stream;
     std::string url;
     std::string base_url;
-    std::vector<MasterStream*> streams;
+    std::vector<MediaPlaylist*> streams;
   };
 
   class FileMasterPlaylist : public MasterPlaylist {

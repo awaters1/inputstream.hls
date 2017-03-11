@@ -40,7 +40,7 @@ TEST(HlsTest, GetBaseUrl) {
 TEST(HlsTest, StreamUrl) {
   hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
   mp.open("test/hls/bipbopall.m3u8");
-  std::vector<MasterStream*> streams = mp.get_streams();
+  std::vector<MediaPlaylist*> streams = mp.get_streams();
   EXPECT_EQ(4, streams.size());
   EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0]->url);
   EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1]->url);
