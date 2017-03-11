@@ -76,6 +76,7 @@ private:
 
   int g_loglevel = DEMUX_DBG_INFO;
   int g_parseonly = 1;
+  bool reading_packets = false;
 };
 
 #endif /* TEST_DEMUX_H */

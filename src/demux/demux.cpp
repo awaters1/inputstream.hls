@@ -139,7 +139,40 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
   int ret = 0;
   TSDemux::STREAM_PKT *pkt = nullptr;
 
-  while (!pkt || pkt->size <= 0)
+  if (reading_packets) {
+      pkt = new TSDemux::STREAM_PKT();
+      reading_packets = get_stream_data(pkt);
+      if (reading_packets) {
+        if (pkt->streamChange)
+          show_stream_info(pkt->pid);
+        return pkt;
+      } else {
+          if (m_AVContext->HasPIDPayload())
+              {
+                ret = m_AVContext->ProcessTSPayload();
+                if (ret == TSDemux::AVCONTEXT_PROGRAM_CHANGE)
+                {
+                  register_pmt();
+                  std::vector<TSDemux::ElementaryStream*> streams = m_AVContext->GetStreams();
+                  for (std::vector<TSDemux::ElementaryStream*>::const_iterator it = streams.begin(); it != streams.end(); ++it)
+                  {
+                    if ((*it)->has_stream_info)
+                      show_stream_info((*it)->pid);
+                  }
+                }
+              }
+
+              if (ret < 0)
+                printf(LOGTAG "%s: error %d\n", __FUNCTION__, ret);
+
+              if (ret == TSDemux::AVCONTEXT_TS_ERROR)
+                m_AVContext->Shift();
+              else
+                m_AVContext->GoNext();
+      }
+  }
+
+  while (true)
   {
     {
       ret = m_AVContext->TSResync();
@@ -152,13 +185,11 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
     if (m_AVContext->HasPIDStreamData())
     {
       pkt = new TSDemux::STREAM_PKT();
-      while (get_stream_data(pkt))
-      {
-        if (pkt->streamChange)
-          show_stream_info(pkt->pid);
-        write_stream_data(pkt);
-        break;
-      }
+      reading_packets = get_stream_data(pkt);
+      if (pkt->streamChange)
+        show_stream_info(pkt->pid);
+      if (reading_packets)
+        return pkt;
     }
     if (m_AVContext->HasPIDPayload())
     {

@@ -1419,6 +1419,11 @@ extern "C" {
             iids.m_streamIds[iids.m_streamCount++] = i;
     } else
         iids.m_streamCount = 0;
+
+    iids.m_streamCount = 2;
+    iids.m_streamIds[0] = 257;
+    iids.m_streamIds[1] = 258;
+
     return iids;
   }
 
@@ -1440,6 +1445,20 @@ extern "C" {
       INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
+
+    if (streamid == 258) {
+          static struct INPUTSTREAM_INFO audio_info = {
+              INPUTSTREAM_INFO::TYPE_AUDIO, "aac", "", 258, 0, 0, 0, "",
+              0, 0, 0, 0, 0.0f,
+              1, 22050, 0, 0, 0 };
+          return audio_info;
+    } else if (streamid == 257) {
+        static struct INPUTSTREAM_INFO video_info = {
+                      INPUTSTREAM_INFO::TYPE_VIDEO, "h264", "", 257, 0, 0, 0, "",
+                      0, 0, 0, 0, 0.0f,
+                      0, 0, 0, 0, 0 };
+        return video_info;
+    }
 
     xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
@@ -1565,6 +1584,8 @@ extern "C" {
   }
 
   Demux *demux = nullptr;
+  FILE* ofile = fopen("test.mp4", "wb+");
+  TSDemux::STREAM_PKT* lastPkt = nullptr;
 
   DemuxPacket* __cdecl DemuxRead(void)
   {
@@ -1581,25 +1602,50 @@ extern "C" {
     }
     if (demux) {
       // segment_buffer contains the whole ts, so send it to the demuxer
+      if (lastPkt) {
 
+          DemuxPacket *p = ipsh->AllocateDemuxPacket(lastPkt->size);
+            p->dts = lastPkt->dts * 10;
+            p->pts = lastPkt->pts * 10;
+            p->duration = lastPkt->duration * 10;
+            p->iStreamId = lastPkt->pid;
+            p->iGroupId = 0;
+            p->iSize = lastPkt->size;
+            std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
+            memcpy(p->pData, lastPkt->data, p->iSize);
+            lastPkt = 0;
+            return p;
+      }
+      lastPkt = nullptr;
       TSDemux::STREAM_PKT* pkt = demux->get_next_pkt();
       if (!pkt) {
           std::cout << "Error demuxing\n";
+          if (ofile) {
+              fclose(ofile);
+          }
+          ofile = nullptr;
           return nullptr;
       }
+      if (pkt->pid == 257) {
+
+          size_t c = fwrite(pkt->data, sizeof(*pkt->data), pkt->size, ofile);
+      }
       if (pkt->streamChange) {
+          // the packet still contains data so get it the next time around
+          lastPkt = pkt;
           DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
           p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
           xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
           return p;
       }
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-      p->dts = pkt->dts * 1000000;
-      p->pts = pkt->pts * 1000000;
-      p->duration = pkt->duration * 1000000;
+      p->dts = pkt->dts * 10;
+      p->pts = pkt->pts * 10;
+      p->duration = pkt->duration * 10;
       p->iStreamId = pkt->pid;
       p->iGroupId = 0;
       p->iSize = pkt->size;
+      std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
       memcpy(p->pData, pkt->data, p->iSize);
       return p;
     }
