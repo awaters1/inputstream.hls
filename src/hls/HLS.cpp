@@ -60,7 +60,7 @@ bool hls::MasterPlaylist::write_data(std::string line) {
 }
 
 hls::MasterPlaylist::MasterPlaylist()
-: is_m3u8(false), in_stream(false) {
+: in_stream(false) {
 
 }
 
@@ -70,11 +70,73 @@ hls::MasterPlaylist::~MasterPlaylist() {
   }
 }
 
+std::vector<std::string> hls::MediaPlaylist::get_attributes(std::string line) {
+  std::vector<std::string> attributes;
+  size_t colon_index = line.find_first_of(':');
+  if (colon_index == std::string::npos) {
+      return attributes;
+  }
+  size_t starting_index = colon_index + 1;
+  while(starting_index < line.length()) {
+      size_t comma_index = line.find_first_of(',', starting_index);
+      if (comma_index == std::string::npos) {
+          comma_index = line.length();
+      }
+      size_t length = comma_index - starting_index;
+      std::string attribute_value = line.substr(starting_index, length);
+      attributes.push_back(attribute_value);
+      starting_index = comma_index + 1;
+  }
+  return attributes;
+}
+
 bool hls::MediaPlaylist::write_data(std::string line) {
+  is_m3u8 = is_m3u8 || line == "#EXTM3U";
+  if (!is_m3u8) {
+      std::cerr << "First line isn't #EXTM3U" << std::endl;
+      return false;
+  }
+  if (in_segment) {
+      if (segments.empty()) {
+          std::cerr << "In segment, but no segments found" << std::endl;
+          return false;
+      }
+      Segment *segment = segments.back();
+      segment->set_url(base_url + line);
+      in_segment = false;
+      return true;
+  }
+  if (line.find("#EXT-X-TARGETDURATION") != std::string::npos) {
+      segment_target_duration = std::stod(get_attributes(line)[0]);
+  } else if (line.find("#EXT-X-MEDIA-SEQUENCE") != std::string::npos) {
+      starting_media_sequence = std::stod(get_attributes(line)[0]);
+      current_media_sequence = starting_media_sequence;
+  } else if (line.find("#EXTINF") != std::string::npos) {
+      in_segment = true;
+      std::vector<std::string> attributes = get_attributes(line);
+      Segment *segment = new Segment();
+      segment->media_sequence = current_media_sequence++;
+      segment->duration = std::stod(attributes[0]);
+      segment->description = attributes[1];
+      segments.push_back(segment);
+  } else if (line == "#EXT-X-ENDLIST") {
+      // TODO: Handle end list
+  }
   return true;
 }
 
-void hls::Playlist::set_url(std::string url) {
+hls::MediaPlaylist::MediaPlaylist()
+: segment_target_duration(0), starting_media_sequence(0), in_segment(false) {
+
+}
+
+hls::MediaPlaylist::~MediaPlaylist() {
+  for(std::vector<Segment*>::iterator it = segments.begin(); it != segments.end(); ++it) {
+      delete *it;
+  }
+}
+
+void hls::Resource::set_url(std::string url) {
   this->url = url;
   size_t last_slash = url.find_last_of('/');
   if (last_slash == std::string::npos) {
@@ -84,6 +146,26 @@ void hls::Playlist::set_url(std::string url) {
 }
 
 bool hls::FileMasterPlaylist::open(const char *file_path) {
+  std::ifstream playlist_file(file_path);
+  if (!playlist_file.is_open()) {
+      std::cerr << "Unable to open " << file_path << std::endl;
+      return false;
+  }
+  set_url(file_path);
+  std::string line;
+  while(std::getline(playlist_file, line)) {
+      if (!write_data(line)) {
+          return false;
+      }
+  }
+
+  playlist_file.close();
+
+  return true;
+}
+
+// TODO: Copy of above
+bool hls::FileMediaPlaylist::open(const char *file_path) {
   std::ifstream playlist_file(file_path);
   if (!playlist_file.is_open()) {
       std::cerr << "Unable to open " << file_path << std::endl;
