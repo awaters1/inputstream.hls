@@ -45,7 +45,7 @@ bool hls::MasterPlaylist::write_data(std::string line) {
           return false;
       }
       MediaPlaylist *stream = streams.back();
-      stream->url = base_url + line;
+      stream->set_url(base_url + line);
       in_stream = false;
       return true;
   }
@@ -59,15 +59,6 @@ bool hls::MasterPlaylist::write_data(std::string line) {
   return true;
 }
 
-void hls::MasterPlaylist::set_url(std::string url) {
-  this->url = url;
-  size_t last_slash = url.find_last_of('/');
-  if (last_slash == std::string::npos) {
-      base_url = "";
-  }
-  base_url = url.substr(0, last_slash + 1);
-}
-
 hls::MasterPlaylist::MasterPlaylist()
 : is_m3u8(false), in_stream(false) {
 
@@ -77,6 +68,19 @@ hls::MasterPlaylist::~MasterPlaylist() {
   for(std::vector<MediaPlaylist*>::iterator it = streams.begin(); it != streams.end(); ++it) {
       delete *it;
   }
+}
+
+bool hls::MediaPlaylist::write_data(std::string line) {
+  return true;
+}
+
+void hls::Playlist::set_url(std::string url) {
+  this->url = url;
+  size_t last_slash = url.find_last_of('/');
+  if (last_slash == std::string::npos) {
+      base_url = "";
+  }
+  base_url = url.substr(0, last_slash + 1);
 }
 
 bool hls::FileMasterPlaylist::open(const char *file_path) {

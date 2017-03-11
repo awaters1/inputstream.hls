@@ -42,10 +42,10 @@ TEST(HlsTest, StreamUrl) {
   mp.open("test/hls/bipbopall.m3u8");
   std::vector<MediaPlaylist*> streams = mp.get_streams();
   EXPECT_EQ(4, streams.size());
-  EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0]->url);
-  EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1]->url);
-  EXPECT_EQ("test/hls/gear3/prog_index.m3u8", streams[2]->url);
-  EXPECT_EQ("test/hls/gear4/prog_index.m3u8", streams[3]->url);
+  EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0]->get_url());
+  EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1]->get_url());
+  EXPECT_EQ("test/hls/gear3/prog_index.m3u8", streams[2]->get_url());
+  EXPECT_EQ("test/hls/gear4/prog_index.m3u8", streams[3]->get_url());
 }
 
 }
