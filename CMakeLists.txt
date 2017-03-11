@@ -23,38 +23,6 @@ set(MPD_SOURCES
   src/hls/HLS.cpp
 )
 
-list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
-
-include_directories(${INCLUDES}
-                    ${kodiplatform_INCLUDE_DIRS}
-                    ${p8-platform_INCLUDE_DIRS}
-                    ${KODI_INCLUDE_DIR}
-                    lib/libbento4/Core
-                    lib/demux-mpegts/src
-)
-                    
-if(WIN32)
- 	add_definitions(-DXML_STATIC)
-	include_directories(lib/expat/include)
-	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-	list(APPEND DEPLIBS ws2_32 expat)
-else()
-	include(FindEXPAT)
-	find_package(EXPAT REQUIRED)
-	include_directories(${EXPAT_INCLUDE_DIRS})
-	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
-	add_definitions(-D__STDC_FORMAT_MACROS)
-endif()
-
-add_subdirectory(lib/libbento4)
-list(APPEND DEPLIBS bento4)
-add_subdirectory(lib/demux-mpegts)
-list(APPEND DEPLIBS tsDemuxerStatic)
-					
-build_addon(inputstream.mpd MPD DEPLIBS)
-
-include(CPack)
-
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
 enable_testing()
 # Download and unpack googletest at configure time
@@ -81,14 +49,42 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
                  ${CMAKE_BINARY_DIR}/googletest-build EXCLUDE_FROM_ALL)
 
-# The gtest/gtest_main targets carry header search path
-# dependencies automatically when using CMake 2.8.11 or
-# later. Otherwise we have to add them here ourselves.
-if (CMAKE_VERSION VERSION_LESS 2.8.11)
-  include_directories("${gtest_SOURCE_DIR}/include")
-endif()
-
 # Now simply link against gtest or gtest_main as needed. Eg
 add_executable(inputstreamhlstest test/hls/hls_test.cpp src/hls/HLS.cpp)
 target_link_libraries(inputstreamhlstest gtest_main)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
+
+list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
+
+include_directories(${INCLUDES}
+                    ${kodiplatform_INCLUDE_DIRS}
+                    ${p8-platform_INCLUDE_DIRS}
+                    ${KODI_INCLUDE_DIR}
+                    lib/libbento4/Core
+                    lib/demux-mpegts/src
+                    "${gtest_SOURCE_DIR}/include"
+)
+                    
+if(WIN32)
+ 	add_definitions(-DXML_STATIC)
+	include_directories(lib/expat/include)
+	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
+	list(APPEND DEPLIBS ws2_32 expat)
+else()
+	include(FindEXPAT)
+	find_package(EXPAT REQUIRED)
+	include_directories(${EXPAT_INCLUDE_DIRS})
+	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+	add_definitions(-D__STDC_FORMAT_MACROS)
+endif()
+
+add_subdirectory(lib/libbento4)
+list(APPEND DEPLIBS bento4)
+add_subdirectory(lib/demux-mpegts)
+list(APPEND DEPLIBS tsDemuxerStatic)
+					
+build_addon(inputstream.mpd MPD DEPLIBS)
+
+include(CPack)
+
+
