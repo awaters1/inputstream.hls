@@ -14,6 +14,7 @@
 #include <iostream>
 #include <cstring>
 #include "../oscompat.h"
+#include "../demux/demux.h"
 #include <math.h>
 
 using namespace dash;
@@ -41,7 +42,17 @@ bool DASHStream::download_segment()
   // TODO: Find proper segment
   strURL += "fileSequence0.ts";
 
-  return download(strURL.c_str(), nullptr);
+  bool ret = download(strURL.c_str(), nullptr);
+  if (ret) {
+      // segment_buffer contains the whole ts, so send it to the demuxer
+      Demux* demux = new Demux(segment_buffer_, 0);
+      int ret = demux->Do();
+      if (ret) {
+	  std::cout << "Error demuxing\n";
+      }
+      delete demux;
+  }
+  return ret;
 }
 
 bool DASHStream::write_data(const void *buffer, size_t buffer_size)

@@ -17,6 +17,7 @@ set(MPD_SOURCES
 	src/helpers.cpp
   src/oscompat.cpp
   src/msl.cpp
+  src/demux/demux.cpp
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
@@ -26,6 +27,7 @@ include_directories(${INCLUDES}
                     ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
+                    lib/demux-mpegts/src
 )
                     
 if(WIN32)
@@ -43,6 +45,8 @@ endif()
 
 add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
+add_subdirectory(lib/demux-mpegts)
+list(APPEND DEPLIBS tsDemuxerStatic)
 					
 build_addon(inputstream.mpd MPD DEPLIBS)
 
