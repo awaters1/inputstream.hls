@@ -30,9 +30,6 @@
 
 #define LOGTAG  "[DEMUX] "
 
-int g_loglevel = DEMUX_DBG_INFO;
-int g_parseonly = 0;
-
 Demux::Demux(uint16_t channel)
 : m_channel(channel), m_buffer_pos(0)
 {
@@ -91,6 +88,9 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   {
     // seek and reset buffer
     m_buffer_pos = pos;
+    if (m_buffer_pos >= m_buffer.length()) {
+    	return NULL;
+    }
     m_av_pos = (uint64_t)pos;
     m_av_rbs = m_av_rbe = m_av_buf;
   }
@@ -115,12 +115,13 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     size_t remaining_buffer = m_buffer.length() - m_buffer_pos;
     size_t bytes_to_read = len * sizeof(*m_av_buf);
     size_t c;
-    if (bytes_to_read > remaining_buffer) {
-	c = remaining_buffer / sizeof(*m_av_buf);
+    if (bytes_to_read >= remaining_buffer) {
+      c = remaining_buffer / sizeof(*m_av_buf);
     } else {
-	c = len;
+      c = len;
     }
-    memcpy(m_av_rbe, m_buffer.c_str() + m_buffer_pos, c * sizeof(*m_av_buf));
+    m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_buffer.c_str() + m_buffer_pos, c * sizeof(*m_av_buf));
+    m_buffer_pos += c * sizeof(*m_av_buf);
     if (c > 0)
     {
       m_av_rbe += c;
@@ -249,7 +250,7 @@ void Demux::register_pmt()
       const char* codec_name = (*it)->GetStreamCodecName();
       if (!g_parseonly)
       {
-	printf(LOGTAG "stream channel %u PID %.4x codec %s\n", channel, (*it)->pid, codec_name);
+        printf(LOGTAG "stream channel %u PID %.4x codec %s\n", channel, (*it)->pid, codec_name);
       }
       m_AVContext->StartStreaming((*it)->pid);
     }

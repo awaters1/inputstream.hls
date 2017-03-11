@@ -24,6 +24,7 @@
 #include <fcntl.h>
 
 #include "tsDemuxer.h"
+#include "debug.h"
 
 
 #define AV_BUFFER_SIZE          131072
@@ -32,7 +33,6 @@
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(FILE* file, uint16_t channel);
   Demux(std::string buffer, uint16_t channel);
   ~Demux();
 
@@ -73,6 +73,9 @@ private:
     uint64_t av_pos;
   } AV_POSMAP_ITEM;
   std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
+
+  int g_loglevel = DEMUX_DBG_INFO;
+  int g_parseonly = 1;
 };
 
 #endif /* TEST_DEMUX_H */

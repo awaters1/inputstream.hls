@@ -1524,8 +1524,7 @@ extern "C" {
 	  // TODO:
 	Session::STREAM *stream = session->GetStream(1);
 	KodiDASHStream *dashStream = &stream->stream_;
-	std::cout << "Stream: " << dashStream->getRepresentation()->url_ << "\n";
-	std::cout << "Reading stream of size " << size << "\n";
+	std::cout << "Stream " << dashStream->getRepresentation()->url_ << " of size " << size << "\n";
 	if (dashStream->read(buf, size)) {
 		++count;
 		if (count >= 100) {

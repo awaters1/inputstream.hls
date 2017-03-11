@@ -47,8 +47,8 @@ bool DASHStream::download_segment()
       // segment_buffer contains the whole ts, so send it to the demuxer
       Demux* demux = new Demux(segment_buffer_, 0);
       int ret = demux->Do();
-      if (ret) {
-	  std::cout << "Error demuxing\n";
+      if (!ret) {
+    	  std::cout << "Error demuxing\n";
       }
       delete demux;
   }
