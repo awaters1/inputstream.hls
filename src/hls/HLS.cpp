@@ -18,7 +18,6 @@ std::string hls::MasterPlaylist::get_attribute_value(std::string line, std::stri
   if (comma_index == std::string::npos) {
       comma_index = line.length();
   }
-  std::cout << "Index: " << index << " Comma: " << comma_index << "\n";
   size_t start = index + attribute_name.length() + 1;
   size_t end = comma_index;
   size_t length = end - start;
@@ -40,13 +39,44 @@ bool hls::MasterPlaylist::write_data(std::string line) {
       std::cerr << "First line isn't #EXTM3U" << std::endl;
       return false;
   }
-  if (line.find_first_of("#EXT-X-STREAM-INF") == 0) {
+  if (in_stream) {
+      if (streams.empty()) {
+          std::cerr << "In stream, but no streams found" << std::endl;
+          return false;
+      }
+      MasterStream *stream = streams.back();
+      stream->url = base_url + line;
+      in_stream = false;
+      return true;
+  }
+  if (line.find("#EXT-X-STREAM-INF") == 0) {
       in_stream = true;
-      MasterStream stream = MasterStream();
-      stream.program_id = get_attribute_value(line, "PROGRAM-ID");
-      stream.bandwidth = get_number_attribute_value(line, "BANDWIDTH");
+      MasterStream *stream = new MasterStream();
+      stream->program_id = get_attribute_value(line, "PROGRAM-ID");
+      stream->bandwidth = get_number_attribute_value(line, "BANDWIDTH");
+      streams.push_back(stream);
   }
   return true;
+}
+
+void hls::MasterPlaylist::set_url(std::string url) {
+  this->url = url;
+  size_t last_slash = url.find_last_of('/');
+  if (last_slash == std::string::npos) {
+      base_url = "";
+  }
+  base_url = url.substr(0, last_slash + 1);
+}
+
+hls::MasterPlaylist::MasterPlaylist()
+: is_m3u8(false), in_stream(false) {
+
+}
+
+hls::MasterPlaylist::~MasterPlaylist() {
+  for(std::vector<MasterStream*>::iterator it = streams.begin(); it != streams.end(); ++it) {
+      delete *it;
+  }
 }
 
 bool hls::FileMasterPlaylist::open(const char *file_path) {
@@ -55,6 +85,7 @@ bool hls::FileMasterPlaylist::open(const char *file_path) {
       std::cerr << "Unable to open " << file_path << std::endl;
       return false;
   }
+  set_url(file_path);
   std::string line;
   while(std::getline(playlist_file, line)) {
       if (!write_data(line)) {

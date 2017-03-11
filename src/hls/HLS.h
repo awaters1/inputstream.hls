@@ -12,11 +12,18 @@ namespace hls
     public:
       uint32_t bandwidth;
       std::string program_id;
+      std::string url;
     };
 
   class MasterPlaylist {
+  public:
+    std::string get_base_url() { return base_url; };
+    std::vector<MasterStream*> get_streams() { return streams; };
+    MasterPlaylist();
+    ~MasterPlaylist();
   protected:
     bool write_data(std::string line);
+    void set_url(std::string url);
   private:
     FRIEND_TEST(HlsTest, GetAttributeValue);
     std::string get_attribute_value(std::string line, std::string attribute_name);
@@ -24,13 +31,12 @@ namespace hls
 
     bool is_m3u8;
     bool in_stream;
-    std::vector<MasterStream> streams;
+    std::string url;
+    std::string base_url;
+    std::vector<MasterStream*> streams;
   };
 
-
-
-
-  class FileMasterPlaylist : MasterPlaylist {
+  class FileMasterPlaylist : public MasterPlaylist {
   public:
     bool open(const char *file_path);
   };

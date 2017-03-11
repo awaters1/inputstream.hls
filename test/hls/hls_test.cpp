@@ -30,4 +30,22 @@ TEST(HlsTest, GetAttributeValue) {
   attribute_value = mp.get_attribute_value("#EXT-X-STREAM-INF:PROGRAM-ID=1, BANDWIDTH=200000", "AVERAGE_BANDWIDTH");
   EXPECT_EQ("", attribute_value);
 }
+
+TEST(HlsTest, GetBaseUrl) {
+  hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
+  mp.open("test/hls/bipbopall.m3u8");
+  EXPECT_EQ("test/hls/", mp.get_base_url());
+}
+
+TEST(HlsTest, StreamUrl) {
+  hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
+  mp.open("test/hls/bipbopall.m3u8");
+  std::vector<MasterStream*> streams = mp.get_streams();
+  EXPECT_EQ(4, streams.size());
+  EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0]->url);
+  EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1]->url);
+  EXPECT_EQ("test/hls/gear3/prog_index.m3u8", streams[2]->url);
+  EXPECT_EQ("test/hls/gear4/prog_index.m3u8", streams[3]->url);
+}
+
 }
