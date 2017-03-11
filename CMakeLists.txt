@@ -11,7 +11,7 @@ find_package(kodiplatform REQUIRED)
 find_package(p8-platform REQUIRED)
 
 set(MPD_SOURCES 
-	src/MainDash.cpp
+	src/MainHLS.cpp
 	src/dash/DASHTree.cpp
 	src/dash/DASHStream.cpp
 	src/helpers.cpp
