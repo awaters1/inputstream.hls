@@ -21,8 +21,6 @@
 #ifndef TEST_DEMUX_H
 #define TEST_DEMUX_H
 
-#include <fcntl.h>
-
 #include "tsDemuxer.h"
 #include "debug.h"
 
@@ -50,7 +48,6 @@ private:
   void reset_posmap();
   void register_pmt();
   void show_stream_info(uint16_t pid);
-  void write_stream_data(TSDemux::STREAM_PKT* pkt);
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer
@@ -75,7 +72,6 @@ private:
   std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
 
   int g_loglevel = DEMUX_DBG_INFO;
-  int g_parseonly = 1;
   bool reading_packets = false;
 };
 

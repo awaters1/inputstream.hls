@@ -1,5 +1,6 @@
 /*
  *      Copyright (C) 2013 Jean-Luc Barriere
+ *      Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -137,54 +138,22 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 TSDemux::STREAM_PKT* Demux::get_next_pkt()
 {
   int ret = 0;
-  TSDemux::STREAM_PKT *pkt = nullptr;
-
-  if (reading_packets) {
-      pkt = new TSDemux::STREAM_PKT();
-      reading_packets = get_stream_data(pkt);
-      if (reading_packets) {
-        if (pkt->streamChange)
-          show_stream_info(pkt->pid);
-        return pkt;
-      } else {
-          if (m_AVContext->HasPIDPayload())
-              {
-                ret = m_AVContext->ProcessTSPayload();
-                if (ret == TSDemux::AVCONTEXT_PROGRAM_CHANGE)
-                {
-                  register_pmt();
-                  std::vector<TSDemux::ElementaryStream*> streams = m_AVContext->GetStreams();
-                  for (std::vector<TSDemux::ElementaryStream*>::const_iterator it = streams.begin(); it != streams.end(); ++it)
-                  {
-                    if ((*it)->has_stream_info)
-                      show_stream_info((*it)->pid);
-                  }
-                }
-              }
-
-              if (ret < 0)
-                printf(LOGTAG "%s: error %d\n", __FUNCTION__, ret);
-
-              if (ret == TSDemux::AVCONTEXT_TS_ERROR)
-                m_AVContext->Shift();
-              else
-                m_AVContext->GoNext();
-      }
-  }
 
   while (true)
   {
-    {
-      ret = m_AVContext->TSResync();
-    }
-    if (ret != TSDemux::AVCONTEXT_CONTINUE)
-      break;
+	if (!reading_packets) {
+		{
+		  ret = m_AVContext->TSResync();
+		}
+		if (ret != TSDemux::AVCONTEXT_CONTINUE)
+		  break;
 
-    ret = m_AVContext->ProcessTSPacket();
+		ret = m_AVContext->ProcessTSPacket();
+	}
 
-    if (m_AVContext->HasPIDStreamData())
+    if (reading_packets || m_AVContext->HasPIDStreamData())
     {
-      pkt = new TSDemux::STREAM_PKT();
+      TSDemux::STREAM_PKT *pkt = new TSDemux::STREAM_PKT();
       reading_packets = get_stream_data(pkt);
       if (pkt->streamChange)
         show_stream_info(pkt->pid);
@@ -220,7 +189,7 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
          TSDemux::AVCONTEXT_IO_ERROR,
          TSDemux::AVCONTEXT_TS_ERROR);
   printf(LOGTAG "%s: stopped with status %d\n", __FUNCTION__, ret);
-  return pkt;
+  return nullptr;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
@@ -260,17 +229,6 @@ bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
   return true;
 }
 
-void Demux::reset_posmap()
-{
-  if (m_posmap.empty())
-    return;
-
-  {
-    m_posmap.clear();
-    m_pinTime = m_curTime = m_endTime = 0;
-  }
-}
-
 void Demux::register_pmt()
 {
   const std::vector<TSDemux::ElementaryStream*> es_streams = m_AVContext->GetStreams();
@@ -281,10 +239,7 @@ void Demux::register_pmt()
     {
       uint16_t channel = m_AVContext->GetChannel((*it)->pid);
       const char* codec_name = (*it)->GetStreamCodecName();
-      if (!g_parseonly)
-      {
-        printf(LOGTAG "stream channel %u PID %.4x codec %s\n", channel, (*it)->pid, codec_name);
-      }
+	  printf(LOGTAG "stream channel %u PID %.4x codec %s\n", channel, (*it)->pid, codec_name);
       m_AVContext->StartStreaming((*it)->pid);
     }
   }
@@ -322,15 +277,4 @@ void Demux::show_stream_info(uint16_t pid)
   printf("  Bit rate       : %d\n", es->stream_info.bit_rate);
   printf("  Bit per sample : %d\n", es->stream_info.bits_per_sample);
   printf("\n");
-}
-
-void Demux::write_stream_data(TSDemux::STREAM_PKT* pkt)
-{
-  if (!pkt)
-    return;
-
-  if (!g_parseonly && pkt->size > 0 && pkt->data)
-  {
-     m_AVContext->StopStreaming(pkt->pid);
-  }
 }

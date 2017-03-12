@@ -316,22 +316,6 @@ extern "C" {
 
   int ReadStream(unsigned char* buf, unsigned int size)
   {
-	    if (!session)
-	      return -1;
-	  // TODO: Check for segment data pointer
-	  // TODO: If no data request segment and return it
-	  // TODO:
-	Session::STREAM *stream = session->GetStream(1);
-	KodiDASHStream *dashStream = &stream->stream_;
-	std::cout << "Stream " << dashStream->getRepresentation()->url_ << " of size " << size << "\n";
-	if (dashStream->read(buf, size)) {
-		++count;
-		if (count >= 100) {
-		    std::cout << "Count is " << count << "\n";
-			return 0;
-		}
-		return size;
-	}
     return -1;
   }
 
@@ -397,6 +381,7 @@ extern "C" {
       lastPkt = nullptr;
       TSDemux::STREAM_PKT* pkt = demux->get_next_pkt();
       if (!pkt) {
+    	  // TODO: Should demux->StopStreaming ?
           std::cout << "Error demuxing\n";
           return nullptr;
       }
