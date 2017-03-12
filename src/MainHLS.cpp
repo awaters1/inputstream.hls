@@ -33,11 +33,19 @@
 #include "decoding.h"
 #include "kodi.h"
 
+// HLS specific
+#include "hls/session.h"
+#include "hls/HLS.h"
+#include "kodi_hls.h"
+
 
 /*******************************************************
 Main class Session
 ********************************************************/
 Session *session = 0;
+
+hls::Session *hls_session;
+
 KodiHost kodihost;
 ADDON::CHelper_libXBMC_addon *xbmc = nullptr;
 std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
@@ -60,6 +68,7 @@ extern "C" {
   {
     // initialize globals
     session = nullptr;
+    hls_session = nullptr;
     kodiDisplayWidth = 1280;
     kodiDisplayHeight = 720;
 
@@ -164,6 +173,13 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
+
+    KodiMasterPlaylist master_playlist;
+    master_playlist.open(props.m_strURL);
+    master_playlist.select_media_playlist();
+    hls_session = new hls::Session(master_playlist);
+
+
     session = new Session(props.m_strURL, lt, lk, ld, props.m_profileFolder);
 
     if (!session->initialize())
@@ -190,18 +206,15 @@ extern "C" {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
     INPUTSTREAM_IDS iids;
 
-    if(session)
+    if(hls_session)
     {
-        iids.m_streamCount = 0;
-        for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
-          if(session->getMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
-            iids.m_streamIds[iids.m_streamCount++] = i;
+        std::vector<hls::Stream> streams = hls_session->get_streams();
+        iids.m_streamCount = streams.size();
+        for(int i = 0; i < streams.size(); ++i) {
+          iids.m_streamIds[i] = streams[i].stream_id;
+        }
     } else
         iids.m_streamCount = 0;
-
-    iids.m_streamCount = 2;
-    iids.m_streamIds[0] = 257;
-    iids.m_streamIds[1] = 258;
 
     return iids;
   }

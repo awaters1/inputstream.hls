@@ -34,7 +34,7 @@ uint32_t hls::MasterPlaylist::get_number_attribute_value(std::string line, std::
 }
 
 bool hls::MasterPlaylist::write_data(std::string line) {
-  is_m3u8 = is_m3u8 || line == "#EXTM3U";
+  is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
       std::cerr << "First line isn't #EXTM3U" << std::endl;
       return false;
@@ -91,7 +91,7 @@ std::vector<std::string> hls::MediaPlaylist::get_attributes(std::string line) {
 }
 
 bool hls::MediaPlaylist::write_data(std::string line) {
-  is_m3u8 = is_m3u8 || line == "#EXTM3U";
+  is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
       std::cerr << "First line isn't #EXTM3U" << std::endl;
       return false;

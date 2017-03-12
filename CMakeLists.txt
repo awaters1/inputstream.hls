@@ -21,6 +21,7 @@ set(MPD_SOURCES
   src/session.cpp
   src/KodiDASH.cpp
   src/hls/HLS.cpp
+  src/kodi_hls.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
