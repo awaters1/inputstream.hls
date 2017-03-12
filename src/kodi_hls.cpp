@@ -6,6 +6,49 @@
 
 #include "kodi_hls.h"
 
+// TODO: Keep track of download speed
+bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
+  // open the file
+  std::string url = active_segment->get_url();
+  void* file = xbmc->CURLCreate(url.c_str());
+  if (!file)
+    return false;
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
+
+  // read the file
+  char *buf = (char*)malloc(1024*1024);
+  size_t nbRead, nbReadOverall = 0;
+  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead && active_segment->write_data(buf, nbRead)) nbReadOverall+= nbRead;
+  free(buf);
+
+  if (!nbReadOverall)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+    return false;
+  }
+
+  double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
+  //Calculate the new downloadspeed to 1MB
+  static const size_t ref_packet = 1024 * 1024;
+//  if (nbReadOverall >= ref_packet)
+//    set_download_speed(current_download_speed_);
+//  else
+//  {
+//    double ratio = (double)nbReadOverall / ref_packet;
+//    set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
+//  }
+
+  xbmc->CloseFile(file);
+
+  // xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
+
+  return nbRead == 0;
+}
+
 bool download_playlist(const char *url, hls::Playlist &playlist) {
   // open the file
   void* file = xbmc->CURLCreate(url);

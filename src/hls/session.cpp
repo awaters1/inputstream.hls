@@ -8,23 +8,13 @@
 
 #include "session.h"
 
-void hls::ActiveSegment::download_segment() {
-  if (segment.get_url().find("http") == 0) {
-    // TODO: Download the file
-  } else {
-    std::ifstream file(segment.get_url());
-    std::ostringstream ostrm;
-
-    ostrm << file.rdbuf();
-    segment_buffer = std::string(ostrm.str());
-  }
+bool hls::ActiveSegment::write_data(const void *buffer, size_t buffer_size) {
+  segment_buffer += std::string((const char *)buffer, buffer_size);
+  return true;
 }
 
 std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
   std::vector<hls::Stream> streams;
-  if (segment_buffer.empty()) {
-    download_segment();
-  }
   demux = new Demux(segment_buffer, 0);
   TSDemux::STREAM_PKT *pkt;
   while (pkt = demux->get_next_pkt()) {
@@ -51,6 +41,14 @@ hls::ActiveSegment::~ActiveSegment() {
   }
 }
 
+bool hls::Session::download_segment(ActiveSegment *active_segment) {
+  std::ifstream file(active_segment->get_url());
+  std::ostringstream ostrm;
+
+  ostrm << file.rdbuf();
+  active_segment->write_data(ostrm.str().c_str(), ostrm.str().length());
+}
+
 std::vector<hls::Stream> hls::Session::get_streams() {
   if (!streams.empty()) {
     return streams;
@@ -64,6 +62,9 @@ std::vector<hls::Stream> hls::Session::get_streams() {
     }
     Segment segment = media_playlist.get_segments()[active_media_segment_index];
     active_segment = new ActiveSegment(segment);
+    if (!download_segment(active_segment)) {
+      std::cerr << "Unable to download active segment"  << std::endl;
+    }
   }
   streams = active_segment->extract_streams();
   return streams;

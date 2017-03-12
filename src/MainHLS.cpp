@@ -44,7 +44,7 @@ Main class Session
 ********************************************************/
 Session *session = 0;
 
-hls::Session *hls_session;
+KodiSession *hls_session;
 
 KodiHost kodihost;
 ADDON::CHelper_libXBMC_addon *xbmc = nullptr;
@@ -177,7 +177,7 @@ extern "C" {
     KodiMasterPlaylist master_playlist;
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
-    hls_session = new hls::Session(master_playlist);
+    hls_session = new KodiSession(master_playlist);
 
 
     session = new Session(props.m_strURL, lt, lk, ld, props.m_profileFolder);

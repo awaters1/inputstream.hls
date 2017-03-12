@@ -26,21 +26,24 @@ namespace hls {
     ~ActiveSegment();
 
     std::vector<Stream> extract_streams();
+    std::string get_url() { return segment.get_url(); }
+    bool write_data(const void *buffer, size_t buffer_size);
   private:
-    void download_segment();
-
     // Segment as defined in the playlist
     Segment segment;
     Demux *demux;
     std::string segment_buffer;
   };
 
+  // TODO: Doesn't have assignment operator or copy constructor for active_segment
   class Session {
   public:
     Session(MasterPlaylist master_playlist);
     ~Session();
 
     std::vector<Stream> get_streams();
+  protected:
+    virtual bool download_segment(ActiveSegment *active_segment);
   private:
     ActiveSegment *active_segment;
 
