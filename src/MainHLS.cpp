@@ -42,9 +42,7 @@
 /*******************************************************
 Main class Session
 ********************************************************/
-Session *session = 0;
-
-KodiSession *hls_session;
+KodiSession *hls_session = 0;
 
 KodiHost kodihost;
 ADDON::CHelper_libXBMC_addon *xbmc = nullptr;
@@ -67,7 +65,6 @@ extern "C" {
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
   {
     // initialize globals
-    session = nullptr;
     hls_session = nullptr;
     kodiDisplayWidth = 1280;
     kodiDisplayHeight = 720;
@@ -104,7 +101,7 @@ extern "C" {
 
   void ADDON_Destroy()
   {
-    SAFE_DELETE(session);
+    SAFE_DELETE(hls_session);
     if (xbmc)
     {
       xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Destroy()");
@@ -179,21 +176,13 @@ extern "C" {
     master_playlist.select_media_playlist();
     hls_session = new KodiSession(master_playlist);
 
-
-    session = new Session(props.m_strURL, lt, lk, ld, props.m_profileFolder);
-
-    if (!session->initialize())
-    {
-      SAFE_DELETE(session);
-      return false;
-    }
     return true;
   }
 
   void Close(void)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Close()");
-    SAFE_DELETE(session);
+    SAFE_DELETE(hls_session);
   }
 
   const char* GetPathList(void)
@@ -226,7 +215,9 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = session && !session->IsLive();
+    caps.m_supportsSeek = false;
+    // TODO: Configure seek support
+    // caps.m_supportsSeek = session && !session->IsLive();
     caps.m_supportsPause = caps.m_supportsSeek;
     return caps;
   }
@@ -268,64 +259,65 @@ extern "C" {
   void EnableStream(int streamid, bool enable)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
-
-    if (!session)
-      return;
-
-    Session::STREAM *stream(session->GetStream(streamid));
-
-    if (!stream)
-      return;
-
-    if (enable)
-    {
-      if (stream->enabled)
-        return;
-
-      stream->enabled = true;
-
-      stream->stream_.start_stream(~0, session->GetWidth(), session->GetHeight());
-      const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
-      xbmc->Log(ADDON::LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
-        stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
-
-      if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
-      {
-        xbmc->Log(ADDON::LOG_ERROR, "Unable to select stream!");
-        return stream->disable();
-      }
-
-      if(rep != stream->stream_.getRepresentation())
-      {
-        session->UpdateStream(*stream);
-        session->CheckChange(true);
-      }
-
-      stream->input_ = new AP4_DASHStream(&stream->stream_);
-      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
-      AP4_Movie* movie = stream->input_file_->GetMovie();
-      if (movie == NULL)
-      {
-        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
-        return stream->disable();
-      }
-
-      static const AP4_Track::Type TIDC[dash::DASHTree::STREAM_TYPE_COUNT] =
-      { AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO, AP4_Track::TYPE_TEXT };
-
-      AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
-      if (!track)
-      {
-        xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in stream");
-        return stream->disable();
-      }
-
-      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
-      stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
-
-      return;
-    }
-    return stream->disable();
+    // TODO: Unsure if I need to support EnableStream
+//
+//    if (!session)
+//      return;
+//
+//    Session::STREAM *stream(session->GetStream(streamid));
+//
+//    if (!stream)
+//      return;
+//
+//    if (enable)
+//    {
+//      if (stream->enabled)
+//        return;
+//
+//      stream->enabled = true;
+//
+//      stream->stream_.start_stream(~0, session->GetWidth(), session->GetHeight());
+//      const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
+//      xbmc->Log(ADDON::LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u",
+//        stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
+//
+//      if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
+//      {
+//        xbmc->Log(ADDON::LOG_ERROR, "Unable to select stream!");
+//        return stream->disable();
+//      }
+//
+//      if(rep != stream->stream_.getRepresentation())
+//      {
+//        session->UpdateStream(*stream);
+//        session->CheckChange(true);
+//      }
+//
+//      stream->input_ = new AP4_DASHStream(&stream->stream_);
+//      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
+//      AP4_Movie* movie = stream->input_file_->GetMovie();
+//      if (movie == NULL)
+//      {
+//        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
+//        return stream->disable();
+//      }
+//
+//      static const AP4_Track::Type TIDC[dash::DASHTree::STREAM_TYPE_COUNT] =
+//      { AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO, AP4_Track::TYPE_TEXT };
+//
+//      AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
+//      if (!track)
+//      {
+//        xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in stream");
+//        return stream->disable();
+//      }
+//
+//      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
+//      stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
+//
+//      return;
+//    }
+//    return stream->disable();
   }
 
   int count = 0;
@@ -367,9 +359,6 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    // TODO: Test that get_current_pkt works correctly, the video
-    // appears corrupts
-
     TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
     if (!pkt) {
       std::cerr << "Invalid packet" << std::endl;
@@ -399,12 +388,14 @@ extern "C" {
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
-    if (!session)
+    if (!hls_session)
       return false;
 
     xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
 
-    return session->SeekTime(time * 0.001f, 0, !backwards);
+    // TODO: Support seek time
+    // return session->SeekTime(time * 0.001f, 0, !backwards);
+    return false;
   }
 
   void DemuxSetSpeed(int speed)
@@ -416,9 +407,10 @@ extern "C" {
   void SetVideoResolution(int width, int height)
   {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
-    if (session)
-      session->SetVideoResolution(width, height);
-    else
+    if (hls_session) {
+      // TODO: Support set video resolution
+      // session->SetVideoResolution(width, height);
+    } else
     {
       kodiDisplayWidth = width;
       kodiDisplayHeight = height;
@@ -427,18 +419,20 @@ extern "C" {
 
   int GetTotalTime()
   {
-    if (!session)
+    if (!hls_session)
       return 0;
+    // TODO: Support total time
     return 10000;
     // return static_cast<int>(session->GetTotalTime()*1000);
   }
 
   int GetTime()
   {
-    if (!session)
+    if (!hls_session)
       return 0;
 
-    return static_cast<int>(session->GetPTS() * 1000);
+    // TODO: Support current time
+    // return static_cast<int>(session->GetPTS() * 1000);
   }
 
   bool CanPauseStream(void)
@@ -448,7 +442,9 @@ extern "C" {
 
   bool CanSeekStream(void)
   {
-    return session && !session->IsLive();
+    // TODO: Support can seek stream
+    return false;
+    // return session && !session->IsLive();
   }
 
   bool PosTime(int)
