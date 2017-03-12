@@ -12,7 +12,9 @@ TEST(SessionTest, CreateSession) {
   FileMasterPlaylist master_playlist = FileMasterPlaylist();
   master_playlist.open("test/hls/bipbopall.m3u8");
   Session session = Session(master_playlist);
-  std::vector<Stream*> streams = session.get_streams();
+  std::vector<Stream> streams = session.get_streams();
   EXPECT_EQ(2, streams.size());
+  EXPECT_EQ("aac", streams[0].codec_name);
+  EXPECT_EQ("h264", streams[1].codec_name);
 }
 }

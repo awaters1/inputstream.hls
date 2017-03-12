@@ -141,15 +141,15 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
 
   while (true)
   {
-	if (!reading_packets) {
-          {
-            ret = m_AVContext->TSResync();
-          }
-          if (ret != TSDemux::AVCONTEXT_CONTINUE)
-            break;
+    if (!reading_packets) {
+      {
+        ret = m_AVContext->TSResync();
+      }
+      if (ret != TSDemux::AVCONTEXT_CONTINUE)
+        break;
 
-          ret = m_AVContext->ProcessTSPacket();
-	}
+      ret = m_AVContext->ProcessTSPacket();
+    }
 
     if (reading_packets || m_AVContext->HasPIDStreamData())
     {
@@ -252,6 +252,14 @@ static inline int stream_identifier(int composition_id, int ancillary_id)
     | ((composition_id & 0xff) << 8)
     | ((ancillary_id & 0xff00) << 16)
     | ((ancillary_id & 0xff) << 24);
+}
+
+TSDemux::ElementaryStream* Demux::get_elementary_stream(uint16_t pid) {
+  return m_AVContext->GetStream(pid);
+}
+
+std::vector<TSDemux::ElementaryStream*> Demux::get_elementary_streams() {
+  return m_AVContext->GetStreams();
 }
 
 void Demux::show_stream_info(uint16_t pid)

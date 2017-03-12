@@ -35,6 +35,8 @@ public:
   ~Demux();
 
   TSDemux::STREAM_PKT* get_next_pkt(void);
+  TSDemux::ElementaryStream* get_elementary_stream(uint16_t pid);
+  std::vector<TSDemux::ElementaryStream*> get_elementary_streams();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
   void reset_buffer();

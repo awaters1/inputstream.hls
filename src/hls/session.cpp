@@ -20,8 +20,8 @@ void hls::ActiveSegment::download_segment() {
   }
 }
 
-std::vector<hls::Stream*> hls::ActiveSegment::extract_streams() {
-  std::vector<hls::Stream*> streams;
+std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
+  std::vector<hls::Stream> streams;
   if (segment_buffer.empty()) {
     download_segment();
   }
@@ -29,8 +29,17 @@ std::vector<hls::Stream*> hls::ActiveSegment::extract_streams() {
   TSDemux::STREAM_PKT *pkt;
   while (pkt = demux->get_next_pkt()) {
     if (pkt->streamChange) {
-
+      TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
+      Stream stream;
+      stream.stream_id = pkt->pid;
+      stream.codec_name = es->GetStreamCodecName();
+      stream.channels = es->stream_info.channels;
+      stream.sample_rate = es->stream_info.sample_rate;
+      stream.bit_rate = es->stream_info.bit_rate;
+      stream.sample_rate = es->stream_info.sample_rate;
+      streams.push_back(stream);
     }
+    delete pkt;
   }
   demux->reset_buffer();
   return streams;
@@ -42,7 +51,7 @@ hls::ActiveSegment::~ActiveSegment() {
   }
 }
 
-std::vector<hls::Stream*> hls::Session::get_streams() {
+std::vector<hls::Stream> hls::Session::get_streams() {
   if (!streams.empty()) {
     return streams;
   }
@@ -66,9 +75,6 @@ hls::Session::Session(MasterPlaylist master_playlist) :
 }
 
 hls::Session::~Session() {
-  for (std::vector<Stream*>::iterator it = streams.begin(); it != streams.end(); ++it) {
-    delete *it;
-  }
   if (active_segment) {
     delete active_segment;
   }

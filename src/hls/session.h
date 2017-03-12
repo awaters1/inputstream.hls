@@ -11,7 +11,13 @@
 
 namespace hls {
   class Stream {
+  public:
     uint32_t stream_id;
+    std::string codec_name;
+    uint32_t channels;
+    uint32_t sample_rate;
+    uint32_t bit_rate;
+    uint32_t bits_per_sample;
   };
 
   class ActiveSegment {
@@ -19,7 +25,7 @@ namespace hls {
     ActiveSegment(Segment segment): segment(segment), demux(0), segment_buffer("") {}
     ~ActiveSegment();
 
-    std::vector<Stream*> extract_streams();
+    std::vector<Stream> extract_streams();
   private:
     void download_segment();
 
@@ -34,11 +40,11 @@ namespace hls {
     Session(MasterPlaylist master_playlist);
     ~Session();
 
-    std::vector<Stream*> get_streams();
+    std::vector<Stream> get_streams();
   private:
     ActiveSegment *active_segment;
 
-    std::vector<Stream*> streams;
+    std::vector<Stream> streams;
     uint32_t active_media_playlist_index;
     uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
