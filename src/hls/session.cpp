@@ -26,7 +26,7 @@ std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
       stream.channels = es->stream_info.channels;
       stream.sample_rate = es->stream_info.sample_rate;
       stream.bit_rate = es->stream_info.bit_rate;
-      stream.sample_rate = es->stream_info.sample_rate;
+      stream.bits_per_sample = es->stream_info.bits_per_sample;
       streams.push_back(stream);
     }
     delete pkt;
@@ -38,6 +38,25 @@ std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
 hls::ActiveSegment::~ActiveSegment() {
   if (demux) {
     delete demux;
+  }
+}
+
+TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
+  return demux->get_next_pkt();
+}
+
+TSDemux::STREAM_PKT* hls::Session::get_current_pkt() {
+  if (!current_pkt) {
+    current_pkt = active_segment->get_next_pkt();
+  }
+  return current_pkt;
+}
+
+void hls::Session::read_next_pkt() {
+  if (current_pkt && current_pkt->streamChange) {
+    current_pkt->streamChange = false;
+  } else {
+    current_pkt = active_segment->get_next_pkt();
   }
 }
 
@@ -81,7 +100,7 @@ hls::Stream hls::Session::get_stream(uint32_t stream_id) {
 }
 
 hls::Session::Session(MasterPlaylist master_playlist) :
-    active_media_playlist_index(0), active_media_segment_index(0), master_playlist(master_playlist), active_segment(0) {
+    active_media_playlist_index(0), active_media_segment_index(0), master_playlist(master_playlist), active_segment(0), current_pkt(0) {
 
 }
 

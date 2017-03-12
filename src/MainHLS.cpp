@@ -362,93 +362,36 @@ extern "C" {
   {
   }
 
-  Demux *demux = nullptr;
-  TSDemux::STREAM_PKT* lastPkt = nullptr;
-
   DemuxPacket* __cdecl DemuxRead(void)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "DemuxRead");
-    if (!session)
+    if (!hls_session)
       return NULL;
 
-    Session::STREAM *stream = session->GetStream(1);
-    KodiDASHStream *dashStream = &stream->stream_;
-    std::cout << "Stream " << dashStream->getRepresentation()->url_ << "\n";
-    if (!demux) {
-        bool downloaded = dashStream->download_segment();
-        demux = new Demux(dashStream->segment_buffer_, 0);
-    }
-    if (demux) {
-      // segment_buffer contains the whole ts, so send it to the demuxer
-      if (lastPkt) {
 
-          DemuxPacket *p = ipsh->AllocateDemuxPacket(lastPkt->size);
-            p->dts = lastPkt->dts * 10;
-            p->pts = lastPkt->pts * 10;
-            p->duration = lastPkt->duration * 10;
-            p->iStreamId = lastPkt->pid;
-            p->iGroupId = 0;
-            p->iSize = lastPkt->size;
-            std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
-            memcpy(p->pData, lastPkt->data, p->iSize);
-            lastPkt = 0;
-            return p;
-      }
-      lastPkt = nullptr;
-      TSDemux::STREAM_PKT* pkt = demux->get_next_pkt();
-      if (!pkt) {
-    	  // TODO: Should demux->StopStreaming ?
-          std::cout << "Error demuxing\n";
-          return nullptr;
-      }
-      if (pkt->streamChange) {
-          // the packet still contains data so get it the next time around
-          lastPkt = pkt;
-          DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
-          p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-          xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
-          return p;
-      }
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-      p->dts = pkt->dts * 10;
-      p->pts = pkt->pts * 10;
-      p->duration = pkt->duration * 10;
-      p->iStreamId = pkt->pid;
-      p->iGroupId = 0;
-      p->iSize = pkt->size;
-      std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
-      memcpy(p->pData, pkt->data, p->iSize);
-      return p;
+    TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
+    if (!pkt) {
+      std::cerr << "Invalid packet" << std::endl;
+      return NULL;
     }
 
-    FragmentedSampleReader *sr(session->GetNextSample());
-
-    if (session->CheckChange())
-    {
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
-      p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-      xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
-      return p;
+    hls_session->read_next_pkt();
+    if (pkt->streamChange) {
+        DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
+        p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+        xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+        return p;
     }
 
-    if (sr)
-    {
-      const AP4_Sample &s(sr->Sample());
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
-      p->dts = sr->DTS() * 1000000;
-      p->pts = sr->PTS() * 1000000;
-      p->duration = sr->GetDuration() * 1000000;
-      p->iStreamId = sr->GetStreamId();
-      p->iGroupId = 0;
-      p->iSize = sr->GetSampleDataSize();
-      memcpy(p->pData, sr->GetSampleData(), p->iSize);
-
-      //xbmc->Log(ADDON::LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
-
-      sr->ReadSample();
-      return p;
-    }
-    return NULL;
+    DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
+    p->dts = pkt->dts * 10;
+    p->pts = pkt->pts * 10;
+    p->duration = pkt->duration * 10;
+    p->iStreamId = pkt->pid;
+    p->iGroupId = 0;
+    p->iSize = pkt->size;
+    std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
+    memcpy(p->pData, pkt->data, p->iSize);
+    return p;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)

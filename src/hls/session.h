@@ -28,6 +28,7 @@ namespace hls {
     std::vector<Stream> extract_streams();
     std::string get_url() { return segment.get_url(); }
     bool write_data(const void *buffer, size_t buffer_size);
+    TSDemux::STREAM_PKT* get_next_pkt();
   private:
     // Segment as defined in the playlist
     Segment segment;
@@ -43,10 +44,14 @@ namespace hls {
 
     std::vector<Stream> get_streams();
     Stream get_stream(uint32_t stream_id);
+
+    TSDemux::STREAM_PKT* get_current_pkt();
+    void read_next_pkt();
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
   private:
     ActiveSegment *active_segment;
+    TSDemux::STREAM_PKT* current_pkt;
 
     std::vector<Stream> streams;
     uint32_t active_media_playlist_index;
