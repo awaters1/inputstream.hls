@@ -379,7 +379,7 @@ extern "C" {
       p->iStreamId = pkt->pid;
       p->iGroupId = 0;
       p->iSize = pkt->size;
-      std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
+      // std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
       memcpy(p->pData, pkt->data, p->iSize);
       hls_session->read_next_pkt();
       return p;

@@ -29,6 +29,7 @@ namespace hls {
     std::string get_url() { return segment.get_url(); }
     bool write_data(const void *buffer, size_t buffer_size);
     TSDemux::STREAM_PKT* get_next_pkt();
+    void create_demuxer();
   private:
     // Segment as defined in the playlist
     Segment segment;
@@ -50,7 +51,11 @@ namespace hls {
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
   private:
+    ActiveSegment* load_next_segment();
+    bool load_segments();
+    ActiveSegment *previous_segment;
     ActiveSegment *active_segment;
+    ActiveSegment *next_segment;
     TSDemux::STREAM_PKT* current_pkt;
 
     std::vector<Stream> streams;
