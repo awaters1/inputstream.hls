@@ -421,18 +421,15 @@ extern "C" {
   {
     if (!hls_session)
       return 0;
-    // TODO: Support total time
-    return 10000;
-    // return static_cast<int>(session->GetTotalTime()*1000);
+    return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
   int GetTime()
   {
     if (!hls_session)
       return 0;
-
-    // TODO: Support current time
-    // return static_cast<int>(session->GetPTS() * 1000);
+    // TODO: Doesnt' get the correct time
+    return static_cast<int>(hls_session->get_current_time());
   }
 
   bool CanPauseStream(void)

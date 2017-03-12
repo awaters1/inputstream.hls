@@ -291,3 +291,7 @@ void Demux::reset_buffer() {
 	m_buffer_pos = 0;
 	m_AVContext->Reset();
 }
+
+int64_t Demux::get_current_time() {
+  return m_curTime;
+}

@@ -40,6 +40,7 @@ public:
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
   void reset_buffer();
+  int64_t get_current_time();
 private:
   Demux(uint16_t channel);
   std::string m_buffer;

@@ -30,6 +30,7 @@ namespace hls {
     bool write_data(const void *buffer, size_t buffer_size);
     TSDemux::STREAM_PKT* get_next_pkt();
     void create_demuxer();
+    int64_t get_current_time() { return demux->get_current_time(); };
   private:
     // Segment as defined in the playlist
     Segment segment;
@@ -48,6 +49,8 @@ namespace hls {
 
     TSDemux::STREAM_PKT* get_current_pkt();
     void read_next_pkt();
+    int64_t get_current_time();
+    uint32_t get_total_time() { return total_time; };
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
   private:
@@ -62,5 +65,6 @@ namespace hls {
     uint32_t active_media_playlist_index;
     uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
+    uint32_t total_time;
   };
 }
