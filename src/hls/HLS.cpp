@@ -44,16 +44,18 @@ bool hls::MasterPlaylist::write_data(std::string line) {
           std::cerr << "In stream, but no streams found" << std::endl;
           return false;
       }
-      MediaPlaylist *stream = media_playlist.back();
-      stream->set_url(base_url + line);
+      MediaPlaylist stream = media_playlist.back();
+      media_playlist.pop_back();
+      stream.set_url(base_url + line);
+      media_playlist.push_back(stream);
       in_stream = false;
       return true;
   }
   if (line.find("#EXT-X-STREAM-INF") == 0) {
       in_stream = true;
-      MediaPlaylist *stream = new MediaPlaylist();
-      stream->program_id = get_attribute_value(line, "PROGRAM-ID");
-      stream->bandwidth = get_number_attribute_value(line, "BANDWIDTH");
+      MediaPlaylist stream;
+      stream.program_id = get_attribute_value(line, "PROGRAM-ID");
+      stream.bandwidth = get_number_attribute_value(line, "BANDWIDTH");
       media_playlist.push_back(stream);
   }
   return true;
@@ -65,9 +67,7 @@ hls::MasterPlaylist::MasterPlaylist()
 }
 
 hls::MasterPlaylist::~MasterPlaylist() {
-  for(std::vector<MediaPlaylist*>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
-      delete *it;
-  }
+
 }
 
 std::vector<std::string> hls::MediaPlaylist::get_attributes(std::string line) {
@@ -101,8 +101,10 @@ bool hls::MediaPlaylist::write_data(std::string line) {
           std::cerr << "In segment, but no segments found" << std::endl;
           return false;
       }
-      Segment *segment = segments.back();
-      segment->set_url(base_url + line);
+      Segment segment = segments.back();
+      segments.pop_back();
+      segment.set_url(base_url + line);
+      segments.push_back(segment);
       in_segment = false;
       return true;
   }
@@ -114,10 +116,10 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   } else if (line.find("#EXTINF") != std::string::npos) {
       in_segment = true;
       std::vector<std::string> attributes = get_attributes(line);
-      Segment *segment = new Segment();
-      segment->media_sequence = current_media_sequence++;
-      segment->duration = std::stod(attributes[0]);
-      segment->description = attributes[1];
+      Segment segment;
+      segment.media_sequence = current_media_sequence++;
+      segment.duration = std::stod(attributes[0]);
+      segment.description = attributes[1];
       segments.push_back(segment);
   } else if (line == "#EXT-X-ENDLIST") {
       // TODO: Handle end list
@@ -131,9 +133,7 @@ hls::MediaPlaylist::MediaPlaylist()
 }
 
 hls::MediaPlaylist::~MediaPlaylist() {
-  for(std::vector<Segment*>::iterator it = segments.begin(); it != segments.end(); ++it) {
-      delete *it;
-  }
+
 }
 
 void hls::Resource::set_url(std::string url) {
@@ -145,41 +145,40 @@ void hls::Resource::set_url(std::string url) {
   base_url = url.substr(0, last_slash + 1);
 }
 
-bool hls::FileMasterPlaylist::open(const char *file_path) {
+bool open_playlist_file(const char *file_path, hls::Playlist &playlist) {
   std::ifstream playlist_file(file_path);
   if (!playlist_file.is_open()) {
       std::cerr << "Unable to open " << file_path << std::endl;
       return false;
   }
-  set_url(file_path);
+  playlist.set_url(file_path);
   std::string line;
   while(std::getline(playlist_file, line)) {
-      if (!write_data(line)) {
+      if (!playlist.write_data(line)) {
           return false;
       }
   }
 
   playlist_file.close();
+  return true;
+}
+
+bool hls::FileMasterPlaylist::open(const char *file_path) {
+  if (!open_playlist_file(file_path, *this)) {
+      return false;
+  }
+
+  for(std::vector<MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
+      open_playlist_file(it->get_url().c_str(), *it);
+  }
 
   return true;
 }
 
-// TODO: Copy of above
 bool hls::FileMediaPlaylist::open(const char *file_path) {
-  std::ifstream playlist_file(file_path);
-  if (!playlist_file.is_open()) {
-      std::cerr << "Unable to open " << file_path << std::endl;
+  if (!open_playlist_file(file_path, *this)){
       return false;
   }
-  set_url(file_path);
-  std::string line;
-  while(std::getline(playlist_file, line)) {
-      if (!write_data(line)) {
-          return false;
-      }
-  }
-
-  playlist_file.close();
 
   return true;
 }

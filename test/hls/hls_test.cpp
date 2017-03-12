@@ -40,12 +40,12 @@ TEST(HlsTest, GetBaseUrl) {
 TEST(HlsTest, StreamUrl) {
   hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
   mp.open("test/hls/bipbopall.m3u8");
-  std::vector<MediaPlaylist*> streams = mp.get_media_playlist();
+  std::vector<MediaPlaylist> streams = mp.get_media_playlist();
   ASSERT_EQ(4, streams.size());
-  EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0]->get_url());
-  EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1]->get_url());
-  EXPECT_EQ("test/hls/gear3/prog_index.m3u8", streams[2]->get_url());
-  EXPECT_EQ("test/hls/gear4/prog_index.m3u8", streams[3]->get_url());
+  EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0].get_url());
+  EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1].get_url());
+  EXPECT_EQ("test/hls/gear3/prog_index.m3u8", streams[2].get_url());
+  EXPECT_EQ("test/hls/gear4/prog_index.m3u8", streams[3].get_url());
 }
 
 TEST(HlsTest, LoadMediaPlaylist) {
@@ -75,8 +75,18 @@ TEST(HlsTest, MediaPlayistUrl) {
 TEST(HlsTest, SegmentUrl) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   mp.open("test/hls/gear1/prog_index.m3u8");
-  std::vector<Segment*> segments = mp.get_segments();
+  std::vector<Segment> segments = mp.get_segments();
   ASSERT_EQ(181, segments.size());
-  EXPECT_EQ("test/hls/gear1/fileSequence0.ts", segments[0]->get_url());
+  EXPECT_EQ("test/hls/gear1/fileSequence0.ts", segments[0].get_url());
+}
+
+TEST(HlsTest, MasterPlaylistLoadsMediaPlaylist) {
+  FileMasterPlaylist master_playlist = FileMasterPlaylist();
+  master_playlist.open("test/hls/bipbopall.m3u8");
+  ASSERT_EQ(4, master_playlist.get_media_playlist().size());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[0].get_segments().size());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_segments().size());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_segments().size());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_segments().size());
 }
 }

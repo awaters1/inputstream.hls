@@ -16,7 +16,7 @@ namespace hls {
 
   class ActiveSegment {
   public:
-    ActiveSegment(Segment *segment): segment(segment), demux(0), segment_buffer("") {}
+    ActiveSegment(Segment segment): segment(segment), demux(0), segment_buffer("") {}
     ~ActiveSegment();
 
     std::vector<Stream*> extract_streams();
@@ -24,7 +24,7 @@ namespace hls {
     void download_segment();
 
     // Segment as defined in the playlist
-    Segment *segment;
+    Segment segment;
     Demux *demux;
     std::string segment_buffer;
   };
