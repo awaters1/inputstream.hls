@@ -2,9 +2,9 @@
  * kodi_hls.cpp Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
  */
 
-#include "hls/HLS.h"
-#include "kodi_hls.h"
 #include "globals.h"
+
+#include "kodi_hls.h"
 
 bool download_playlist(const char *url, hls::Playlist &playlist) {
   // open the file

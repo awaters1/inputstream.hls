@@ -21,6 +21,7 @@ set(MPD_SOURCES
   src/session.cpp
   src/KodiDASH.cpp
   src/hls/HLS.cpp
+  src/hls/session.cpp
   src/kodi_hls.cpp
 )
 
