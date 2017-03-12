@@ -49,9 +49,9 @@ TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
   return demux->get_next_pkt();
 }
 
-int64_t hls::Session::get_current_time() {
-  if (active_segment) {
-    return active_segment->get_current_time();
+uint64_t hls::Session::get_current_time() {
+  if (current_pkt) {
+    return active_segment->get_current_time() - start_pts;
   }
   return 0;
 }
@@ -163,6 +163,7 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     active_segment(0),
     next_segment(0),
     total_time(0),
+    start_pts(-1),
     current_pkt(0) {
   hls::MediaPlaylist media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();

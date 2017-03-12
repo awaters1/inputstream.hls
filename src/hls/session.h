@@ -39,6 +39,7 @@ namespace hls {
   };
 
   // TODO: Doesn't have assignment operator or copy constructor for active_segment
+  // TODO: Should enable download the first segment?
   class Session {
   public:
     Session(MasterPlaylist master_playlist);
@@ -49,7 +50,7 @@ namespace hls {
 
     TSDemux::STREAM_PKT* get_current_pkt();
     void read_next_pkt();
-    int64_t get_current_time();
+    uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
@@ -66,5 +67,6 @@ namespace hls {
     uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
     uint32_t total_time;
+    uint64_t start_pts;
   };
 }
