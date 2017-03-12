@@ -42,6 +42,7 @@ namespace hls {
     ~Session();
 
     std::vector<Stream> get_streams();
+    Stream get_stream(uint32_t stream_id);
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
   private:

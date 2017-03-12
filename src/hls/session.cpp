@@ -70,6 +70,16 @@ std::vector<hls::Stream> hls::Session::get_streams() {
   return streams;
 }
 
+hls::Stream hls::Session::get_stream(uint32_t stream_id) {
+  std::vector<hls::Stream> streams = get_streams();
+  for(std::vector<hls::Stream>::iterator it = streams.begin(); it != streams.end(); ++it) {
+    if (it->stream_id == stream_id) {
+      return *it;
+    }
+  }
+  return hls::Stream();
+}
+
 hls::Session::Session(MasterPlaylist master_playlist) :
     active_media_playlist_index(0), active_media_segment_index(0), master_playlist(master_playlist), active_segment(0) {
 

@@ -238,27 +238,30 @@ extern "C" {
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
 
-    if (streamid == 258) {
-          static struct INPUTSTREAM_INFO audio_info = {
-              INPUTSTREAM_INFO::TYPE_AUDIO, "aac", "", 258, 0, 0, 0, "",
-              0, 0, 0, 0, 0.0f,
-              1, 22050, 0, 0, 0 };
-          return audio_info;
-    } else if (streamid == 257) {
-        static struct INPUTSTREAM_INFO video_info = {
-                      INPUTSTREAM_INFO::TYPE_VIDEO, "h264", "", 257, 0, 0, 0, "",
-                      0, 0, 0, 0, 0.0f,
-                      0, 0, 0, 0, 0 };
-        return video_info;
-    }
-
     xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
-    Session::STREAM *stream(session->GetStream(streamid));
+    if(hls_session) {
+      hls::Stream stream = hls_session->get_stream(streamid);
+      if (stream.stream_id == streamid) {
+        INPUTSTREAM_INFO stream_info = {};
+        if (stream.codec_name == "aac") {
+          strcpy(stream_info.m_codecName, "aac");
+          stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+        } else if (stream.codec_name == "h264") {
+          strcpy(stream_info.m_codecName, "h264");
+          stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+        }
+        stream_info.m_pID = stream.stream_id;
+        stream_info.m_Channels = stream.channels;
+        stream_info.m_SampleRate = stream.sample_rate;
+        stream_info.m_BitRate = stream.bit_rate;
+        stream_info.m_BitsPerSample = stream.bits_per_sample;
 
-    if (stream)
-      return stream->info_;
-
+        return stream_info;
+      } else {
+        return dummy_info;
+      }
+    }
     return dummy_info;
   }
 
