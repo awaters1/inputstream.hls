@@ -50,7 +50,12 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
                  ${CMAKE_BINARY_DIR}/googletest-build EXCLUDE_FROM_ALL)
 
 # Now simply link against gtest or gtest_main as needed. Eg
-add_executable(inputstreamhlstest test/hls/hls_test.cpp src/hls/HLS.cpp)
+add_executable(inputstreamhlstest 
+    test/hls/hls_test.cpp 
+    src/hls/HLS.cpp
+    test/session_test.cpp
+    src/hls/session.cpp
+    )
 target_link_libraries(inputstreamhlstest gtest_main)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 

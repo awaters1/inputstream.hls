@@ -126,7 +126,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
 }
 
 hls::MediaPlaylist::MediaPlaylist()
-: segment_target_duration(0), starting_media_sequence(0), in_segment(false) {
+: segment_target_duration(0), starting_media_sequence(0), current_media_sequence(0), in_segment(false) {
 
 }
 

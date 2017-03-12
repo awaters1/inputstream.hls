@@ -10,8 +10,8 @@ namespace hls
 {
   class Resource {
   public:
-      std::string get_url() { return url; };
-      std::string get_base_url() { return base_url; };
+    std::string get_url() { return url; };
+    std::string get_base_url() { return base_url; };
   protected:
     void set_url(std::string url);
     std::string url;

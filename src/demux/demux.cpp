@@ -142,13 +142,13 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
   while (true)
   {
 	if (!reading_packets) {
-		{
-		  ret = m_AVContext->TSResync();
-		}
-		if (ret != TSDemux::AVCONTEXT_CONTINUE)
-		  break;
+          {
+            ret = m_AVContext->TSResync();
+          }
+          if (ret != TSDemux::AVCONTEXT_CONTINUE)
+            break;
 
-		ret = m_AVContext->ProcessTSPacket();
+          ret = m_AVContext->ProcessTSPacket();
 	}
 
     if (reading_packets || m_AVContext->HasPIDStreamData())
