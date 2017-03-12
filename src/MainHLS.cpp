@@ -367,6 +367,8 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
+    // TODO: Test that get_current_pkt works correctly, the video
+    // appears corrupts
 
     TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
     if (!pkt) {
@@ -374,24 +376,25 @@ extern "C" {
       return NULL;
     }
 
-    hls_session->read_next_pkt();
     if (pkt->streamChange) {
         DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
         p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
         xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+        hls_session->read_next_pkt();
         return p;
+    } else {
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
+      p->dts = pkt->dts * 10;
+      p->pts = pkt->pts * 10;
+      p->duration = pkt->duration * 10;
+      p->iStreamId = pkt->pid;
+      p->iGroupId = 0;
+      p->iSize = pkt->size;
+      std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
+      memcpy(p->pData, pkt->data, p->iSize);
+      hls_session->read_next_pkt();
+      return p;
     }
-
-    DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-    p->dts = pkt->dts * 10;
-    p->pts = pkt->pts * 10;
-    p->duration = pkt->duration * 10;
-    p->iStreamId = pkt->pid;
-    p->iGroupId = 0;
-    p->iSize = pkt->size;
-    std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
-    memcpy(p->pData, pkt->data, p->iSize);
-    return p;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
@@ -426,8 +429,8 @@ extern "C" {
   {
     if (!session)
       return 0;
-
-    return static_cast<int>(session->GetTotalTime()*1000);
+    return 10000;
+    // return static_cast<int>(session->GetTotalTime()*1000);
   }
 
   int GetTime()

@@ -289,4 +289,5 @@ void Demux::show_stream_info(uint16_t pid)
 
 void Demux::reset_buffer() {
 	m_buffer_pos = 0;
+	m_AVContext->Reset();
 }

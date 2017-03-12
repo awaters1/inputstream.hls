@@ -31,7 +31,8 @@ std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
     }
     delete pkt;
   }
-  demux->reset_buffer();
+  delete demux;
+  demux = new Demux(segment_buffer, 0);
   return streams;
 }
 
