@@ -57,7 +57,7 @@ namespace hls
 
   class MasterPlaylist : public Playlist {
   public:
-    std::vector<MediaPlaylist*> get_streams() { return streams; };
+    std::vector<MediaPlaylist*> get_media_playlist() { return media_playlist; };
     MasterPlaylist();
     ~MasterPlaylist();
   protected:
@@ -69,7 +69,7 @@ namespace hls
 
     bool in_stream;
 
-    std::vector<MediaPlaylist*> streams;
+    std::vector<MediaPlaylist*> media_playlist;
   };
 
   class FileMasterPlaylist : public MasterPlaylist {

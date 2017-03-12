@@ -16,17 +16,22 @@ namespace hls {
 
   class ActiveSegment {
   public:
-    ActiveSegment(Segment segment): segment(segment) {}
+    ActiveSegment(Segment *segment): segment(segment), demux(0), segment_buffer("") {}
+    ~ActiveSegment();
+
+    std::vector<Stream*> extract_streams();
   private:
+    void download_segment();
+
     // Segment as defined in the playlist
-    Segment segment;
+    Segment *segment;
     Demux *demux;
     std::string segment_buffer;
   };
 
   class Session {
   public:
-    Session();
+    Session(MasterPlaylist master_playlist);
     ~Session();
 
     std::vector<Stream*> get_streams();
@@ -34,7 +39,8 @@ namespace hls {
     ActiveSegment *active_segment;
 
     std::vector<Stream*> streams;
-    uint32_t active_media_playlist;
+    uint32_t active_media_playlist_index;
+    uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
   };
 }

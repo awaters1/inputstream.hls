@@ -55,8 +55,9 @@ add_executable(inputstreamhlstest
     src/hls/HLS.cpp
     test/session_test.cpp
     src/hls/session.cpp
+    src/demux/demux.cpp
     )
-target_link_libraries(inputstreamhlstest gtest_main)
+target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})

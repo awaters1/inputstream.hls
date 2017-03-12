@@ -278,3 +278,7 @@ void Demux::show_stream_info(uint16_t pid)
   printf("  Bit per sample : %d\n", es->stream_info.bits_per_sample);
   printf("\n");
 }
+
+void Demux::reset_buffer() {
+	m_buffer_pos = 0;
+}

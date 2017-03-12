@@ -1,2 +1,6 @@
+Issues:
+1. I think I need to make copy constructors because of the vector
+of points may be deleted
+
 Session
 -Need to read the segment before determining the streams

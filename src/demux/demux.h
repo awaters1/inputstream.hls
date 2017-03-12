@@ -37,7 +37,7 @@ public:
   TSDemux::STREAM_PKT* get_next_pkt(void);
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
-
+  void reset_buffer();
 private:
   Demux(uint16_t channel);
   std::string m_buffer;

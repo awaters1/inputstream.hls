@@ -40,11 +40,11 @@ bool hls::MasterPlaylist::write_data(std::string line) {
       return false;
   }
   if (in_stream) {
-      if (streams.empty()) {
+      if (media_playlist.empty()) {
           std::cerr << "In stream, but no streams found" << std::endl;
           return false;
       }
-      MediaPlaylist *stream = streams.back();
+      MediaPlaylist *stream = media_playlist.back();
       stream->set_url(base_url + line);
       in_stream = false;
       return true;
@@ -54,7 +54,7 @@ bool hls::MasterPlaylist::write_data(std::string line) {
       MediaPlaylist *stream = new MediaPlaylist();
       stream->program_id = get_attribute_value(line, "PROGRAM-ID");
       stream->bandwidth = get_number_attribute_value(line, "BANDWIDTH");
-      streams.push_back(stream);
+      media_playlist.push_back(stream);
   }
   return true;
 }
@@ -65,7 +65,7 @@ hls::MasterPlaylist::MasterPlaylist()
 }
 
 hls::MasterPlaylist::~MasterPlaylist() {
-  for(std::vector<MediaPlaylist*>::iterator it = streams.begin(); it != streams.end(); ++it) {
+  for(std::vector<MediaPlaylist*>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
       delete *it;
   }
 }
