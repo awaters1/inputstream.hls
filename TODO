@@ -1,4 +1,6 @@
 4. Support decryption of ts
+-> support multiple EXT-X-KEY segments
+-> support optional IV values
 
 1. Support rest of addon interface
 2. Be able to switch to a variant playlist during playing

@@ -101,7 +101,7 @@ TEST(HlsTest, EncryptedMediaPlaylist) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   mp.open("test/hls/hls_400_.m3u8");
   EXPECT_TRUE(mp.encrypted);
-  EXPECT_EQ("https://foliovision.com/?fv_player_hls_key=20_gothic_avenue_live", mp.aes_key);
+  EXPECT_EQ("aes_key", mp.aes_key);
   EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", mp.aes_iv);
 }
 }
