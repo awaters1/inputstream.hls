@@ -1,6 +1,12 @@
-Issues:
-1. I think I need to make copy constructors because of the vector
-of points may be deleted
+4. Support decryption of ts
 
-Session
--Need to read the segment before determining the streams
+1. Support rest of addon interface
+2. Be able to switch to a variant playlist during playing
+3. Support a live stream
+
+
+Issues
+1. Current time seems to be incorrect
+
+Missing Support
+-Tons
