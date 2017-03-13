@@ -119,7 +119,9 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       Segment segment;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
-      segment.description = attributes[1];
+      if (attributes.size() > 1) {
+          segment.description = attributes[1];
+      }
       segments.push_back(segment);
   } else if (line == "#EXT-X-ENDLIST") {
       // TODO: Handle end list
