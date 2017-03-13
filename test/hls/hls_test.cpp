@@ -31,6 +31,13 @@ TEST(HlsTest, GetAttributeValue) {
   EXPECT_EQ("", attribute_value);
 }
 
+TEST(HlsTest, GetAttributeValueString) {
+  MasterPlaylist mp = MasterPlaylist();
+  std::string attribute_value;
+  attribute_value = mp.get_string_attribute_value("#EXT-X-KEY:METHOD=AES-128,URI=\"https://foliovision.com/?fv_player_hls_key=20_gothic_avenue_live\",IV=0x9f11a1b6a9fe0d800f5c9688370e694d", "URI");
+  EXPECT_EQ("https://foliovision.com/?fv_player_hls_key=20_gothic_avenue_live", attribute_value);
+}
+
 TEST(HlsTest, GetBaseUrl) {
   hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
   mp.open("test/hls/bipbopall.m3u8");
@@ -88,5 +95,13 @@ TEST(HlsTest, MasterPlaylistLoadsMediaPlaylist) {
   EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_segments().size());
   EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_segments().size());
   EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_segments().size());
+}
+
+TEST(HlsTest, EncryptedMediaPlaylist) {
+  hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
+  mp.open("test/hls/hls_400_.m3u8");
+  EXPECT_TRUE(mp.encrypted);
+  EXPECT_EQ("https://foliovision.com/?fv_player_hls_key=20_gothic_avenue_live", mp.aes_key);
+  EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", mp.aes_iv);
 }
 }

@@ -25,6 +25,14 @@ namespace hls
 
     virtual bool write_data(std::string line) = 0;
   protected:
+    FRIEND_TEST(HlsTest, GetAttributeValue);
+    std::string get_attribute_value(std::string line, std::string attribute_name);
+    uint32_t get_number_attribute_value(std::string line, std::string attribute_name);
+    FRIEND_TEST(HlsTest, GetAttributes);
+    std::vector<std::string> get_attributes(std::string line);
+    FRIEND_TEST(HlsTest, GetAttributeValueString);
+    std::string get_string_attribute_value(std::string line, std::string attribute_name);
+
     bool is_m3u8;
   };
 
@@ -43,12 +51,13 @@ namespace hls
     ~MediaPlaylist();
     uint32_t bandwidth;
     std::string program_id;
+    bool encrypted;
+    std::string aes_key;
+    std::string aes_iv; // TODO: This may also be per segment
     std::vector<Segment> get_segments() { return segments; };
   protected:
     bool write_data(std::string line);
   private:
-    FRIEND_TEST(HlsTest, GetAttributes);
-    std::vector<std::string> get_attributes(std::string line);
 
     bool in_segment;
     float segment_target_duration;
@@ -67,10 +76,6 @@ namespace hls
   protected:
     std::vector<MediaPlaylist> media_playlist;
   private:
-    FRIEND_TEST(HlsTest, GetAttributeValue);
-    std::string get_attribute_value(std::string line, std::string attribute_name);
-    uint32_t get_number_attribute_value(std::string line, std::string attribute_name);
-
     bool in_stream;
   };
 

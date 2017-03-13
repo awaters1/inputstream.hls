@@ -6,32 +6,9 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <algorithm>
 
 #include "HLS.h"
-
-std::string hls::MasterPlaylist::get_attribute_value(std::string line, std::string attribute_name) {
-  size_t index = line.find(attribute_name);
-  if (index == std::string::npos) {
-      return "";
-  }
-  size_t comma_index = line.find_first_of(',', index);
-  if (comma_index == std::string::npos) {
-      comma_index = line.length();
-  }
-  size_t start = index + attribute_name.length() + 1;
-  size_t end = comma_index;
-  size_t length = end - start;
-  std::string attribute_value = line.substr(start, length);
-  return attribute_value;
-}
-
-uint32_t hls::MasterPlaylist::get_number_attribute_value(std::string line, std::string attribute_name) {
-  std::string attribute_value = get_attribute_value(line, attribute_name);
-  if (attribute_value.length() == 0) {
-    return -1;
-  }
-  return atoi(attribute_value.c_str());
-}
 
 bool hls::MasterPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
@@ -70,26 +47,6 @@ hls::MasterPlaylist::~MasterPlaylist() {
 
 }
 
-std::vector<std::string> hls::MediaPlaylist::get_attributes(std::string line) {
-  std::vector<std::string> attributes;
-  size_t colon_index = line.find_first_of(':');
-  if (colon_index == std::string::npos) {
-      return attributes;
-  }
-  size_t starting_index = colon_index + 1;
-  while(starting_index < line.length()) {
-      size_t comma_index = line.find_first_of(',', starting_index);
-      if (comma_index == std::string::npos) {
-          comma_index = line.length();
-      }
-      size_t length = comma_index - starting_index;
-      std::string attribute_value = line.substr(starting_index, length);
-      attributes.push_back(attribute_value);
-      starting_index = comma_index + 1;
-  }
-  return attributes;
-}
-
 bool hls::MediaPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
@@ -113,6 +70,15 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   } else if (line.find("#EXT-X-MEDIA-SEQUENCE") != std::string::npos) {
       starting_media_sequence = std::stod(get_attributes(line)[0]);
       current_media_sequence = starting_media_sequence;
+  } else if (line.find("#EXT-X-KEY") != std::string::npos) {
+      encrypted = true;
+      std::string method = get_attribute_value(line, "METHOD");
+      if (method == "AES-128") {
+          aes_key = get_string_attribute_value(line, "URI");
+          aes_iv = get_attribute_value(line, "IV");
+      } else {
+          std::cerr << "Encryption method " << method << " not supported" << std::endl;
+      }
   } else if (line.find("#EXTINF") != std::string::npos) {
       in_segment = true;
       std::vector<std::string> attributes = get_attributes(line);
@@ -136,6 +102,57 @@ hls::MediaPlaylist::MediaPlaylist()
 
 hls::MediaPlaylist::~MediaPlaylist() {
 
+}
+
+std::string hls::Playlist::get_attribute_value(std::string line, std::string attribute_name) {
+  size_t index = line.find(attribute_name);
+  if (index == std::string::npos) {
+      return "";
+  }
+  size_t comma_index = line.find_first_of(',', index);
+  if (comma_index == std::string::npos) {
+      comma_index = line.length();
+  }
+  size_t start = index + attribute_name.length() + 1;
+  size_t end = comma_index;
+  size_t length = end - start;
+  std::string attribute_value = line.substr(start, length);
+  return attribute_value;
+}
+
+std::string hls::Playlist::get_string_attribute_value(std::string line, std::string attribute_name) {
+  std::string attribute_value = get_attribute_value(line, attribute_name);
+  attribute_value.erase(std::remove(attribute_value.begin(), attribute_value.end(), '\"' ), attribute_value.end());
+  return attribute_value;
+}
+
+uint32_t hls::Playlist::get_number_attribute_value(std::string line, std::string attribute_name) {
+  std::string attribute_value = get_attribute_value(line, attribute_name);
+  if (attribute_value.length() == 0) {
+    return -1;
+  }
+  return atoi(attribute_value.c_str());
+}
+
+
+std::vector<std::string> hls::Playlist::get_attributes(std::string line) {
+  std::vector<std::string> attributes;
+  size_t colon_index = line.find_first_of(':');
+  if (colon_index == std::string::npos) {
+      return attributes;
+  }
+  size_t starting_index = colon_index + 1;
+  while(starting_index < line.length()) {
+      size_t comma_index = line.find_first_of(',', starting_index);
+      if (comma_index == std::string::npos) {
+          comma_index = line.length();
+      }
+      size_t length = comma_index - starting_index;
+      std::string attribute_value = line.substr(starting_index, length);
+      attributes.push_back(attribute_value);
+      starting_index = comma_index + 1;
+  }
+  return attributes;
 }
 
 void hls::Resource::set_url(std::string url) {
