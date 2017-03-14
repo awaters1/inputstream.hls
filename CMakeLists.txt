@@ -1,4 +1,4 @@
-project(inputstream.mpd)
+project(inputstream.hls)
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -11,9 +11,9 @@ find_package(Kodi REQUIRED)
 find_package(kodiplatform REQUIRED)
 find_package(p8-platform REQUIRED)
 
-set(MPD_SOURCES 
-	src/MainHLS.cpp
-	src/helpers.cpp
+set(HLS_SOURCES 
+  src/MainHLS.cpp
+  src/helpers.cpp
   src/oscompat.cpp
   src/demux/demux.cpp
   src/hls/HLS.cpp
@@ -92,7 +92,7 @@ list(APPEND DEPLIBS bento4)
 add_subdirectory(lib/demux-mpegts)
 list(APPEND DEPLIBS tsDemuxerStatic)
 					
-build_addon(inputstream.mpd MPD DEPLIBS)
+build_addon(inputstream.hls HLS DEPLIBS)
 
 include(CPack)
 

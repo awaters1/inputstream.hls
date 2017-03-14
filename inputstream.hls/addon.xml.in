@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
-  id="inputstream.mpd"
-  version="1.2.18"
-  name="InputStream MPEG DASH"
-  provider-name="peak3d">
+  id="inputstream.hls"
+  version="1.0.0"
+  name="InputStream HLS"
+  provider-name="awaters1@gmail.com">
   <requires>
     <import addon="kodi.inputstream" version="1.0.6"/>
   </requires>
   <extension
     point="kodi.inputstream"
-    name="mpd"
-    extension=".mpd"
+    name="hls"
+    extension=".hls"
     tags="true"
     listitemprops="license_type|license_key|license_data"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en">InputStream Client for MPEG DASH files</summary>
-    <description lang="en">InputStream Client for MPEG DASH files</description>
+    <summary lang="en">InputStream Client for HLS files</summary>
+    <description lang="en">InputStream Client for HLS files</description>
     <platform>@PLATFORM@</platform>
   </extension>
 </addon>
