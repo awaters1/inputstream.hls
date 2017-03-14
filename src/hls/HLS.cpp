@@ -23,7 +23,11 @@ bool hls::MasterPlaylist::write_data(std::string line) {
       }
       MediaPlaylist stream = media_playlist.back();
       media_playlist.pop_back();
-      stream.set_url(base_url + line);
+      if (line.find("http") == std::string::npos) {
+        stream.set_url(base_url + line);
+      } else {
+        stream.set_url(line);
+      }
       media_playlist.push_back(stream);
       in_stream = false;
       return true;
@@ -80,7 +84,11 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       } else if (line.find("#") == 0) {
         // Skip unknown tags
       } else {
-        segment.set_url(base_url + line);
+        if (line.find("http") == std::string::npos) {
+          segment.set_url(base_url + line);
+        } else {
+          segment.set_url(line);
+        }
         in_segment = false;
       }
       segments.push_back(segment);

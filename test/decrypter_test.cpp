@@ -4,6 +4,7 @@
 
 #include <limits.h>
 #include <fstream>
+#include <iostream>
 #include "gtest/gtest.h"
 
 #include "../src/hls/decrypter.h"
@@ -12,6 +13,9 @@ namespace hls {
 
 std::string load_file_contents(const char* file_name) {
   std::ifstream file(file_name);
+  if (!file.is_open()) {
+    std::cerr << "Unable to open " << file_name << std::endl;
+  }
   std::ostringstream ostrm;
 
   ostrm << file.rdbuf();
@@ -21,11 +25,23 @@ std::string load_file_contents(const char* file_name) {
 TEST(DecrypterTest, Decrypt) {
   std::string aes_key = "3uGvlV84qanaLAtEEPNMBw==";
   std::string aes_iv = "0x9f11a1b6a9fe0d800f5c9688370e694d";
-  std::string encrypted_data = load_file_contents("hls/encrypted_segment.ts");
-  std::string gold_decrypted_data = load_file_contents("hls/decrypted_segment.ts");
+  std::string encrypted_data = load_file_contents("test/hls/encrypted_segment.ts");
+  std::string gold_decrypted_data = load_file_contents("test/hls/decrypted_segment.ts");
 
   std::string decrypted_data = decrypt(aes_key, aes_iv, encrypted_data);
-  EXPECT_EQ(decrypted_data, gold_decrypted_data);
+  EXPECT_EQ(gold_decrypted_data.length(), decrypted_data.length());
+  EXPECT_TRUE(decrypted_data == gold_decrypted_data);
+}
+
+TEST(DecrypterTest, Decrypt2) {
+  std::string aes_key = load_file_contents("test/encrypted/aes_key");
+  std::string aes_iv = load_file_contents("test/encrypted/aes_iv");
+  std::string encrypted_data = load_file_contents("test/encrypted/D00000002.ts");
+  std::string gold_decrypted_data = load_file_contents("test/encrypted/D00000002-decrypted.ts");
+
+  std::string decrypted_data = decrypt(aes_key, aes_iv, encrypted_data);
+  EXPECT_EQ(gold_decrypted_data.length(), decrypted_data.length());
+  EXPECT_TRUE(decrypted_data == gold_decrypted_data);
 }
 
 }

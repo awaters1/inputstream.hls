@@ -1,3 +1,10 @@
+May need to use cookies
+
+Priorities:
+1. Loading live streams
+2. Handle ad insertion (discontinuity tag)
+
+
 1. Support rest of addon interface
 2. Be able to switch to a variant playlist during playing
 3. Support a live stream
