@@ -40,6 +40,12 @@ bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+  if (active_segment->get_byte_length()) {
+      char rangebuf[128];
+      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, uint64_t(active_segment->get_byte_offset()),
+          uint64_t(active_segment->get_byte_offset()) + uint64_t(active_segment->get_byte_length()));
+      xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangebuf);
+  }
 
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 

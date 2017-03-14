@@ -119,8 +119,10 @@ TEST(HlsTest, ByteRangeSegments) {
   media_playlist.open("test/hls/byte_range.m3u8");
   EXPECT_EQ(181, media_playlist.get_segments().size());
   EXPECT_EQ(326744, media_playlist.get_segments()[0].byte_length);
+  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segments()[0].get_url());
   EXPECT_EQ(0, media_playlist.get_segments()[0].byte_offset);
   EXPECT_EQ(139872, media_playlist.get_segments()[180].byte_length);
   EXPECT_EQ(59226768, media_playlist.get_segments()[180].byte_offset);
+  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segments()[180].get_url());
 }
 }

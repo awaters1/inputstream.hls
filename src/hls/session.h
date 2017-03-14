@@ -33,6 +33,8 @@ namespace hls {
     void create_demuxer(std::string aes_key);
     void create_demuxer();
     int64_t get_current_time() { return demux->get_current_time(); };
+    uint32_t get_byte_length() { return segment.byte_length; };
+    uint32_t get_byte_offset() { return segment.byte_offset; };
   private:
     // Segment as defined in the playlist
     Segment segment;
