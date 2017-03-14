@@ -29,8 +29,6 @@
 #include "kodi_vfs_types.h"
 #include "SSD_dll.h"
 #include "demux/demux.h"
-#include "session.h"
-#include "decoding.h"
 #include "kodi.h"
 
 // HLS specific

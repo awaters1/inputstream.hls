@@ -22,8 +22,6 @@
 
 #include <vector>
 
-#include "dash/DASHTree.h"
-#include "dash/DASHStream.h"
 #include <float.h>
 
 

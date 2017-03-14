@@ -13,14 +13,9 @@ find_package(p8-platform REQUIRED)
 
 set(MPD_SOURCES 
 	src/MainHLS.cpp
-	src/dash/DASHTree.cpp
-	src/dash/DASHStream.cpp
 	src/helpers.cpp
   src/oscompat.cpp
-  src/msl.cpp
   src/demux/demux.cpp
-  src/session.cpp
-  src/KodiDASH.cpp
   src/hls/HLS.cpp
   src/hls/session.cpp
   src/kodi_hls.cpp

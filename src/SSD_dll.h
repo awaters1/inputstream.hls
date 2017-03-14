@@ -1,6 +1,7 @@
 #pragma once
 
-//Functionality wich is supported by the Addon
+#include <cstddef>
+//Functionality which is supported by the Addon
 class SSD_HOST
 {
 public:
