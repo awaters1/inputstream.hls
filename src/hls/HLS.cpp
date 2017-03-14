@@ -88,7 +88,11 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       Segment segment;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
-      segment.aes_iv = aes_iv;
+      if (aes_iv.empty()) {
+        segment.aes_iv = std::to_string(segment.media_sequence);
+      } else {
+        segment.aes_iv = aes_iv;
+      }
       segment.aes_uri = aes_uri;
       segment.encrypted = encrypted;
       if (attributes.size() > 1) {

@@ -108,6 +108,12 @@ bool download_playlist(const char *url, hls::Playlist &playlist) {
 }
 
 void KodiMasterPlaylist::select_media_playlist() {
+  if (media_playlist.empty()) {
+    // Assume the URL we were given was a media playlist and not a master playlist
+    hls::MediaPlaylist playlist;
+    download_playlist(get_url().c_str(), playlist);
+    media_playlist.push_back(playlist);
+  }
   // Just selects the first one for now
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
       download_playlist(it->get_url().c_str(), *it);
