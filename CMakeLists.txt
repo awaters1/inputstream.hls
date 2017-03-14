@@ -23,6 +23,7 @@ set(MPD_SOURCES
   src/hls/HLS.cpp
   src/hls/session.cpp
   src/kodi_hls.cpp
+  src/hls/decrypter.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -58,8 +59,11 @@ add_executable(inputstreamhlstest
     test/session_test.cpp
     src/hls/session.cpp
     src/demux/demux.cpp
+    src/hls/decrypter.cpp
+    test/decrypter_test.cpp
+    src/helpers.cpp
     )
-target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic)
+target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})

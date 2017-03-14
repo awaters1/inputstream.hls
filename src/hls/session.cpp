@@ -113,38 +113,9 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
   if (!download_segment(active_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
-  // TODO: Test decrypt
-  // TODO: Need to load key and IV
-  AP4_BlockCipher* cbc_d_block_cipher;
-  AP4_DefaultBlockCipherFactory::Instance.CreateCipher(AP4_BlockCipher::AES_128,
-                                                       AP4_BlockCipher::DECRYPT,
-                                                       AP4_BlockCipher::CBC,
-                                                       NULL,
-                                                       key,
-                                                       16,
-                                                       cbc_d_block_cipher);
-
-  for (unsigned int i=0; i<sizeof(TestVectors2)/sizeof(TestVectors2[0]); i++) {
-      TestVector* vector = &TestVectors2[i];
-      unsigned int block_count = vector->clear_length/16;
-      AP4_UI08* e_out = new AP4_UI08[block_count*16];
-      AP4_UI08* d_out = new AP4_UI08[block_count*16];
-      for (unsigned int j=0; j<block_count-1; j++) {
-          for (unsigned int k=0; k<block_count-(j+1); k++) {
-              AP4_UI08* iv = k?vector->enc+(k-1)*16:default_iv;
-              result = cbc_e_block_cipher->Process(vector->clear+k*16, (j+1)*16, e_out, iv);
-              CHECK(result == AP4_SUCCESS);
-              CHECK(BuffersEqual(e_out, vector->enc+k*16, (j+1)*16));
-
-              result = cbc_d_block_cipher->Process(vector->enc+k*16, (j+1)*16, d_out, iv);
-              CHECK(result == AP4_SUCCESS);
-              CHECK(BuffersEqual(d_out, vector->clear+k*16, (j+1)*16));
-          }
-      }
-      delete[] e_out;
-      delete[] d_out;
-  }
-  //
+  // TODO: Check for decryption
+  // TODO: If IV is missing the media sequence is the IV
+  // TODO: AES key is base64 encoded
   active_segment->create_demuxer();
   ++active_media_segment_index;
   return active_segment;
