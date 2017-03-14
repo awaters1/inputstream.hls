@@ -113,4 +113,14 @@ TEST(HlsTest, EncryptedSegments) {
   EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", segment.aes_iv);
   EXPECT_TRUE(segment.encrypted);
 }
+
+TEST(HlsTest, ByteRangeSegments) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/hls/byte_range.m3u8");
+  EXPECT_EQ(181, media_playlist.get_segments().size());
+  EXPECT_EQ(326744, media_playlist.get_segments()[0].byte_length);
+  EXPECT_EQ(0, media_playlist.get_segments()[0].byte_offset);
+  EXPECT_EQ(139872, media_playlist.get_segments()[180].byte_length);
+  EXPECT_EQ(59226768, media_playlist.get_segments()[180].byte_offset);
+}
 }

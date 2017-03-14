@@ -60,9 +60,28 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       }
       Segment segment = segments.back();
       segments.pop_back();
-      segment.set_url(base_url + line);
+      if (line.find("#EXT-X-BYTERANGE") == 0) {
+        std::string byte_range = get_attributes(line)[0];
+        size_t at_symbol = byte_range.find_first_of('@');
+        if (at_symbol == std::string::npos) {
+          segment.byte_length = atoi(byte_range.c_str());
+          if (segments.empty()) {
+            segment.byte_offset = 0;
+          } else {
+            uint32_t byte_offset = segments.back().byte_offset + segments.back().byte_length;
+            segment.byte_offset = byte_offset + 1;
+          }
+        } else {
+          std::string byte_length = byte_range.substr(0, at_symbol);
+          std::string byte_offset = byte_range.substr(at_symbol + 1);
+          segment.byte_length = atoi(byte_length.c_str());
+          segment.byte_offset = atoi(byte_offset.c_str());
+        }
+      } else {
+        segment.set_url(base_url + line);
+        in_segment = false;
+      }
       segments.push_back(segment);
-      in_segment = false;
       return true;
   }
   if (line.find("#EXT-X-TARGETDURATION") != std::string::npos) {
@@ -106,7 +125,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
 }
 
 hls::MediaPlaylist::MediaPlaylist()
-: segment_target_duration(0), starting_media_sequence(0), current_media_sequence(0), in_segment(false) {
+: segment_target_duration(0), starting_media_sequence(0), current_media_sequence(0), in_segment(false), encrypted(false) {
 
 }
 

@@ -45,6 +45,8 @@ namespace hls
     std::string aes_uri;
     std::string aes_iv;
     bool encrypted;
+    uint32_t byte_length;
+    uint32_t byte_offset;
   };
 
   class MediaPlaylist : public Playlist {

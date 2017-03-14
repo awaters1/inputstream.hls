@@ -1,10 +1,3 @@
-4. Support decryption of ts
-Handle non-base64 AES key
--> Need to load the AES key somewhere in session.cpp so that
-we can use a different method for kodi and the tests
--> support multiple EXT-X-KEY segments
--> support optional IV values
-
 1. Support rest of addon interface
 2. Be able to switch to a variant playlist during playing
 3. Support a live stream
@@ -12,6 +5,7 @@ we can use a different method for kodi and the tests
 
 Issues
 1. Current time seems to be incorrect
+2. Micro pauses happen when loading the next segment
 
 Missing Support
 -Tons
