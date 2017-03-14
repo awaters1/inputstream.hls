@@ -29,6 +29,7 @@ TEST(DecrypterTest, Decrypt) {
   std::string gold_decrypted_data = load_file_contents("test/hls/decrypted_segment.ts");
 
   std::string decrypted_data = decrypt(aes_key, aes_iv, encrypted_data);
+  decrypted_data = decrypted_data.substr(0, gold_decrypted_data.length());
   EXPECT_EQ(gold_decrypted_data.length(), decrypted_data.length());
   EXPECT_TRUE(decrypted_data == gold_decrypted_data);
 }
@@ -40,6 +41,7 @@ TEST(DecrypterTest, Decrypt2) {
   std::string gold_decrypted_data = load_file_contents("test/encrypted/D00000002-decrypted.ts");
 
   std::string decrypted_data = decrypt(aes_key, aes_iv, encrypted_data);
+  decrypted_data = decrypted_data.substr(0, gold_decrypted_data.length());
   EXPECT_EQ(gold_decrypted_data.length(), decrypted_data.length());
   EXPECT_TRUE(decrypted_data == gold_decrypted_data);
 }

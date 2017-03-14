@@ -1,8 +1,7 @@
-May need to use cookies
-
 Priorities:
 1. Loading live streams
 2. Handle ad insertion (discontinuity tag)
+3. Switching between variant streams
 
 
 1. Support rest of addon interface
