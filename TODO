@@ -1,4 +1,6 @@
 4. Support decryption of ts
+-> Need to load the AES key somewhere in session.cpp so that
+we can use a different method for kodi and the tests
 -> support multiple EXT-X-KEY segments
 -> support optional IV values
 

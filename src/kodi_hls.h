@@ -18,4 +18,5 @@ public:
   KodiSession(KodiMasterPlaylist master_playlist) : hls::Session(master_playlist) { };
 protected:
     bool download_segment(hls::ActiveSegment *active_segment);
+    std::string download_aes_key(std::string aes_uri);
 };

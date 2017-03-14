@@ -48,5 +48,26 @@ TEST_F(SessionTest, CurrentTime) {
   // EXPECT_EQ(10032, session->get_current_time());
 }
 
+class EncryptedSessionTest : public ::testing::Test {
+protected:
+  virtual void SetUp() {
+    FileMasterPlaylist master_playlist = FileMasterPlaylist();
+    master_playlist.open("test/hls/encrypted.m3u8");
+    session = new Session(master_playlist);
+  }
+
+  virtual void TearDown() {
+    delete session;
+  }
+
+  Session *session;
+};
+
+TEST_F(EncryptedSessionTest, DecryptsSession) {
+  std::vector<Stream> streams = session->get_streams();
+  ASSERT_EQ(2, streams.size());
+  EXPECT_EQ("h264", streams[0].codec_name);
+  EXPECT_EQ("aac", streams[1].codec_name);
+}
 
 }

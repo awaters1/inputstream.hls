@@ -6,6 +6,31 @@
 
 #include "kodi_hls.h"
 
+std::string KodiSession::download_aes_key(std::string aes_uri) {
+  // open the file
+  void* file = xbmc->CURLCreate(aes_uri.c_str());
+  if (!file)
+    return "";
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable", "0");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
+
+  // read the file
+  static const unsigned int CHUNKSIZE = 16384;
+  char buf[CHUNKSIZE];
+  bool read;
+  std::string aes_key;
+  while ((read = xbmc->ReadFileString(file, buf, CHUNKSIZE)) > 0 && read) {
+    // Take \n off of buffer
+    buf[strlen(buf) - 1] = '\0';
+    aes_key = std::string(buf, strlen(buf));
+    break;
+  }
+  xbmc->CloseFile(file);
+
+  return aes_key;
+}
+
 // TODO: Keep track of download speed
 bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
   // open the file

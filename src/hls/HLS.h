@@ -42,6 +42,9 @@ namespace hls
     float duration;
     std::string description;
     uint32_t media_sequence;
+    std::string aes_uri;
+    std::string aes_iv;
+    bool encrypted;
   };
 
   class MediaPlaylist : public Playlist {
@@ -52,7 +55,7 @@ namespace hls
     uint32_t bandwidth;
     std::string program_id;
     bool encrypted;
-    std::string aes_key;
+    std::string aes_uri;
     std::string aes_iv; // TODO: This may also be per segment
     std::vector<Segment> get_segments() { return segments; };
   protected:

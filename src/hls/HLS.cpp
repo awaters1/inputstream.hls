@@ -74,7 +74,10 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       encrypted = true;
       std::string method = get_attribute_value(line, "METHOD");
       if (method == "AES-128") {
-          aes_key = get_string_attribute_value(line, "URI");
+          aes_uri = get_string_attribute_value(line, "URI");
+          if (aes_uri.find("http") == std::string::npos) {
+              aes_uri = get_base_url() + aes_uri;
+          }
           aes_iv = get_attribute_value(line, "IV");
       } else {
           std::cerr << "Encryption method " << method << " not supported" << std::endl;
@@ -85,6 +88,9 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       Segment segment;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
+      segment.aes_iv = aes_iv;
+      segment.aes_uri = aes_uri;
+      segment.encrypted = encrypted;
       if (attributes.size() > 1) {
           segment.description = attributes[1];
       }

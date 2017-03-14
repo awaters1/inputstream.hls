@@ -101,7 +101,16 @@ TEST(HlsTest, EncryptedMediaPlaylist) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   mp.open("test/hls/hls_400_.m3u8");
   EXPECT_TRUE(mp.encrypted);
-  EXPECT_EQ("aes_key", mp.aes_key);
+  EXPECT_EQ("test/hls/aes_key", mp.aes_uri);
   EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", mp.aes_iv);
+}
+
+TEST(HlsTest, EncryptedSegments) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/hls/hls_400_.m3u8");
+  Segment segment = media_playlist.get_segments()[0];
+  EXPECT_EQ("test/hls/aes_key", segment.aes_uri);
+  EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", segment.aes_iv);
+  EXPECT_TRUE(segment.encrypted);
 }
 }

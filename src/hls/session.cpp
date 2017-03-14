@@ -6,7 +6,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "Ap4Protection.h"
+#include "decrypter.h"
 
 #include "session.h"
 
@@ -35,6 +35,14 @@ std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
   delete demux;
   demux = new Demux(segment_buffer, 0);
   return streams;
+}
+
+void hls::ActiveSegment::create_demuxer(std::string aes_key) {
+  if (segment.encrypted) {
+    // TODO: If IV is missing the media sequence is the IV
+    segment_buffer = decrypt(aes_key, segment.aes_iv, segment_buffer);
+  }
+  create_demuxer();
 }
 
 void hls::ActiveSegment::create_demuxer() {
@@ -93,12 +101,21 @@ void hls::Session::read_next_pkt() {
   }
 }
 
+std::string hls::Session::download_aes_key(std::string aes_uri) {
+  std::ifstream file(aes_uri);
+  std::ostringstream ostrm;
+
+  ostrm << file.rdbuf();
+  return std::string(ostrm.str());
+}
+
 bool hls::Session::download_segment(ActiveSegment *active_segment) {
   std::ifstream file(active_segment->get_url());
   std::ostringstream ostrm;
 
   ostrm << file.rdbuf();
   active_segment->write_data(ostrm.str().c_str(), ostrm.str().length());
+  return true;
 }
 
 hls::ActiveSegment* hls::Session::load_next_segment() {
@@ -113,10 +130,19 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
   if (!download_segment(active_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
-  // TODO: Check for decryption
-  // TODO: If IV is missing the media sequence is the IV
-  // TODO: AES key is base64 encoded
-  active_segment->create_demuxer();
+  if (segment.encrypted) {
+      auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
+      if (aes_key_it == aes_uri_to_key.end()) {
+          std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
+          std::string aes_key = download_aes_key(segment.aes_uri);
+          aes_uri_to_key.insert({segment.aes_uri, aes_key});
+          active_segment->create_demuxer(aes_key);
+      } else {
+          active_segment->create_demuxer(aes_key_it->second);
+      }
+  } else {
+      active_segment->create_demuxer();
+  }
   ++active_media_segment_index;
   return active_segment;
 }
