@@ -77,6 +77,8 @@ bool hls::MediaPlaylist::write_data(std::string line) {
           segment.byte_length = atoi(byte_length.c_str());
           segment.byte_offset = atoi(byte_offset.c_str());
         }
+      } else if (line.find("#") == 0) {
+        // Skip unknown tags
       } else {
         segment.set_url(base_url + line);
         in_segment = false;
