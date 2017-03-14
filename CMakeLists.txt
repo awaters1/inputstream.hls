@@ -67,6 +67,7 @@ add_executable(inputstreamhlstest
 target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
+
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 
 include_directories(${INCLUDES}

@@ -18,12 +18,11 @@ std::string KodiSession::download_aes_key(std::string aes_uri) {
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
-  bool read;
+  size_t read;
   std::string aes_key;
-  while ((read = xbmc->ReadFileString(file, buf, CHUNKSIZE)) > 0 && read) {
+  while ((read = xbmc->ReadFile(file, buf, CHUNKSIZE)) > 0 && read) {
     // Take \n off of buffer
-    buf[strlen(buf) - 1] = '\0';
-    aes_key = std::string(buf, strlen(buf));
+    aes_key = std::string(buf, read);
     break;
   }
   xbmc->CloseFile(file);
