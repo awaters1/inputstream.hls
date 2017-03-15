@@ -1,2 +1,2 @@
-#KODIPROP:inputstreamaddon=inputstream.mpd
+#KODIPROP:inputstreamaddon=inputstream.hls
 https://cdn.theoplayer.com/video/big_buck_bunny_encrypted/stream-800/index.m3u8

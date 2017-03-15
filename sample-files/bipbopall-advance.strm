@@ -1,2 +1,2 @@
-#KODIPROP:inputstreamaddon=inputstream.mpd
+#KODIPROP:inputstreamaddon=inputstream.hls
 https://tungsten.aaplimg.com/VOD/bipbop_adv_example_v2/master.m3u8

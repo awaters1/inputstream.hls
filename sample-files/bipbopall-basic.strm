@@ -1,2 +1,2 @@
-#KODIPROP:inputstreamaddon=inputstream.mpd
+#KODIPROP:inputstreamaddon=inputstream.hls
 http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8
