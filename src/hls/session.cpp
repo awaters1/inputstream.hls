@@ -139,16 +139,20 @@ void hls::Session::reload_media_playlist() {
               last_added_sequence = it->media_sequence;
           }
       }
-      std::cout << "Reloaded playlist with " << added_segments << " new segments\n";
+      std::cout << "Reloaded playlist with " << added_segments << " new segments, last segment id: " << last_added_sequence << "\n";
   }
 }
 
 hls::ActiveSegment* hls::Session::load_next_segment() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
   MediaPlaylist media_playlist = media_playlists.at(active_media_playlist_index);
-  if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_segments().size()) {
-    std::cerr << "active_media_segment_index is out of range" << std::endl;
-    return nullptr;
+  if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_number_of_segments()) {
+    // Try to reload the playlist before bailing
+    reload_media_playlist();
+    if (active_media_segment_index >= media_playlist.get_number_of_segments()) {
+      std::cerr << "active_media_segment_index is out of range" << std::endl;
+      return nullptr;
+    }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
   ActiveSegment *active_segment = new ActiveSegment(segment);

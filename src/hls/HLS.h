@@ -62,6 +62,7 @@ namespace hls
     std::string aes_iv;
     bool live;
     void add_segment(Segment segment) { segments.push_back(segment); };
+    uint32_t get_number_of_segments() { return segments.size(); };
     std::vector<Segment> get_segments() { return segments; };
   protected:
     bool write_data(std::string line);
