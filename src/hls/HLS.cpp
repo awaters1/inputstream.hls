@@ -10,6 +10,20 @@
 
 #include "HLS.h"
 
+hls::Segment::Segment() :
+Resource(),
+duration(0),
+description(""),
+media_sequence(0),
+aes_uri(""),
+aes_iv(""),
+encrypted(false),
+byte_length(0),
+byte_offset(0)
+{
+
+}
+
 bool hls::MasterPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
@@ -129,13 +143,19 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       }
       segments.push_back(segment);
   } else if (line == "#EXT-X-ENDLIST") {
-      // TODO: Handle end list
+      live = false;
   }
   return true;
 }
 
 hls::MediaPlaylist::MediaPlaylist()
-: segment_target_duration(0), starting_media_sequence(0), current_media_sequence(0), in_segment(false), encrypted(false) {
+: segment_target_duration(0),
+  starting_media_sequence(0),
+  current_media_sequence(0),
+  in_segment(false),
+  encrypted(false),
+  live(true)
+{
 
 }
 

@@ -1,2 +1,2 @@
-#KODIPROP:inputstreamaddon=inputstream.mpd
-http://content.uplynk.com/channel/d0695f6fa2f143eb95c7a41d96d581c4.m3u8?ad.kv=_fw_ae,null,_fw_euid,null&exp=1489525596&ptid=ESPN_tvOS_VDMS&rn=845633890&tc=1&oid=d09b16c953aa40c98dd8c513526aca5a&linearv=4&ad=e3ads&ad.csid=watchespn:chromecast:e3ads&ad.caid=a17987026&eid=espn_espn1&euid=ESPN3_VDMS&ct=c&sig=67058c31f5542f9b444a50a083b65b343ae16e62041f62a546580c08aeeff5dc
+#KODIPROP:inputstreamaddon=inputstream.hls
+http://content.uplynk.com/event/ext/d09b16c953aa40c98dd8c513526aca5a/a19735941.m3u8?ad.kv=_fw_ae,null,_fw_euid,null&exp=1489542079&ptid=ESPN3_Events_VDMS&rn=283586987&tc=1&oid=d09b16c953aa40c98dd8c513526aca5a&linearv=4&ad=e3ads&ad.csid=watchespn:chromecast:e3ads&ad.caid=a19735941&eid=a19735941&euid=ESPN3_VDMS&ct=e&sig=eb25b9790c8fbaf656b08ad9dfa57566f40783d153ea26a4b3a73524578fbd99

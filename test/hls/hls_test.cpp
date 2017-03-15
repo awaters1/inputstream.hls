@@ -59,6 +59,7 @@ TEST(HlsTest, LoadMediaPlaylist) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   bool ret = mp.open("test/hls/gear1/prog_index.m3u8");
   EXPECT_TRUE(ret);
+  EXPECT_FALSE(mp.live);
 }
 
 TEST(HlsTest, GetAttributes) {
@@ -124,5 +125,11 @@ TEST(HlsTest, ByteRangeSegments) {
   EXPECT_EQ(139872, media_playlist.get_segments()[180].byte_length);
   EXPECT_EQ(59226768, media_playlist.get_segments()[180].byte_offset);
   EXPECT_EQ("test/hls/main.ts", media_playlist.get_segments()[180].get_url());
+}
+
+TEST(HlsTest, LiveMediaPlaylist) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/live/media.m3u8");
+  EXPECT_TRUE(media_playlist.live);
 }
 }

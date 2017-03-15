@@ -39,6 +39,7 @@ namespace hls
   class Segment : public Resource {
     friend class MediaPlaylist;
   public:
+    Segment();
     float duration;
     std::string description;
     uint32_t media_sequence;
@@ -58,7 +59,8 @@ namespace hls
     std::string program_id;
     bool encrypted;
     std::string aes_uri;
-    std::string aes_iv; // TODO: This may also be per segment
+    std::string aes_iv;
+    bool live;
     std::vector<Segment> get_segments() { return segments; };
   protected:
     bool write_data(std::string line);

@@ -59,9 +59,12 @@ namespace hls {
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
     virtual std::string download_aes_key(std::string aes_uri);
+    virtual MediaPlaylist download_playlist(std::string url);
   private:
+    void reload_media_playlist();
     ActiveSegment* load_next_segment();
     bool load_segments();
+
     ActiveSegment *previous_segment;
     ActiveSegment *active_segment;
     ActiveSegment *next_segment;

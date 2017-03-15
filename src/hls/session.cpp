@@ -118,6 +118,29 @@ bool hls::Session::download_segment(ActiveSegment *active_segment) {
   return true;
 }
 
+hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
+  FileMediaPlaylist media_playlist;
+  media_playlist.open(url.c_str());
+  return media_playlist;
+}
+
+void hls::Session::reload_media_playlist() {
+  MediaPlaylist &media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
+  if (media_playlist.live) {
+      MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
+      std::vector<Segment> new_segments = new_media_playlist.get_segments();
+      uint32_t last_media_sequence = media_playlist.get_segments().back().media_sequence;
+      uint32_t added_segments = 0;
+      for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
+          if (it->media_sequence > last_media_sequence) {
+              media_playlist.get_segments().push_back(*it);
+              ++added_segments;
+          }
+      }
+      std::cout << "Reloaded playlist with " << added_segments << " new segments\n";
+  }
+}
+
 hls::ActiveSegment* hls::Session::load_next_segment() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
   MediaPlaylist media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
@@ -144,6 +167,7 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
       active_segment->create_demuxer();
   }
   ++active_media_segment_index;
+  reload_media_playlist();
   return active_segment;
 }
 
