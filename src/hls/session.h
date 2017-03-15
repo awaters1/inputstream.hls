@@ -75,6 +75,7 @@ namespace hls {
     uint32_t active_media_playlist_index;
     uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
+    std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;
     uint64_t start_pts;
   };

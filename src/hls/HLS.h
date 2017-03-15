@@ -21,7 +21,7 @@ namespace hls
 
   class Playlist : public Resource {
   public:
-    Playlist() : is_m3u8(false) {};
+    Playlist() : Resource(), is_m3u8(false) {};
 
     virtual bool write_data(std::string line) = 0;
   protected:
@@ -61,6 +61,7 @@ namespace hls
     std::string aes_uri;
     std::string aes_iv;
     bool live;
+    void add_segment(Segment segment) { segments.push_back(segment); };
     std::vector<Segment> get_segments() { return segments; };
   protected:
     bool write_data(std::string line);

@@ -125,16 +125,18 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 }
 
 void hls::Session::reload_media_playlist() {
-  MediaPlaylist &media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
+  MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
   if (media_playlist.live) {
       MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
       std::vector<Segment> new_segments = new_media_playlist.get_segments();
       uint32_t last_media_sequence = media_playlist.get_segments().back().media_sequence;
       uint32_t added_segments = 0;
+      uint32_t last_added_sequence = 0;
       for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
           if (it->media_sequence > last_media_sequence) {
-              media_playlist.get_segments().push_back(*it);
+              media_playlist.add_segment(*it);
               ++added_segments;
+              last_added_sequence = it->media_sequence;
           }
       }
       std::cout << "Reloaded playlist with " << added_segments << " new segments\n";
@@ -143,7 +145,7 @@ void hls::Session::reload_media_playlist() {
 
 hls::ActiveSegment* hls::Session::load_next_segment() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
-  MediaPlaylist media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
+  MediaPlaylist media_playlist = media_playlists.at(active_media_playlist_index);
   if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_segments().size()) {
     std::cerr << "active_media_segment_index is out of range" << std::endl;
     return nullptr;
@@ -219,8 +221,9 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     next_segment(0),
     total_time(0),
     start_pts(-1),
-    current_pkt(0) {
-  hls::MediaPlaylist media_playlist = master_playlist.get_media_playlist()[active_media_playlist_index];
+    current_pkt(0),
+    media_playlists(master_playlist.get_media_playlist()){
+  hls::MediaPlaylist media_playlist = media_playlists[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();
   for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
     total_time += it->duration;
