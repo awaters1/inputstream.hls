@@ -61,7 +61,7 @@ TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
 
 uint64_t hls::Session::get_current_time() {
   if (current_pkt) {
-    return active_segment->get_current_time() - start_pts;
+    return active_segment->get_current_time();
   }
   return 0;
 }

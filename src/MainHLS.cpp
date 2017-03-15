@@ -371,9 +371,9 @@ extern "C" {
         return p;
     } else {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-      p->dts = pkt->dts * 10;
-      p->pts = pkt->pts * 10;
-      p->duration = pkt->duration * 10;
+      p->dts = pkt->dts;
+      p->pts = pkt->pts;
+      p->duration = pkt->duration;
       p->iStreamId = pkt->pid;
       p->iGroupId = 0;
       p->iSize = pkt->size;
