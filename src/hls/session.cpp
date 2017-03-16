@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <chrono>
+#include <thread>
 
 #include "decrypter.h"
 
@@ -145,7 +147,7 @@ void hls::Session::reload_media_playlist() {
 
 hls::ActiveSegment* hls::Session::load_next_segment() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
-  MediaPlaylist media_playlist = media_playlists.at(active_media_playlist_index);
+  MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
   if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_number_of_segments()) {
     // Try to reload the playlist before bailing
     reload_media_playlist();
@@ -182,8 +184,21 @@ bool hls::Session::load_segments() {
     delete previous_segment;
   }
   previous_segment = active_segment;
-  if (!next_segment) {
+  uint32_t tries = 0;
+  while(!next_segment && tries < 10) {
     next_segment = load_next_segment();
+    /*
+    if (!next_segment && media_playlists[active_media_playlist_index].live) {
+      float target_duration = media_playlists[active_media_playlist_index].get_segment_target_duration();
+      uint32_t reload_delay = (uint32_t) target_duration * 0.5 * 1000;
+      std::cout << "Unable to load the next segment, " << reload_delay << " waiting to reload\n";
+      std::this_thread::sleep_for(std::chrono::milliseconds(reload_delay));
+    } else {
+      break;
+    }
+    ++tries;
+    */
+    break;
   }
   active_segment = next_segment;
   next_segment = load_next_segment();

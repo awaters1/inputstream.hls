@@ -64,6 +64,7 @@ namespace hls
     void add_segment(Segment segment) { segments.push_back(segment); };
     uint32_t get_number_of_segments() { return segments.size(); };
     std::vector<Segment> get_segments() { return segments; };
+    float get_segment_target_duration() { return segment_target_duration; };
   protected:
     bool write_data(std::string line);
   private:

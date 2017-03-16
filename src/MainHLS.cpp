@@ -359,8 +359,9 @@ extern "C" {
 
     TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
     if (!pkt) {
-      std::cerr << "Invalid packet" << std::endl;
-      return NULL;
+      // No packet available
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
+      return p;
     }
 
     if (pkt->streamChange) {
@@ -419,6 +420,7 @@ extern "C" {
   {
     if (!hls_session)
       return 0;
+    // TODO: Doesn't work for live streams
     return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
