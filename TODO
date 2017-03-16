@@ -16,7 +16,7 @@ Issues
 3. Audio seems to be misaligned
 2. and 3. may happen because of the DMX_STREAMCHANGE, we should only do this if we encounter
 a discontinuity tag instead of each TS segment, doesn't seem to be the issue, seems to be
-because DemuxRead doesn't return the packet immediately
+because DemuxRead doesn't return the packet immediately. Maybe because PTS is out of order
 
 Missing Support
 -Tons

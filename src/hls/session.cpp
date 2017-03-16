@@ -157,8 +157,8 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
     }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
-  ActiveSegment *active_segment = new ActiveSegment(segment);
-  if (!download_segment(active_segment)) {
+  ActiveSegment *next_segment = new ActiveSegment(segment);
+  if (!download_segment(next_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
   if (segment.encrypted) {
@@ -167,16 +167,16 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
           std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
           std::string aes_key = download_aes_key(segment.aes_uri);
           aes_uri_to_key.insert({segment.aes_uri, aes_key});
-          active_segment->create_demuxer(aes_key);
+          next_segment->create_demuxer(aes_key);
       } else {
-          active_segment->create_demuxer(aes_key_it->second);
+          next_segment->create_demuxer(aes_key_it->second);
       }
   } else {
-      active_segment->create_demuxer();
+      next_segment->create_demuxer();
   }
   ++active_media_segment_index;
   reload_media_playlist();
-  return active_segment;
+  return next_segment;
 }
 
 bool hls::Session::load_segments() {
