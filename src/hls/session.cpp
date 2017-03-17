@@ -7,6 +7,7 @@
 #include <sstream>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
 #include "decrypter.h"
 
@@ -47,18 +48,36 @@ void hls::ActiveSegment::create_demuxer(std::string aes_key) {
   create_demuxer();
 }
 
+bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
+  return pkt1->dts < pkt2->dts;
+}
+
 void hls::ActiveSegment::create_demuxer() {
   demux = new Demux(segment_buffer, 0);
+  TSDemux::STREAM_PKT* pkt = 0;
+  while (pkt = demux->get_next_pkt()) {
+      packets.push_back(pkt);
+  }
+  // TODO: Sort by DTS
+  std::sort(packets.begin(), packets.end(), packet_sorter);
 }
 
 hls::ActiveSegment::~ActiveSegment() {
   if (demux) {
     delete demux;
   }
+  for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
+      delete *it;
+  }
 }
 
 TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
-  return demux->get_next_pkt();
+  // return demux->get_next_pkt();
+
+  if (packet_index < 0 || packet_index >= packets.size()) {
+      return nullptr;
+  }
+  return packets[packet_index++];
 }
 
 uint64_t hls::Session::get_current_time() {

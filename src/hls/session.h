@@ -25,7 +25,12 @@ namespace hls {
 
   class ActiveSegment {
   public:
-    ActiveSegment(Segment segment): segment(segment), demux(0), segment_buffer("") {}
+    ActiveSegment(Segment segment):
+      segment(segment),
+      demux(0),
+      segment_buffer(""),
+      packet_index(0)
+  {}
     ~ActiveSegment();
 
     std::vector<Stream> extract_streams();
@@ -39,8 +44,11 @@ namespace hls {
     uint32_t get_byte_offset() { return segment.byte_offset; };
   private:
     // Segment as defined in the playlist
+    uint32_t packet_index;
     Segment segment;
     Demux *demux;
+    // TODO: This is leaked
+    std::vector<TSDemux::STREAM_PKT*> packets;
     std::string segment_buffer;
   };
 
