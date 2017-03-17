@@ -363,6 +363,8 @@ extern "C" {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
       return p;
     }
+    // TODO: DTS are out of order
+    std::cout << "Packet PTS: " << pkt->pts << " DTS: " << pkt->dts << " Duration: " << pkt->duration << "\n";
 
     if (pkt->streamChange) {
         DemuxPacket *p = ipsh->AllocateDemuxPacket(0);

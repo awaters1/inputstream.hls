@@ -6,6 +6,8 @@
 
 #include <unordered_map>
 #include <vector>
+#include <future>
+#include <thread>
 
 #include "HLS.h"
 #include "../demux/demux.h"
@@ -62,12 +64,13 @@ namespace hls {
     virtual MediaPlaylist download_playlist(std::string url);
   private:
     void reload_media_playlist();
-    ActiveSegment* load_next_segment();
+    ActiveSegment* load_next_segment(Segment segment);
     bool load_segments();
+    void create_next_segment_future();
 
-    ActiveSegment *previous_segment;
     ActiveSegment *active_segment;
-    ActiveSegment *next_segment;
+    ActiveSegment *previous_segment;
+    std::future<ActiveSegment*> next_segment_future;
     TSDemux::STREAM_PKT* current_pkt;
 
     std::unordered_map<std::string, std::string> aes_uri_to_key;

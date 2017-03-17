@@ -92,10 +92,6 @@ void hls::Session::read_next_pkt() {
           delete previous_segment;
           previous_segment = 0;
         }
-        if (next_segment) {
-          delete next_segment;
-          next_segment = 0;
-        }
       }
     } else {
       current_pkt = nullptr;
@@ -145,7 +141,7 @@ void hls::Session::reload_media_playlist() {
   }
 }
 
-hls::ActiveSegment* hls::Session::load_next_segment() {
+void hls::Session::create_next_segment_future() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
   MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
   if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_number_of_segments()) {
@@ -153,15 +149,22 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
     reload_media_playlist();
     if (active_media_segment_index >= media_playlist.get_number_of_segments()) {
       std::cerr << "active_media_segment_index is out of range" << std::endl;
-      return nullptr;
+      next_segment_future = std::future<ActiveSegment*>();
+      return;
     }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
-  ActiveSegment *next_segment = new ActiveSegment(segment);
+  next_segment_future =std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
+}
+
+hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
+  std::cout << "Getting segment " << segment.media_sequence << "\n";
+  hls::ActiveSegment *next_segment = new hls::ActiveSegment(segment);
   if (!download_segment(next_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
   if (segment.encrypted) {
+      // TODO: Needs to be protected with a mutex or something
       auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
       if (aes_key_it == aes_uri_to_key.end()) {
           std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
@@ -174,8 +177,6 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
   } else {
       next_segment->create_demuxer();
   }
-  ++active_media_segment_index;
-  reload_media_playlist();
   return next_segment;
 }
 
@@ -185,10 +186,11 @@ bool hls::Session::load_segments() {
   }
   previous_segment = active_segment;
   uint32_t tries = 0;
-  while(!next_segment && tries < 10) {
-    next_segment = load_next_segment();
-    /*
-    if (!next_segment && media_playlists[active_media_playlist_index].live) {
+  while(!next_segment_future.valid() && tries < 10) {
+    std::cout << "Invalid next segment future, attempting to get synchronously\n";
+    create_next_segment_future();
+    if (!next_segment_future.valid() && media_playlists[active_media_playlist_index].live) {
+      // Try to reload playlist
       float target_duration = media_playlists[active_media_playlist_index].get_segment_target_duration();
       uint32_t reload_delay = (uint32_t) target_duration * 0.5 * 1000;
       std::cout << "Unable to load the next segment, " << reload_delay << " waiting to reload\n";
@@ -197,11 +199,10 @@ bool hls::Session::load_segments() {
       break;
     }
     ++tries;
-    */
-    break;
   }
-  active_segment = next_segment;
-  next_segment = load_next_segment();
+  active_segment = next_segment_future.get();
+  ++active_media_segment_index;
+  create_next_segment_future();
   if (!active_segment) {
     return false;
   }
@@ -237,7 +238,6 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     master_playlist(master_playlist),
     previous_segment(0),
     active_segment(0),
-    next_segment(0),
     total_time(0),
     start_pts(-1),
     current_pkt(0),
@@ -256,8 +256,5 @@ hls::Session::~Session() {
   }
   if (previous_segment) {
     delete previous_segment;
-  }
-  if (next_segment) {
-    delete next_segment;
   }
 }
