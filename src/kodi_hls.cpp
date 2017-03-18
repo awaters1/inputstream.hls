@@ -24,18 +24,12 @@ bool download_playlist_impl(const char *url, hls::Playlist &playlist) {
     // Take \n off of buffer
     buf[strlen(buf) - 1] = '\0';
     bool ret = playlist.write_data(buf);
-    xbmc->Log(ADDON::LOG_DEBUG, "Read Line %s", buf);
     if (!ret) {
       break;
     }
   }
 
-  //download_speed_ = xbmc->GetFileDownloadSpeed(file);
-
   xbmc->CloseFile(file);
-
-  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
-
   return !read;
 }
 
@@ -60,7 +54,6 @@ std::string KodiSession::download_aes_key(std::string aes_uri) {
   size_t read;
   std::string aes_key;
   while ((read = xbmc->ReadFile(file, buf, CHUNKSIZE)) > 0 && read) {
-    // Take \n off of buffer
     aes_key = std::string(buf, read);
     break;
   }
@@ -69,7 +62,6 @@ std::string KodiSession::download_aes_key(std::string aes_uri) {
   return aes_key;
 }
 
-// TODO: Keep track of download speed
 bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
   // open the file
   std::string url = active_segment->get_url();
@@ -103,17 +95,16 @@ bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
   double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
   //Calculate the new downloadspeed to 1MB
   static const size_t ref_packet = 1024 * 1024;
-//  if (nbReadOverall >= ref_packet)
-//    set_download_speed(current_download_speed_);
-//  else
-//  {
-//    double ratio = (double)nbReadOverall / ref_packet;
-//    set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
-//  }
+  if (nbReadOverall >= ref_packet)
+    download_speed = current_download_speed_;
+  else {
+    double ratio = (double)nbReadOverall / ref_packet;
+    download_speed = (download_speed * (1.0 - ratio)) + current_download_speed_*ratio;
+  }
 
   xbmc->CloseFile(file);
 
-  // xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
+  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url.c_str(), download_speed);
 
   return nbRead == 0;
 }

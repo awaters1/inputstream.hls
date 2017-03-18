@@ -52,7 +52,6 @@ namespace hls {
     ActiveSegment(const ActiveSegment& other) = delete;
     ActiveSegment & operator= (const ActiveSegment & other) = delete;
 
-    void extract_streams();
     std::string get_url() { return segment.get_url(); }
     bool write_data(const void *buffer, size_t buffer_size);
     TSDemux::STREAM_PKT* get_next_pkt();
@@ -63,6 +62,7 @@ namespace hls {
     uint32_t get_byte_offset() { return segment.byte_offset; };
     std::vector<Stream> streams;
   private:
+    void extract_streams();
     // Segment as defined in the playlist
     uint32_t packet_index;
     Segment segment;
@@ -89,6 +89,8 @@ namespace hls {
     virtual bool download_segment(ActiveSegment *active_segment);
     virtual std::string download_aes_key(std::string aes_uri);
     virtual MediaPlaylist download_playlist(std::string url);
+
+    double download_speed;
   private:
     void reload_media_playlist();
     ActiveSegment* load_next_segment(Segment segment);

@@ -50,6 +50,7 @@ void hls::ActiveSegment::create_demuxer() {
       pkt->data = data;
       packets.push_back(pkt);
   }
+  extract_streams();
 }
 
 hls::ActiveSegment::~ActiveSegment() {
@@ -237,11 +238,6 @@ std::vector<hls::Stream> hls::Session::get_streams() {
   if (!active_segment) {
     load_segments();
   }
-  if (!active_segment->streams.empty()) {
-    return active_segment->streams;
-  }
-  active_segment->extract_streams();
-
   return active_segment->streams;
 }
 
@@ -264,6 +260,7 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     total_time(0),
     start_pts(-1),
     current_pkt(0),
+    download_speed(0),
     media_playlists(master_playlist.get_media_playlist()){
   hls::MediaPlaylist media_playlist = media_playlists[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();
