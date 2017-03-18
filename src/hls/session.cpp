@@ -13,8 +13,6 @@
 
 #include "session.h"
 
-#include "../tsdemuxer/main.h"
-
 bool hls::ActiveSegment::write_data(const void *buffer, size_t buffer_size) {
   segment_buffer += std::string((const char *)buffer, buffer_size);
   return true;
