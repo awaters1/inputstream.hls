@@ -58,12 +58,15 @@ void hls::ActiveSegment::create_demuxer() {
       packets.push_back(pkt);
   }
   // TODO: Sort by DTS
+  std::vector<TSDemux::STREAM_PKT*> pkts = get_demux_packets(segment_buffer);
+  packets = pkts;
   std::sort(packets.begin(), packets.end(), packet_sorter);
 
-  std::vector<TSDemux::STREAM_PKT*> pkts = get_demux_packets(segment_buffer);
+
 }
 
 hls::ActiveSegment::~ActiveSegment() {
+  // TODO: Leaks memory
   /*
   if (demux) {
     delete demux;

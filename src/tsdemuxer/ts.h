@@ -9,6 +9,7 @@
 #ifndef __TS_H
 #define __TS_H
 
+#include "tsDemuxer.h"
 #include "common.h"
 #include "h264.h"
 #include "ac3.h"
@@ -113,6 +114,9 @@ namespace ts
     class stream
     {
     public:
+      // TODO: leaks memory and should use a different class
+        std::vector<TSDemux::STREAM_PKT*> packets;
+
         u_int16_t channel;                      // channel number (1,2 ...)
         u_int8_t  id;                           // stream number in channel
         u_int8_t  type;                         // 0xff                 - not ES

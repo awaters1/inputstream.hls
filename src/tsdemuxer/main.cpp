@@ -24,10 +24,23 @@ std::vector<TSDemux::STREAM_PKT*> get_demux_packets(std::string buffer) {
 
     demuxer.demux_buffer(buffer);
 
+    // TODO: Extract the packets from the streams and assemble
+    // them into one vector
+    std::vector<TSDemux::STREAM_PKT*> packets;
+    for(std::map<u_int16_t, ts::stream>::iterator it = demuxer.streams.begin();
+        it != demuxer.streams.end(); ++it) {
+        // TODO: Doesn't work because streamChange isn't set properly
+        packets.insert(packets.end(), it->second.packets.begin(),
+                       it->second.packets.end());
+    }
+
+
     demuxer.reset();
 
     demuxer.show();
 
+
+    return packets;
 }
 
 

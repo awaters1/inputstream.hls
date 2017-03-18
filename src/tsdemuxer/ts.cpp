@@ -564,8 +564,20 @@ int ts::demuxer::demux_ts_packet(const char* ptr)
                     break;
                 }
 
-                if(pes_output && s.file.is_opened())
-                    s.file.write(s.psi.buf,s.psi.len);
+                if(pes_output && s.file.is_opened()) {
+                    // s.file.write(s.psi.buf,s.psi.len);
+                    TSDemux::STREAM_PKT* pkt = new TSDemux::STREAM_PKT();
+                    pkt->pid = s.stream_id;
+                    pkt->dts = s.dts;
+                    pkt->pts = s.last_pts;
+                    pkt->duration = s.frame_length / 90.0;
+                    pkt->size = s.psi.len;
+
+                    unsigned char *data = new unsigned char[s.psi.len];
+                    memcpy(data, s.psi.buf, s.psi.len);
+                    pkt->data = data;
+                    s.packets.push_back(pkt);
+                }
 
                 s.psi.reset();
             }
@@ -589,8 +601,20 @@ int ts::demuxer::demux_ts_packet(const char* ptr)
                     }
                 }
 
-                if(s.file.is_opened())
-                    s.file.write(ptr,len);
+                if(s.file.is_opened()) {
+                    // s.file.write(ptr,len);
+                    TSDemux::STREAM_PKT* pkt = new TSDemux::STREAM_PKT();
+                    pkt->pid = s.stream_id;
+                    pkt->dts = s.dts;
+                    pkt->pts = s.last_pts;
+                    pkt->duration = s.frame_length / 90.0;
+                    pkt->size = len;
+
+                    unsigned char *data = new unsigned char[len];
+                    memcpy(data, ptr, len);
+                    pkt->data = data;
+                    s.packets.push_back(pkt);
+                }
             }
         }
     }
