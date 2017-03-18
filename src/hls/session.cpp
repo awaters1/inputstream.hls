@@ -56,9 +56,13 @@ hls::ActiveSegment::~ActiveSegment() {
   if (demux) {
     delete demux;
   }
+  // TODO: Bad memory management
+  /*
+  Don't need to be delete because they are deleted by Packet
   for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
       delete *it;
   }
+  */
 }
 
 TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
