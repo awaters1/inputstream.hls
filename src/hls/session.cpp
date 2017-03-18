@@ -58,11 +58,7 @@ void hls::ActiveSegment::create_demuxer() {
       packets.push_back(pkt);
   }
   // TODO: Sort by DTS
-  std::vector<TSDemux::STREAM_PKT*> pkts = get_demux_packets(segment_buffer);
-  packets = pkts;
   std::sort(packets.begin(), packets.end(), packet_sorter);
-
-
 }
 
 hls::ActiveSegment::~ActiveSegment() {
@@ -108,7 +104,7 @@ void hls::Session::read_next_pkt() {
       TSDemux::STREAM_PKT *pkt = active_segment->get_next_pkt();
       if (!pkt && load_segments()) {
         pkt = active_segment->get_next_pkt();
-      } else if (!current_pkt) {
+      } else if (!pkt) {
         if (active_segment) {
           delete active_segment;
           active_segment = 0;
