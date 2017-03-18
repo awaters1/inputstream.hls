@@ -264,7 +264,6 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     total_time(0),
     start_pts(-1),
     current_pkt(0),
-    send_previous_packet(false),
     media_playlists(master_playlist.get_media_playlist()){
   hls::MediaPlaylist media_playlist = media_playlists[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();

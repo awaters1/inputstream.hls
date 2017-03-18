@@ -107,6 +107,5 @@ namespace hls {
     std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;
     uint64_t start_pts;
-    bool send_previous_packet;
   };
 }
