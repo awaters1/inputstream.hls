@@ -372,9 +372,11 @@ extern "C" {
     } else {
       TSDemux::STREAM_PKT *pkt = packet->pkt;
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-      p->dts = pkt->dts * 10;
-      p->pts = pkt->pts * 10;
-      p->duration = pkt->duration * 10;
+      // DVD_TIME_BASE / PTS
+      double offset = (1000000 / 90000.0);
+      p->dts = pkt->dts * offset;
+      p->pts = pkt->pts * offset;
+      p->duration = pkt->duration * offset;
       p->iStreamId = pkt->pid;
       p->iGroupId = 0;
       p->iSize = pkt->size;

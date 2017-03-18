@@ -1,6 +1,5 @@
 Priorities:
 1. Switching between variant streams
-2. Better reloading of the next segment
 
 
 
@@ -11,12 +10,9 @@ Priorities:
 
 
 Issues
-1. Current time seems to be incorrect
-2. Micro pauses happen when loading the next segment
-3. Audio seems to be misaligned
-2. and 3. may happen because of the DMX_STREAMCHANGE, we should only do this if we encounter
-a discontinuity tag instead of each TS segment, doesn't seem to be the issue, seems to be
-because DemuxRead doesn't return the packet immediately. Maybe because PTS is out of order
+1. Memory leaks like crazy
+2. Timestamps
+3. Commercial seemed to start randomly
 
 Missing Support
 -Tons
