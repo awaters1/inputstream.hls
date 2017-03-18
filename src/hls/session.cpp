@@ -7,24 +7,25 @@
 #include <sstream>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
 #include "decrypter.h"
 
 #include "session.h"
+
+#include "../tsdemuxer/main.h"
 
 bool hls::ActiveSegment::write_data(const void *buffer, size_t buffer_size) {
   segment_buffer += std::string((const char *)buffer, buffer_size);
   return true;
 }
 
-std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
-  std::vector<hls::Stream> streams;
-  TSDemux::STREAM_PKT *pkt;
-  while (pkt = demux->get_next_pkt()) {
-    if (pkt->streamChange) {
-      TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
+void hls::ActiveSegment::extract_streams() {
+  for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
+    if ((*it)->streamChange) {
+      TSDemux::ElementaryStream *es = demux->get_elementary_stream((*it)->pid);
       Stream stream;
-      stream.stream_id = pkt->pid;
+      stream.stream_id = (*it)->pid;
       stream.codec_name = es->GetStreamCodecName();
       stream.channels = es->stream_info.channels;
       stream.sample_rate = es->stream_info.sample_rate;
@@ -32,11 +33,7 @@ std::vector<hls::Stream> hls::ActiveSegment::extract_streams() {
       stream.bits_per_sample = es->stream_info.bits_per_sample;
       streams.push_back(stream);
     }
-    delete pkt;
   }
-  delete demux;
-  demux = new Demux(segment_buffer, 0);
-  return streams;
 }
 
 void hls::ActiveSegment::create_demuxer(std::string aes_key) {
@@ -47,18 +44,43 @@ void hls::ActiveSegment::create_demuxer(std::string aes_key) {
   create_demuxer();
 }
 
+bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
+  return pkt1->dts < pkt2->dts;
+}
+
 void hls::ActiveSegment::create_demuxer() {
   demux = new Demux(segment_buffer, 0);
+  TSDemux::STREAM_PKT* pkt = 0;
+  while (pkt = demux->get_next_pkt()) {
+      unsigned char *data = new unsigned char[pkt->size];
+      memcpy(data, pkt->data, pkt->size);
+      pkt->data = data;
+      packets.push_back(pkt);
+  }
+  // TODO: Sort by DTS
+  std::sort(packets.begin(), packets.end(), packet_sorter);
+
+  std::vector<TSDemux::STREAM_PKT*> pkts = get_demux_packets(segment_buffer);
 }
 
 hls::ActiveSegment::~ActiveSegment() {
+  /*
   if (demux) {
     delete demux;
   }
+  for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
+      delete *it;
+  }
+  */
 }
 
 TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
-  return demux->get_next_pkt();
+  // return demux->get_next_pkt();
+
+  if (packet_index < 0 || packet_index >= packets.size()) {
+      return nullptr;
+  }
+  return packets[packet_index++];
 }
 
 uint64_t hls::Session::get_current_time() {
@@ -68,7 +90,7 @@ uint64_t hls::Session::get_current_time() {
   return 0;
 }
 
-TSDemux::STREAM_PKT* hls::Session::get_current_pkt() {
+hls::Packet* hls::Session::get_current_pkt() {
   if (!current_pkt) {
     read_next_pkt();
   }
@@ -76,13 +98,13 @@ TSDemux::STREAM_PKT* hls::Session::get_current_pkt() {
 }
 
 void hls::Session::read_next_pkt() {
-  if (current_pkt && current_pkt->streamChange) {
-    current_pkt->streamChange = false;
+  if (current_pkt && current_pkt->stream_change_flag) {
+    current_pkt->stream_change_flag = false;
   } else {
     if (active_segment) {
-      current_pkt = active_segment->get_next_pkt();
-      if (!current_pkt && load_segments()) {
-        current_pkt = active_segment->get_next_pkt();
+      TSDemux::STREAM_PKT *pkt = active_segment->get_next_pkt();
+      if (!pkt && load_segments()) {
+        pkt = active_segment->get_next_pkt();
       } else if (!current_pkt) {
         if (active_segment) {
           delete active_segment;
@@ -92,10 +114,11 @@ void hls::Session::read_next_pkt() {
           delete previous_segment;
           previous_segment = 0;
         }
-        if (next_segment) {
-          delete next_segment;
-          next_segment = 0;
-        }
+      }
+      if (pkt) {
+        current_pkt = new Packet(pkt);
+      } else {
+        current_pkt = nullptr;
       }
     } else {
       current_pkt = nullptr;
@@ -145,7 +168,7 @@ void hls::Session::reload_media_playlist() {
   }
 }
 
-hls::ActiveSegment* hls::Session::load_next_segment() {
+void hls::Session::create_next_segment_future() {
   std::cout << "Loading segment " << active_media_segment_index << "\n";
   MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
   if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_number_of_segments()) {
@@ -153,15 +176,22 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
     reload_media_playlist();
     if (active_media_segment_index >= media_playlist.get_number_of_segments()) {
       std::cerr << "active_media_segment_index is out of range" << std::endl;
-      return nullptr;
+      next_segment_future = std::future<ActiveSegment*>();
+      return;
     }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
-  ActiveSegment *next_segment = new ActiveSegment(segment);
+  next_segment_future =std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
+}
+
+hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
+  std::cout << "Getting segment " << segment.media_sequence << "\n";
+  hls::ActiveSegment *next_segment = new hls::ActiveSegment(segment);
   if (!download_segment(next_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
   if (segment.encrypted) {
+      // TODO: Needs to be protected with a mutex or something
       auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
       if (aes_key_it == aes_uri_to_key.end()) {
           std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
@@ -174,8 +204,6 @@ hls::ActiveSegment* hls::Session::load_next_segment() {
   } else {
       next_segment->create_demuxer();
   }
-  ++active_media_segment_index;
-  reload_media_playlist();
   return next_segment;
 }
 
@@ -185,10 +213,11 @@ bool hls::Session::load_segments() {
   }
   previous_segment = active_segment;
   uint32_t tries = 0;
-  while(!next_segment && tries < 10) {
-    next_segment = load_next_segment();
-    /*
-    if (!next_segment && media_playlists[active_media_playlist_index].live) {
+  while(!next_segment_future.valid() && tries < 10) {
+    std::cout << "Invalid next segment future, attempting to get synchronously\n";
+    create_next_segment_future();
+    if (!next_segment_future.valid() && media_playlists[active_media_playlist_index].live) {
+      // Try to reload playlist
       float target_duration = media_playlists[active_media_playlist_index].get_segment_target_duration();
       uint32_t reload_delay = (uint32_t) target_duration * 0.5 * 1000;
       std::cout << "Unable to load the next segment, " << reload_delay << " waiting to reload\n";
@@ -197,11 +226,10 @@ bool hls::Session::load_segments() {
       break;
     }
     ++tries;
-    */
-    break;
   }
-  active_segment = next_segment;
-  next_segment = load_next_segment();
+  active_segment = next_segment_future.get();
+  ++active_media_segment_index;
+  create_next_segment_future();
   if (!active_segment) {
     return false;
   }
@@ -209,16 +237,17 @@ bool hls::Session::load_segments() {
 }
 
 std::vector<hls::Stream> hls::Session::get_streams() {
-  if (!streams.empty()) {
-    return streams;
-  }
   // Load the first segment of the active playlactive_segmentist to obtain the streams
   // from the mpeg2ts
   if (!active_segment) {
     load_segments();
   }
-  streams = active_segment->extract_streams();
-  return streams;
+  if (!active_segment->streams.empty()) {
+    return active_segment->streams;
+  }
+  active_segment->extract_streams();
+
+  return active_segment->streams;
 }
 
 hls::Stream hls::Session::get_stream(uint32_t stream_id) {
@@ -237,10 +266,10 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     master_playlist(master_playlist),
     previous_segment(0),
     active_segment(0),
-    next_segment(0),
     total_time(0),
     start_pts(-1),
     current_pkt(0),
+    send_previous_packet(false),
     media_playlists(master_playlist.get_media_playlist()){
   hls::MediaPlaylist media_playlist = media_playlists[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();
@@ -256,8 +285,5 @@ hls::Session::~Session() {
   }
   if (previous_segment) {
     delete previous_segment;
-  }
-  if (next_segment) {
-    delete next_segment;
   }
 }

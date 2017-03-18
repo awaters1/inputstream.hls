@@ -20,6 +20,9 @@ set(HLS_SOURCES
   src/hls/session.cpp
   src/kodi_hls.cpp
   src/hls/decrypter.cpp
+  src/tsdemuxer/ts.cpp
+  src/tsdemuxer/mpls.cpp
+  src/tsdemuxer/main.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -58,6 +61,9 @@ add_executable(inputstreamhlstest
     src/hls/decrypter.cpp
     test/decrypter_test.cpp
     src/helpers.cpp
+    src/tsdemuxer/main.cpp
+    src/tsdemuxer/ts.cpp
+    src/tsdemuxer/mpls.cpp
     )
 target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)

@@ -318,8 +318,6 @@ extern "C" {
 //    return stream->disable();
   }
 
-  int count = 0;
-
   int ReadStream(unsigned char* buf, unsigned int size)
   {
     return -1;
@@ -357,20 +355,22 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
-    if (!pkt) {
+    hls::Packet* packet = hls_session->get_current_pkt();
+    if (!packet) {
       // No packet available
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
       return p;
     }
+    // std::cout << "Packet PTS: " << pkt->pts << " DTS: " << pkt->dts << " Duration: " << pkt->duration << "\n";
 
-    if (pkt->streamChange) {
-        DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
-        p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-        xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
-        hls_session->read_next_pkt();
-        return p;
+    if (packet->stream_change_flag) {
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
+      p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+      xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+      hls_session->read_next_pkt();
+      return p;
     } else {
+      TSDemux::STREAM_PKT *pkt = packet->pkt;
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
       p->dts = pkt->dts * 10;
       p->pts = pkt->pts * 10;
