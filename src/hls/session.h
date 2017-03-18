@@ -18,6 +18,12 @@ namespace hls {
     Packet(TSDemux::STREAM_PKT *pkt): pkt(pkt), stream_change_flag(pkt->streamChange) {
 
     }
+    ~Packet() {
+      if (pkt) {
+        delete pkt;
+        pkt =0;
+      }
+    }
     Packet(const Packet& other) = delete;
     Packet & operator= (const Packet & other) = delete;
     TSDemux::STREAM_PKT *pkt;

@@ -85,7 +85,6 @@ hls::Packet* hls::Session::get_current_pkt() {
 }
 
 void hls::Session::read_next_pkt() {
-  Packet *last_packet = current_pkt;
   if (current_pkt && current_pkt->stream_change_flag) {
     current_pkt->stream_change_flag = false;
   } else {
@@ -104,6 +103,9 @@ void hls::Session::read_next_pkt() {
         }
       }
       if (pkt) {
+        if (current_pkt) {
+          delete current_pkt;
+        }
         current_pkt = new Packet(pkt);
         // current_pkt->stream_change_flag = false; //!last_packet || last_packet->pkt->pid != current_pkt->pkt->pid;
       } else {
