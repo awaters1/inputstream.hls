@@ -18,6 +18,8 @@ namespace hls {
     Packet(TSDemux::STREAM_PKT *pkt): pkt(pkt), stream_change_flag(pkt->streamChange) {
 
     }
+    Packet(const Packet& other) = delete;
+    Packet & operator= (const Packet & other) = delete;
     TSDemux::STREAM_PKT *pkt;
     bool stream_change_flag;
   };
@@ -41,6 +43,8 @@ namespace hls {
       packet_index(0)
   {}
     ~ActiveSegment();
+    ActiveSegment(const ActiveSegment& other) = delete;
+    ActiveSegment & operator= (const ActiveSegment & other) = delete;
 
     void extract_streams();
     std::string get_url() { return segment.get_url(); }
@@ -57,17 +61,16 @@ namespace hls {
     uint32_t packet_index;
     Segment segment;
     Demux *demux;
-    // TODO: This is leaked
     std::vector<TSDemux::STREAM_PKT*> packets;
     std::string segment_buffer;
   };
 
-  // TODO: Doesn't have assignment operator or copy constructor for active_segment
-  // TODO: Should enable download the first segment?
   class Session {
   public:
     Session(MasterPlaylist master_playlist);
     ~Session();
+    Session(const Session& other) = delete;
+    Session & operator= (const Session & other) = delete;
 
     std::vector<Stream> get_streams();
     Stream get_stream(uint32_t stream_id);

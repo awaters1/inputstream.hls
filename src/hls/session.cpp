@@ -36,14 +36,9 @@ void hls::ActiveSegment::extract_streams() {
 
 void hls::ActiveSegment::create_demuxer(std::string aes_key) {
   if (segment.encrypted) {
-    // TODO: If IV is missing the media sequence is the IV
     segment_buffer = decrypt(aes_key, segment.aes_iv, segment_buffer);
   }
   create_demuxer();
-}
-
-bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
-  return pkt1->dts < pkt2->dts;
 }
 
 void hls::ActiveSegment::create_demuxer() {
@@ -55,20 +50,15 @@ void hls::ActiveSegment::create_demuxer() {
       pkt->data = data;
       packets.push_back(pkt);
   }
-  // TODO: Sort by DTS
-  // std::sort(packets.begin(), packets.end(), packet_sorter);
 }
 
 hls::ActiveSegment::~ActiveSegment() {
-  // TODO: Leaks memory
-  /*
   if (demux) {
     delete demux;
   }
   for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
       delete *it;
   }
-  */
 }
 
 TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
