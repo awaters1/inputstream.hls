@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <memory>
 
 #include "../helpers.h"
 #include "decrypter.h"
@@ -20,6 +21,8 @@ void decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, const AP4_UI08 *en
       cbc_d_block_cipher);
 
   cbc_d_block_cipher->Process(encrypted_data, encrypted_data_size, output, aes_iv);
+
+  delete cbc_d_block_cipher;
 }
 
 bool convert_hex_to_bytes(std::string hex, AP4_UI08 *iv, uint32_t iv_length) {
@@ -36,42 +39,30 @@ bool convert_hex_to_bytes(std::string hex, AP4_UI08 *iv, uint32_t iv_length) {
 
 
 std::string decrypt(std::string b64_aes_key, std::string iv_str, std::string encrypted_data_str) {
-  uint8_t *aes_key;
   uint32_t aes_key_len = 16;
-  bool delete_key = false;
+  std::unique_ptr<uint8_t> aes_key = std::unique_ptr<uint8_t>(new uint8_t[aes_key_len]);
   if (b64_aes_key.length() == 16) {
-    aes_key = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*> (b64_aes_key.c_str()));
+    memcpy(aes_key.get(), b64_aes_key.c_str(), aes_key_len);
   } else {
-    aes_key = new uint8_t[16];
-    delete_key = true;
-    b64_decode(b64_aes_key.c_str(), b64_aes_key.length(), aes_key, aes_key_len);
+    b64_decode(b64_aes_key.c_str(), b64_aes_key.length(), aes_key.get(), aes_key_len);
   }
   if (iv_str.find("0x") == 0) {
     iv_str = iv_str.substr(2);
   }
-  uint8_t *iv;
-  bool delete_iv = false;
+  uint32_t iv_len = 16;
+  std::unique_ptr<uint8_t> iv = std::unique_ptr<uint8_t>(new uint8_t[iv_len]);
   if (iv_str.length() == 32) {
-    iv = new uint8_t[16];
-    convert_hex_to_bytes(iv_str, iv, 16);
-    delete_iv = true;
+    convert_hex_to_bytes(iv_str, iv.get(), 16);
   } else {
-    iv = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(iv_str.c_str()));
+    memcpy(iv.get(), iv_str.c_str(), iv_len);
   }
 
 
   const uint8_t* encrypted_data = reinterpret_cast<const uint8_t*>(encrypted_data_str.c_str());
 
-  AP4_UI08 *output = new AP4_UI08[encrypted_data_str.length()];
+  std::unique_ptr<AP4_UI08> output = std::unique_ptr<AP4_UI08>(new AP4_UI08[encrypted_data_str.length()]);
 
-  decrypt(aes_key, iv, encrypted_data, encrypted_data_str.length(), output);
+  decrypt(aes_key.get(), iv.get(), encrypted_data, encrypted_data_str.length(), output.get());
 
-  if (delete_key) {
-    delete aes_key;
-  }
-  if (delete_iv) {
-    delete iv;
-  }
-
-  return std::string(reinterpret_cast<char*>(output), encrypted_data_str.length());
+  return std::string(reinterpret_cast<char*>(output.get()), encrypted_data_str.length());
 }
