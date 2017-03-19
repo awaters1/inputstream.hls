@@ -10,7 +10,7 @@ Priorities:
 
 
 Issues
-1. Memory leaks like crazy
+1. Memory leak when running in Kodi - maybe due to kodi_hls.cpp not have destructors?
 2. Timestamps
 3. Commercial seemed to start randomly - maybe due to discontinuity flag
 
