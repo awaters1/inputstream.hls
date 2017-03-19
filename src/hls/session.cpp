@@ -66,7 +66,7 @@ hls::ActiveSegment::~ActiveSegment() {
     delete demux;
   }
   for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
-      delete (*it)->data;
+      delete [] (*it)->data;
       delete *it;
   }
 }

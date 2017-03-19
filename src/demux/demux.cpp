@@ -159,6 +159,7 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
         show_stream_info(pkt->pid);
       if (reading_packets)
         return pkt;
+      delete pkt;
     }
     if (m_AVContext->HasPIDPayload())
     {
