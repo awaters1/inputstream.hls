@@ -169,7 +169,7 @@ void hls::Session::create_next_segment_future() {
     }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
-  next_segment_future =std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
+  next_segment_future = std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
 }
 
 hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
@@ -268,5 +268,8 @@ hls::Session::~Session() {
   }
   if (previous_segment) {
     delete previous_segment;
+  }
+  if (next_segment_future.valid()) {
+      delete next_segment_future.get();
   }
 }
