@@ -13,23 +13,6 @@
 #include "../demux/demux.h"
 
 namespace hls {
-  class Packet {
-  public:
-    Packet(TSDemux::STREAM_PKT *pkt): pkt(pkt), stream_change_flag(pkt->streamChange) {
-
-    }
-    ~Packet() {
-      if (pkt) {
-        delete pkt;
-        pkt =0;
-      }
-    }
-    Packet(const Packet& other) = delete;
-    Packet & operator= (const Packet & other) = delete;
-    TSDemux::STREAM_PKT *pkt;
-    bool stream_change_flag;
-  };
-
   class Stream {
   public:
     uint32_t stream_id;
@@ -81,7 +64,7 @@ namespace hls {
     std::vector<Stream> get_streams();
     Stream get_stream(uint32_t stream_id);
 
-    Packet* get_current_pkt();
+    TSDemux::STREAM_PKT* get_current_pkt();
     void read_next_pkt();
     uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
@@ -100,7 +83,7 @@ namespace hls {
     ActiveSegment *active_segment;
     ActiveSegment *previous_segment;
     std::future<ActiveSegment*> next_segment_future;
-    Packet* current_pkt;
+    TSDemux::STREAM_PKT* current_pkt;
 
     std::unordered_map<std::string, std::string> aes_uri_to_key;
     uint32_t active_media_playlist_index;

@@ -48,6 +48,14 @@ void hls::ActiveSegment::create_demuxer() {
       unsigned char *data = new unsigned char[pkt->size];
       memcpy(data, pkt->data, pkt->size);
       pkt->data = data;
+      if (pkt->streamChange) {
+        // Insert a fake streamChange packet
+        TSDemux::STREAM_PKT* stream_change_pkt = new TSDemux::STREAM_PKT();
+        stream_change_pkt->streamChange = true;
+        stream_change_pkt->pid = pkt->pid;
+        packets.push_back(stream_change_pkt);
+        pkt->streamChange = false;
+      }
       packets.push_back(pkt);
   }
   extract_streams();
@@ -57,13 +65,9 @@ hls::ActiveSegment::~ActiveSegment() {
   if (demux) {
     delete demux;
   }
-  // TODO: Bad memory management
-  /*
-  Don't need to be delete because they are deleted by Packet
   for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
       delete *it;
   }
-  */
 }
 
 TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
@@ -82,7 +86,7 @@ uint64_t hls::Session::get_current_time() {
   return 0;
 }
 
-hls::Packet* hls::Session::get_current_pkt() {
+TSDemux::STREAM_PKT* hls::Session::get_current_pkt() {
   if (!current_pkt) {
     read_next_pkt();
   }
@@ -90,35 +94,22 @@ hls::Packet* hls::Session::get_current_pkt() {
 }
 
 void hls::Session::read_next_pkt() {
-  if (current_pkt && current_pkt->stream_change_flag) {
-    current_pkt->stream_change_flag = false;
-  } else {
-    if (active_segment) {
-      TSDemux::STREAM_PKT *pkt = active_segment->get_next_pkt();
-      if (!pkt && load_segments()) {
-        pkt = active_segment->get_next_pkt();
-      } else if (!pkt) {
-        if (active_segment) {
-          delete active_segment;
-          active_segment = 0;
-        }
-        if (previous_segment) {
-          delete previous_segment;
-          previous_segment = 0;
-        }
+  if (active_segment) {
+    current_pkt = active_segment->get_next_pkt();
+    if (!current_pkt && load_segments()) {
+      current_pkt = active_segment->get_next_pkt();
+    } else if (!current_pkt) {
+      if (active_segment) {
+        delete active_segment;
+        active_segment = 0;
       }
-      if (pkt) {
-        if (current_pkt) {
-          delete current_pkt;
-        }
-        current_pkt = new Packet(pkt);
-        // current_pkt->stream_change_flag = false; //!last_packet || last_packet->pkt->pid != current_pkt->pkt->pid;
-      } else {
-        current_pkt = nullptr;
+      if (previous_segment) {
+        delete previous_segment;
+        previous_segment = 0;
       }
-    } else {
-      current_pkt = nullptr;
     }
+  } else {
+    current_pkt = nullptr;
   }
 }
 

@@ -355,22 +355,21 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    hls::Packet* packet = hls_session->get_current_pkt();
-    if (!packet) {
+    TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
+    if (!pkt) {
       // No packet available
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
       return p;
     }
     // std::cout << "Packet PTS: " << pkt->pts << " DTS: " << pkt->dts << " Duration: " << pkt->duration << "\n";
 
-    if (packet->stream_change_flag) {
+    if (pkt->streamChange) {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
       p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
       xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
       hls_session->read_next_pkt();
       return p;
     } else {
-      TSDemux::STREAM_PKT *pkt = packet->pkt;
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
       // DVD_TIME_BASE / PTS
       double offset = (1000000 / 90000.0);
