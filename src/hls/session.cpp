@@ -62,6 +62,7 @@ void hls::ActiveSegment::create_demuxer() {
 }
 
 hls::ActiveSegment::~ActiveSegment() {
+  std::cout << "Deleting active segment for " << segment.media_sequence << "\n";
   if (demux) {
     delete demux;
   }
@@ -137,27 +138,73 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   return media_playlist;
 }
 
-void hls::Session::reload_media_playlist() {
-  MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
+uint32_t hls::Session::get_best_variant_stream() {
+  uint32_t bandwith_of_current_stream = media_playlists.at(active_media_playlist_index).bandwidth;
+  uint32_t next_variant_media_playlist_index = active_media_playlist_index;
+  for(uint32_t i = 0; i < media_playlists.size(); ++i) {
+    MediaPlaylist &media_playlist = media_playlists.at(i);
+    if (media_playlist.bandwidth > bandwith_of_current_stream && media_playlist.bandwidth < download_speed) {
+       bandwith_of_current_stream = media_playlist.bandwidth;
+       next_variant_media_playlist_index = i;
+       std::cout << "Variant stream " << i << " bandwidth: " << media_playlist.bandwidth << "\n";
+    }
+  }
+  if (next_variant_media_playlist_index != variant_media_playlist_index) {
+    std::cout << "Reloading variant playlist " << variant_media_playlist_index << "\n";
+    reload_media_playlist(next_variant_media_playlist_index);
+  }
+  return next_variant_media_playlist_index;
+}
+
+void hls::Session::reload_media_playlist(uint32_t media_playlist_index) {
+  MediaPlaylist &media_playlist = media_playlists.at(media_playlist_index);
+  std::cout << "Reloading playlist at " << media_playlist_index << " bandwidth: " << media_playlist.bandwidth << "\n";
   if (media_playlist.live) {
-      MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
-      std::vector<Segment> new_segments = new_media_playlist.get_segments();
-      uint32_t last_media_sequence = media_playlist.get_segments().back().media_sequence;
-      uint32_t added_segments = 0;
-      uint32_t last_added_sequence = 0;
-      for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
-          if (it->media_sequence > last_media_sequence) {
-              media_playlist.add_segment(*it);
-              ++added_segments;
-              last_added_sequence = it->media_sequence;
-          }
-      }
-      std::cout << "Reloaded playlist with " << added_segments << " new segments, last segment id: " << last_added_sequence << "\n";
+     MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
+     std::vector<Segment> new_segments = new_media_playlist.get_segments();
+     uint32_t last_media_sequence;
+     if (media_playlist.get_number_of_segments() > 0) {
+       media_playlist.get_segments().back().media_sequence;
+     } else {
+       // TODO: Will skip the first segment
+       last_media_sequence = 0;
+     }
+     uint32_t added_segments = 0;
+     uint32_t last_added_sequence = 0;
+     for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
+         if (it->media_sequence > last_media_sequence) {
+             media_playlist.add_segment(*it);
+             ++added_segments;
+             last_added_sequence = it->media_sequence;
+         }
+     }
+     std::cout << "Reloaded playlist with " << added_segments << " new segments, last segment id: " << last_added_sequence << "\n";
+  }
+}
+
+void hls::Session::reload_media_playlist() {
+  reload_media_playlist(active_media_playlist_index);
+  if (variant_media_playlist_index != -1) {
+    reload_media_playlist(variant_media_playlist_index);
+  }
+}
+
+void hls::Session::check_switch_to_variant_stream() {
+  if (variant_media_playlist_index >= 0 && variant_media_playlist_index < media_playlists.size() && variant_media_playlist_index != active_media_playlist_index) {
+    MediaPlaylist &variant_playlist = media_playlists.at(variant_media_playlist_index);
+    // Check for the next segment in this playlist, if we have it then switch
+    // TODO: This check should really be based on media sequence not the absolute number of segments
+    // because it won't work for live streams
+    if (active_media_segment_index < variant_playlist.get_number_of_segments()) {
+      active_media_playlist_index = variant_media_playlist_index;
+      std::cout << "Switching to variant playlist " << variant_media_playlist_index << "\n";
+    }
   }
 }
 
 void hls::Session::create_next_segment_future() {
-  std::cout << "Loading segment " << active_media_segment_index << "\n";
+  variant_media_playlist_index = get_best_variant_stream();
+  check_switch_to_variant_stream();
   MediaPlaylist &media_playlist = media_playlists.at(active_media_playlist_index);
   if (active_media_segment_index < 0 || active_media_segment_index >= media_playlist.get_number_of_segments()) {
     // Try to reload the playlist before bailing
@@ -169,6 +216,7 @@ void hls::Session::create_next_segment_future() {
     }
   }
   Segment segment = media_playlist.get_segments()[active_media_segment_index];
+  std::cout << "Loading segment " << segment.media_sequence << "\n";
   next_segment_future = std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
 }
 
@@ -253,6 +301,7 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     start_pts(-1),
     current_pkt(0),
     download_speed(0),
+    variant_media_playlist_index(-1),
     media_playlists(master_playlist.get_media_playlist()){
   hls::MediaPlaylist media_playlist = media_playlists[active_media_playlist_index];
   std::vector<Segment> segments = media_playlist.get_segments();

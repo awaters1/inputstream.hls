@@ -155,8 +155,8 @@ TSDemux::STREAM_PKT* Demux::get_next_pkt()
     {
       TSDemux::STREAM_PKT *pkt = new TSDemux::STREAM_PKT();
       reading_packets = get_stream_data(pkt);
-      if (pkt->streamChange)
-        show_stream_info(pkt->pid);
+      // if (pkt->streamChange)
+      //  show_stream_info(pkt->pid);
       if (reading_packets)
         return pkt;
       delete pkt;

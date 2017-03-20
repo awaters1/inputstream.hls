@@ -2,6 +2,8 @@
  * kodi_hls.cpp Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
  */
 
+#include <iostream>
+
 #include "globals.h"
 
 #include "kodi_hls.h"
@@ -101,6 +103,7 @@ bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
     double ratio = (double)nbReadOverall / ref_packet;
     download_speed = (download_speed * (1.0 - ratio)) + current_download_speed_*ratio;
   }
+  download_speed *= 8;
 
   xbmc->CloseFile(file);
 
@@ -115,6 +118,9 @@ void KodiMasterPlaylist::select_media_playlist() {
     hls::MediaPlaylist playlist;
     download_playlist_impl(get_url().c_str(), playlist);
     media_playlist.push_back(playlist);
+  }
+  for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
+    std::cout << "Media Playlist: bandwidth: " << it->bandwidth << " url: " << it->get_url() << "\n";
   }
   // Just selects the first one for now
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {

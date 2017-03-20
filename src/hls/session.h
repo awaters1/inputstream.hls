@@ -75,7 +75,10 @@ namespace hls {
 
     double download_speed;
   private:
+    void reload_media_playlist(uint32_t media_playlist_index);
     void reload_media_playlist();
+    uint32_t get_best_variant_stream();
+    void check_switch_to_variant_stream();
     ActiveSegment* load_next_segment(Segment segment);
     bool load_segments();
     void create_next_segment_future();
@@ -86,9 +89,12 @@ namespace hls {
     TSDemux::STREAM_PKT* current_pkt;
 
     std::unordered_map<std::string, std::string> aes_uri_to_key;
+
     uint32_t active_media_playlist_index;
     uint32_t active_media_segment_index;
     MasterPlaylist master_playlist;
+    uint32_t variant_media_playlist_index;
+
     std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;
     uint64_t start_pts;

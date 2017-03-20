@@ -5,14 +5,14 @@ Priorities:
 
 
 1. Support rest of addon interface
-2. Be able to switch to a variant playlist during playing
-3. Support a live stream
 
 
 Issues
-1. Memory leak when running in Kodi - maybe due to kodi_hls.cpp not have destructors?
+1. Memory leak when running in Kodi - maybe due to kodi_hls.cpp not have dest
 2. Timestamps
 3. Commercial seemed to start randomly - maybe due to discontinuity flag
+4. Seeking
+5. Sometimes the audio makes a high pitched sound, maybe due to discountinuity tag?
 
 Missing Support
 -Tons
