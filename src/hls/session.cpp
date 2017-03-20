@@ -133,9 +133,8 @@ void hls::Session::reload_media_playlist(MediaPlaylist &media_playlist) {
      std::vector<Segment> new_segments = new_media_playlist.get_segments();
      uint32_t last_media_sequence;
      if (media_playlist.get_number_of_segments() > 0) {
-       media_playlist.get_segments().back().media_sequence;
+       last_media_sequence = media_playlist.get_segments().back().media_sequence;
      } else {
-       // TODO: Will skip the first segment
        last_media_sequence = -1;
      }
      uint32_t added_segments = 0;
