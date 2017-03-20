@@ -8,6 +8,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <climits>
 
 #include "decrypter.h"
 
@@ -155,7 +156,7 @@ void hls::Session::switch_streams() {
   MediaPlaylist &next_active_playlist = active_playlist;
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
     if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < download_speed &&
-        it->get_url() != active_playlist.get_url()) {
+        *it != active_playlist) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = *it;
        std::cout << "Variant stream bandwidth: " << it->bandwidth << "\n";
@@ -163,12 +164,8 @@ void hls::Session::switch_streams() {
   }
   if (next_active_playlist != active_playlist) {
     std::cout << "Reloading variant playlist\n";
-    reload_media_playlist(next_variant_media_playlist_index);
+    reload_media_playlist(next_active_playlist);
     active_playlist = next_active_playlist;
-    if (active_media_segment_index < variant_playlist.get_number_of_segments()) {
-      active_media_playlist_index = variant_media_playlist_index;
-      std::cout << "Switching to variant playlist " << variant_media_playlist_index << "\n";
-    }
   }
 }
 
@@ -176,7 +173,7 @@ void hls::Session::create_next_segment_future() {
   switch_streams();
   if (!active_playlist.has_next_segment(active_segment_sequence)) {
     // Try to reload the playlist before bailing
-    reload_media_playlist();
+    reload_media_playlist(active_playlist);
     if (!active_playlist.has_next_segment(active_segment_sequence)) {
       std::cerr << "Unable to get the next segment " << active_segment_sequence << std::endl;
       next_segment_future = std::future<ActiveSegment*>();
@@ -260,7 +257,7 @@ hls::Stream hls::Session::get_stream(uint32_t stream_id) {
 }
 
 hls::Session::Session(MasterPlaylist master_playlist) :
-    active_segment_sequence(0),
+    active_segment_sequence(LONG_MAX),
     master_playlist(master_playlist),
     previous_segment(0),
     active_segment(0),
@@ -269,8 +266,8 @@ hls::Session::Session(MasterPlaylist master_playlist) :
     current_pkt(0),
     download_speed(0),
     media_playlists(master_playlist.get_media_playlist()){
-  hls::MediaPlaylist media_playlist = media_playlists.at(0);
-  std::vector<Segment> segments = media_playlist.get_segments();
+  active_playlist = media_playlists.at(0);
+  std::vector<Segment> segments = active_playlist.get_segments();
   for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
     total_time += it->duration;
   }

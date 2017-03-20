@@ -132,4 +132,18 @@ TEST(HlsTest, LiveMediaPlaylist) {
   media_playlist.open("test/live/media.m3u8");
   EXPECT_TRUE(media_playlist.live);
 }
+
+TEST(HlsTest, HasNextSegment) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/live/media.m3u8");
+  EXPECT_TRUE(media_playlist.has_next_segment(2));
+  EXPECT_FALSE(media_playlist.has_next_segment(6));
+}
+
+TEST(HlsTest, GetNextSegment) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/live/media.m3u8");
+  Segment segment = media_playlist.get_next_segment(5);
+  EXPECT_EQ(segment.media_sequence, 6);
+}
 }

@@ -10,7 +10,7 @@ namespace hls
 {
   class Resource {
   public:
-    std::string get_url() { return url; };
+    std::string get_url() const { return url; };
     std::string get_base_url() { return base_url; };
 
     void set_url(std::string url);
@@ -55,6 +55,9 @@ namespace hls
   public:
     MediaPlaylist();
     ~MediaPlaylist();
+    bool operator!=(const MediaPlaylist& rhs){
+      return this->get_url() != rhs.get_url();
+    }
     uint32_t bandwidth;
     std::string program_id;
     bool encrypted;

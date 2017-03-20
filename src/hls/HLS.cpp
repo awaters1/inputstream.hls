@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <climits>
 
 #include "HLS.h"
 
@@ -149,11 +150,26 @@ bool hls::MediaPlaylist::write_data(std::string line) {
 }
 
 hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequence) {
-  // TODO:
+  if (active_segment_sequence == LONG_MAX) {
+        return segments.front();
+    }
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+      if (active_segment_sequence == it->media_sequence) {
+          return *(++it);
+      }
+  }
+  return segments.back();
 }
 
 bool hls::MediaPlaylist::has_next_segment(uint32_t active_segment_sequence) {
-  // TODO:
+  if (active_segment_sequence == LONG_MAX) {
+      return !segments.empty();
+  }
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+      if (active_segment_sequence == it->media_sequence) {
+          return ++it != segments.end();
+      }
+  }
   return false;
 }
 
