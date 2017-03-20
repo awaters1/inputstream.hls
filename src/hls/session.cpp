@@ -150,6 +150,7 @@ void hls::Session::reload_media_playlist(MediaPlaylist &media_playlist) {
   }
 }
 
+// TODO: This only checks for going to a high quality stream, not dropping to lower quality streams
 void hls::Session::switch_streams() {
   uint32_t bandwith_of_current_stream = active_playlist.bandwidth;
   MediaPlaylist &next_active_playlist = active_playlist;
