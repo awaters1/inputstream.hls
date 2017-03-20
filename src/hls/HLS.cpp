@@ -150,7 +150,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
 }
 
 hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequence) {
-  if (active_segment_sequence == ULONG_MAX) {
+  if (active_segment_sequence == uint32_t(-1)) {
         return segments.front();
     }
   for(auto it = segments.begin(); it != segments.end(); ++it) {
@@ -162,7 +162,7 @@ hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequen
 }
 
 bool hls::MediaPlaylist::has_next_segment(uint32_t active_segment_sequence) {
-  if (active_segment_sequence == ULONG_MAX) {
+  if (active_segment_sequence == uint32_t(-1)) {
       return !segments.empty();
   }
   for(auto it = segments.begin(); it != segments.end(); ++it) {

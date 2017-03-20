@@ -257,7 +257,7 @@ hls::Stream hls::Session::get_stream(uint32_t stream_id) {
 }
 
 hls::Session::Session(MasterPlaylist master_playlist) :
-    active_segment_sequence(ULONG_MAX),
+    active_segment_sequence(-1),
     master_playlist(master_playlist),
     previous_segment(0),
     active_segment(0),
