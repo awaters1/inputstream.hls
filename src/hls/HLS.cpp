@@ -148,6 +148,15 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   return true;
 }
 
+hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequence) {
+  // TODO:
+}
+
+bool hls::MediaPlaylist::has_next_segment(uint32_t active_segment_sequence) {
+  // TODO:
+  return false;
+}
+
 hls::MediaPlaylist::MediaPlaylist()
 : Playlist(),
   segment_target_duration(0),

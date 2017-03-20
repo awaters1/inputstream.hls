@@ -27,7 +27,6 @@ namespace hls {
   public:
     ActiveSegment(Segment segment):
       segment(segment),
-      demux(0),
       segment_buffer(""),
       packet_index(0)
   {}
@@ -45,11 +44,10 @@ namespace hls {
     uint32_t get_byte_offset() { return segment.byte_offset; };
     std::vector<Stream> streams;
   private:
-    void extract_streams();
     // Segment as defined in the playlist
     uint32_t packet_index;
     Segment segment;
-    Demux *demux;
+    std::unique_ptr<Demux> demux;
     std::vector<TSDemux::STREAM_PKT*> packets;
     std::string segment_buffer;
   };
@@ -75,10 +73,8 @@ namespace hls {
 
     double download_speed;
   private:
-    void reload_media_playlist(uint32_t media_playlist_index);
-    void reload_media_playlist();
-    uint32_t get_best_variant_stream();
-    void check_switch_to_variant_stream();
+    void reload_media_playlist(MediaPlaylist &mediaPlaylist);
+    void switch_streams();
     ActiveSegment* load_next_segment(Segment segment);
     bool load_segments();
     void create_next_segment_future();
@@ -90,10 +86,9 @@ namespace hls {
 
     std::unordered_map<std::string, std::string> aes_uri_to_key;
 
-    uint32_t active_media_playlist_index;
-    uint32_t active_media_segment_index;
+    MediaPlaylist active_playlist;
+    uint32_t active_segment_sequence;
     MasterPlaylist master_playlist;
-    uint32_t variant_media_playlist_index;
 
     std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;

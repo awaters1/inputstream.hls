@@ -65,6 +65,9 @@ namespace hls
     uint32_t get_number_of_segments() { return segments.size(); };
     std::vector<Segment> get_segments() { return segments; };
     float get_segment_target_duration() { return segment_target_duration; };
+    bool has_next_segment(uint32_t active_segment_sequence);
+    // Returns the segment after the active one
+    Segment get_next_segment(uint32_t active_segment_sequence);
   protected:
     bool write_data(std::string line);
   private:
