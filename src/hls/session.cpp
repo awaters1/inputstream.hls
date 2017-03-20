@@ -136,12 +136,12 @@ void hls::Session::reload_media_playlist(MediaPlaylist &media_playlist) {
        media_playlist.get_segments().back().media_sequence;
      } else {
        // TODO: Will skip the first segment
-       last_media_sequence = 0;
+       last_media_sequence = -1;
      }
      uint32_t added_segments = 0;
      uint32_t last_added_sequence = 0;
      for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
-         if (it->media_sequence > last_media_sequence) {
+         if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
              media_playlist.add_segment(*it);
              ++added_segments;
              last_added_sequence = it->media_sequence;
@@ -181,6 +181,7 @@ void hls::Session::create_next_segment_future() {
     }
   }
   Segment segment = active_playlist.get_next_segment(active_segment_sequence);
+  active_segment_sequence = segment.media_sequence;
   std::cout << "Loading segment " << segment.media_sequence << "\n";
   next_segment_future = std::async(std::launch::async, &hls::Session::load_next_segment, this, segment);
 }
@@ -205,7 +206,6 @@ hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
   } else {
       next_segment->create_demuxer();
   }
-  active_segment_sequence = segment.media_sequence;
   return next_segment;
 }
 
