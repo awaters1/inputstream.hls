@@ -24,7 +24,9 @@ bool download_playlist_impl(const char *url, hls::Playlist &playlist) {
   bool read;
   while ((read = xbmc->ReadFileString(file, buf, CHUNKSIZE)) > 0 && read) {
     // Take \n off of buffer
-    buf[strlen(buf) - 1] = '\0';
+    if (buf[strlen(buf) - 1] == '\n') {
+      buf[strlen(buf) - 1] = '\0';
+    }
     bool ret = playlist.write_data(buf);
     if (!ret) {
       break;

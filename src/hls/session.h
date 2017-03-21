@@ -66,6 +66,7 @@ namespace hls {
     void read_next_pkt();
     uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
+    bool is_live() { return active_playlist.live; };
   protected:
     virtual bool download_segment(ActiveSegment *active_segment);
     virtual std::string download_aes_key(std::string aes_uri);

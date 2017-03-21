@@ -38,7 +38,10 @@ void hls::ActiveSegment::create_demuxer() {
         TSDemux::STREAM_PKT* stream_change_pkt = new TSDemux::STREAM_PKT();
         stream_change_pkt->streamChange = true;
         stream_change_pkt->pid = pkt->pid;
-        packets.push_back(stream_change_pkt);
+        stream_change_pkt->pts = pkt->pts;
+        stream_change_pkt->dts = pkt->dts;
+        // TODO: Not sure if these are necessary to declare to kodi
+        // packets.push_back(stream_change_pkt);
         pkt->streamChange = false;
         TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
         Stream stream;
@@ -51,6 +54,11 @@ void hls::ActiveSegment::create_demuxer() {
         streams.push_back(stream);
       }
       packets.push_back(pkt);
+  }
+  std::cout << "Segment: " << segment.media_sequence << "\n";
+  if (packets.size() >= 2) {
+    std::cout << "First: PTS: " << packets.front()->pts << " DTS: " << packets.front()->dts << "\n";
+    std::cout << "Last: PTS: " << packets.back()->pts << " DTS: " << packets.back()->dts << "\n";
   }
 }
 
@@ -128,7 +136,7 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 
 void hls::Session::reload_media_playlist(MediaPlaylist &media_playlist) {
   std::cout << "Reloading playlist bandwidth: " << media_playlist.bandwidth << "\n";
-  if (media_playlist.live) {
+  if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
      MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
      std::vector<Segment> new_segments = new_media_playlist.get_segments();
      uint32_t last_media_sequence;
@@ -154,12 +162,24 @@ void hls::Session::reload_media_playlist(MediaPlaylist &media_playlist) {
 void hls::Session::switch_streams() {
   uint32_t bandwith_of_current_stream = active_playlist.bandwidth;
   MediaPlaylist &next_active_playlist = active_playlist;
+  bool switch_up = false;
+  if (download_speed > bandwith_of_current_stream) {
+    switch_up = true;
+  } else {
+    bandwith_of_current_stream = 0;
+  }
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
-    if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < download_speed &&
+    if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < download_speed &&
         *it != active_playlist) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = *it;
-       std::cout << "Variant stream bandwidth: " << it->bandwidth << "\n";
+       std::cout << "(Up) Variant stream bandwidth: " << it->bandwidth << "\n";
+    } else if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < download_speed &&
+        *it != active_playlist) {
+      // Switch down
+       bandwith_of_current_stream = it->bandwidth;
+       next_active_playlist = *it;
+       std::cout << "(Down) Variant stream bandwidth: " << it->bandwidth << "\n";
     }
   }
   if (next_active_playlist != active_playlist) {
@@ -210,6 +230,11 @@ hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
 }
 
 bool hls::Session::load_segments() {
+  timespec res, t1, t2;
+  clock_getres(CLOCK_REALTIME, &res);
+
+  clock_gettime(CLOCK_REALTIME, &t1);
+
   if (previous_segment) {
     delete previous_segment;
   }
@@ -229,8 +254,17 @@ bool hls::Session::load_segments() {
     }
     ++tries;
   }
+  if (next_segment_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    std::cout << "Next segment isn't ready, we will likely stall\n";
+  }
   active_segment = next_segment_future.get();
   create_next_segment_future();
+
+  clock_gettime(CLOCK_REALTIME, &t2);
+
+  std::cout << "clock_gettime() : "
+       << ((t2.tv_sec - t1.tv_sec)  + (float) (t2.tv_nsec - t1.tv_nsec) / 1000000000.0) * 1000.0
+       << " ms" << std::endl;
   if (!active_segment) {
     return false;
   }

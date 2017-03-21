@@ -213,9 +213,7 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = false;
-    // TODO: Configure seek support
-    // caps.m_supportsSeek = session && !session->IsLive();
+    caps.m_supportsSeek = hls_session && !hls_session->is_live();
     caps.m_supportsPause = caps.m_supportsSeek;
     return caps;
   }
@@ -335,7 +333,7 @@ extern "C" {
 
   int64_t LengthStream(void)
   {
-    return 10;
+    return -1;
   }
 
   void DemuxReset(void)

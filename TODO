@@ -1,6 +1,7 @@
 Priorities:
 1. Switching between variant streams
-
+2. Seems to be micropauses when a segment is switched, is it due to the delay
+within load_next_segment()?
 
 
 

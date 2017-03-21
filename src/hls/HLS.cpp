@@ -143,7 +143,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
           segment.description = attributes[1];
       }
       segments.push_back(segment);
-  } else if (line == "#EXT-X-ENDLIST") {
+  } else if (line.find("#EXT-X-ENDLIST") != std::string::npos) {
       live = false;
   }
   return true;
