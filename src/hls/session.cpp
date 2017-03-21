@@ -255,6 +255,7 @@ bool hls::Session::load_segments() {
     ++tries;
   }
   if (next_segment_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+      // TODO: We can also use this to lower the quality
     std::cout << "Next segment isn't ready, we will likely stall\n";
   }
   active_segment = next_segment_future.get();

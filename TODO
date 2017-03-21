@@ -2,6 +2,9 @@ Priorities:
 1. Switching between variant streams
 2. Seems to be micropauses when a segment is switched, is it due to the delay
 within load_next_segment()?
+3. For live streams we should continually load data as it comes in instead
+of only one ahead
+4. Seek support for non-live streams
 
 
 
@@ -17,4 +20,4 @@ Issues
 5. Sometimes the audio makes a high pitched sound, maybe due to discountinuity tag?
 
 Missing Support
--Tons
+-Tons of HLS features missing

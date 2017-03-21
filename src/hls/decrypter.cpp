@@ -35,6 +35,7 @@ bool convert_hex_to_bytes(std::string hex, AP4_UI08 *iv, uint32_t iv_length) {
       return true;
     }
   }
+  return false;
 }
 
 
