@@ -92,7 +92,7 @@ bool KodiSession::download_segment(hls::ActiveSegment *active_segment) {
 
   if (!nbReadOverall)
   {
-    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url.c_str());
     return false;
   }
 

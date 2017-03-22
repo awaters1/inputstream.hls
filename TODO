@@ -1,7 +1,7 @@
 Priorities:
 1. Switching between variant streams
 2. Seems to be micropauses when a segment is switched, is it due to the delay
-within load_next_segment()?
+within load_next_segment()? -> Not sure what the exact cause is
 3. For live streams we should continually load data as it comes in instead
 of only one ahead
 4. Seek support for non-live streams

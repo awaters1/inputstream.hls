@@ -40,8 +40,8 @@ void hls::ActiveSegment::create_demuxer() {
         stream_change_pkt->pid = pkt->pid;
         stream_change_pkt->pts = pkt->pts;
         stream_change_pkt->dts = pkt->dts;
-        // TODO: Not sure if these are necessary to declare to kodi
-        // packets.push_back(stream_change_pkt);
+        // These are needed by kodi to correctly initialize the decoder
+        packets.push_back(stream_change_pkt);
         pkt->streamChange = false;
         TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
         Stream stream;
@@ -212,6 +212,7 @@ hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
   if (!download_segment(next_segment)) {
     std::cerr << "Unable to download active segment"  << std::endl;
   }
+  std::cout << "Downloaded segment " << segment.media_sequence << "\n";
   if (segment.encrypted) {
       // TODO: Needs to be protected with a mutex or something
       auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
@@ -226,6 +227,7 @@ hls::ActiveSegment* hls::Session::load_next_segment(hls::Segment segment) {
   } else {
       next_segment->create_demuxer();
   }
+  std::cout << "Created demuxer " << segment.media_sequence << "\n";
   return next_segment;
 }
 
