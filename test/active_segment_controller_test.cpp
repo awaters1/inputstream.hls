@@ -6,14 +6,17 @@
 #include "gtest/gtest.h"
 
 #include "../src/queue/active_segment_controller.h"
+#include "../src/queue/file_downloader.h"
 
 TEST(ActiveSegmentController, CreateController) {
-  ActiveSegmentController active_segment_controller;
+  ActiveSegmentController active_segment_controller(
+      std::unique_ptr<Downloader>(new FileDownloader));
   EXPECT_TRUE(true);
 }
 
 TEST(ActiveSegmentController, DownloadSegment) {
-  ActiveSegmentController active_segment_controller;
+  ActiveSegmentController active_segment_controller(
+        std::unique_ptr<Downloader>(new FileDownloader));
   hls::Segment segment;
   active_segment_controller.add_segment(segment);
   active_segment_controller.get_download_segment(0).wait();

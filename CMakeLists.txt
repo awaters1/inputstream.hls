@@ -59,6 +59,7 @@ add_executable(inputstreamhlstest
     test/decrypter_test.cpp
     src/helpers.cpp
     src/queue/active_segment_controller.cpp
+    src/queue/file_downloader.cpp
     test/active_segment_controller_test.cpp
     )
 target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)

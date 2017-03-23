@@ -8,10 +8,11 @@
 #include <atomic>
 
 #include "../hls/session.h"
+#include "downloader.h"
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController();
+  ActiveSegmentController(std::unique_ptr<Downloader> downloader);
   ~ActiveSegmentController();
   hls::ActiveSegment get_next_segment();
   void add_segment(hls::Segment segment);
@@ -20,6 +21,8 @@ private:
   bool has_next_download_segment();
   void background_job();
   void download_next_segment();
+
+  std::unique_ptr<Downloader> downloader;
 
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
