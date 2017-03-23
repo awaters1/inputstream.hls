@@ -11,7 +11,7 @@ void ActiveSegmentController::download_next_segment() {
     std::unique_lock<std::mutex> lock(download_mutex);
     std::cout << "Download waiting for conditional variable\n";
     download_cv.wait(lock, [this] {
-      return (active_segments.size() < max_active_segments && has_next_download_segment())
+      return (segments.size() < max_segment_data && has_next_download_segment())
           || quit_processing;
     });
 
@@ -86,11 +86,27 @@ void ActiveSegmentController::demux_next_segment() {
   }
 }
 
-std::future<std::string> ActiveSegmentController::get_download_segment(uint32_t download_segment_index) {
-  hls::Segment segment = segments.at(download_segment_index);
-  // TODO: Need to somehow set the value of the promise when the download is done
-  // or kick off the download based on the download_segment_index
-  return download_promise.get_future();
+std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_active_segment(hls::Segment segment) {
+  std::lock_guard<std::mutex> lock(private_data_mutex);
+  SegmentData current_segment_data = segment_data[segment];
+  switch(segment_data[segment].state) {
+  case SegmentState::UNKNOWN:
+    // TODO: Have signal to download
+    break;
+  case SegmentState::DOWNLOADING:
+  case SegmentState::DOWNLOADED:
+  case SegmentState::DEMUXING: {
+    // TODO: Have to create a promise that returns a future
+    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+    segment_promises[segment] = std::move(promise);
+    return promise.get_future();
+  } case SegmentState::DEMUXED: {
+    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+    segment_data.erase(segment);
+    promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
+    return promise.get_future();
+  }
+  }
 }
 
 bool ActiveSegmentController::has_next_download_segment() {
@@ -113,12 +129,10 @@ void ActiveSegmentController::add_segment(hls::Segment segment) {
 }
 
 ActiveSegmentController::ActiveSegmentController(std::unique_ptr<Downloader> downloader) :
-segment_index(0),
 download_segment_index(0),
-max_active_segments(10),
+max_segment_data(10),
 downloader(std::move(downloader)),
 quit_processing(false) {
-  active_segments.reserve(max_active_segments);
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   demux_thread = std::thread(&ActiveSegmentController::demux_next_segment, this);
 }

@@ -14,12 +14,14 @@ enum class SegmentState {
 	UNKNOWN,
 	DOWNLOADING,
 	DOWNLOADED,
+	DEMUXING,
 	DEMUXED
 };
 
 struct SegmentData {
   SegmentState state = SegmentState::UNKNOWN;
   std::string content;
+  hls::ActiveSegment* active_segment;
 };
 
 struct SegmentHasher {
@@ -40,7 +42,7 @@ public:
   ~ActiveSegmentController();
   hls::ActiveSegment get_next_segment();
   void add_segment(hls::Segment segment);
-  std::future<std::string> get_download_segment(uint32_t download_segment_index);
+  std::future<std::unique_ptr<hls::ActiveSegment>> get_active_segment(hls::Segment segment);
 private:
   bool has_next_demux_segment();
   bool has_next_download_segment();
@@ -48,18 +50,15 @@ private:
   void demux_next_segment();
 private:
   std::unique_ptr<Downloader> downloader;
+  int max_segment_data;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   std::unordered_map<hls::Segment, SegmentData, SegmentHasher> segment_data;
-
+  std::unordered_map<hls::Segment, std::promise<std::unique_ptr<hls::ActiveSegment>>, SegmentHasher> segment_promises;
 
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   uint32_t download_segment_index;
-  uint32_t segment_index;
   std::vector<hls::Segment> segments;
-  int max_active_segments;
-  // TODO: Change to ActiveSegment later
-  std::vector<int> active_segments;
 
   hls::Segment last_downloaded_segment;
 
