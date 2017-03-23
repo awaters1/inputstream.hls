@@ -3,6 +3,7 @@
  */
 
 #include <iostream>
+#include <algorithm>
 
 #include "active_segment_controller.h"
 
@@ -56,7 +57,7 @@ void ActiveSegmentController::demux_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(demux_mutex);
     std::cout << "Demux waiting for conditional variable\n";
-    download_cv.wait(lock, [this] {
+    demux_cv.wait(lock, [this] {
       return (has_next_demux_segment() || quit_processing);
     });
 
@@ -75,10 +76,17 @@ void ActiveSegmentController::demux_next_segment() {
 
     std::cout << "Starting decrypt and demux of " << segment.get_url() << "\n";
     // TODO: Implement decrypting and demuxing
+    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment);
 
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         segment_data[segment].state = SegmentState::DEMUXED;
+        auto it = segment_promises.find(segment);
+        if (it != segment_promises.end()) {
+          auto promise = std::move(it->second);
+          promise.set_value(std::unique_ptr<hls::ActiveSegment>(std::move(active_segment)));
+          segment_promises.erase(segment);
+        }
     }
 
     lock.unlock();
@@ -90,17 +98,30 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
   std::lock_guard<std::mutex> lock(private_data_mutex);
   SegmentData current_segment_data = segment_data[segment];
   switch(segment_data[segment].state) {
-  case SegmentState::UNKNOWN:
-    // TODO: Have signal to download
-    break;
-  case SegmentState::DOWNLOADING:
+  case SegmentState::UNKNOWN: {
+    std::cout << "Have to download segment " << segment.get_url() << "\n";
+    auto it = std::find(segments.begin(), segments.end(), segment);
+    if (it == segments.end()) {
+      std::cerr << "Unable to find segment in our list\n";
+      return std::future<std::unique_ptr<hls::ActiveSegment>>();
+    } else {
+      uint32_t index = it - segments.begin();
+      if (index != download_segment_index) {
+        download_segment_index = index;
+        std::lock_guard<std::mutex> lock(download_mutex);
+        download_cv.notify_one();
+      }
+    }
+  } case SegmentState::DOWNLOADING:
   case SegmentState::DOWNLOADED:
   case SegmentState::DEMUXING: {
-    // TODO: Have to create a promise that returns a future
+    std::cout << "Have to wait for segment " << segment.get_url() << "\n";
     std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+    auto future = promise.get_future();
     segment_promises[segment] = std::move(promise);
-    return promise.get_future();
+    return future;
   } case SegmentState::DEMUXED: {
+    std::cout << "Segment is ready " << segment.get_url() << "\n";
     std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
     segment_data.erase(segment);
     promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
@@ -143,6 +164,10 @@ ActiveSegmentController::~ActiveSegmentController() {
   {
     std::lock_guard<std::mutex> lock(download_mutex);
     download_cv.notify_all();
+  }
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    demux_cv.notify_all();
   }
   download_thread.join();
   demux_thread.join();

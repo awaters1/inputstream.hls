@@ -20,7 +20,8 @@ TEST(ActiveSegmentController, DownloadSegment) {
   hls::Segment segment;
   segment.set_url("test/hls/decrypted_segment.ts");
   active_segment_controller.add_segment(segment);
-  active_segment_controller.get_download_segment(0).wait();
+  std::future<std::unique_ptr<hls::ActiveSegment>> future = active_segment_controller.get_active_segment(segment);
+  future.wait();
   ASSERT_EQ(1, active_segment_controller.download_segment_index);
-  ASSERT_EQ(SegmentState::DOWNLOADED, active_segment_controller.segment_state[segment]);
+  ASSERT_EQ(SegmentState::DEMUXED, active_segment_controller.segment_data[segment].state);
 }
