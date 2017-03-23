@@ -48,6 +48,11 @@ namespace hls
     bool encrypted;
     uint32_t byte_length;
     uint32_t byte_offset;
+    bool operator==(Segment segment) const {
+    	return get_url() == segment.get_url() &&
+    			byte_length == segment.byte_length &&
+				byte_offset == segment.byte_offset;
+    }
   };
 
   class MediaPlaylist : public Playlist {

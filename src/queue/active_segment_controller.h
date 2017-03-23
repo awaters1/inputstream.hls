@@ -17,6 +17,11 @@ enum class SegmentState {
 	DEMUXED
 };
 
+struct SegmentData {
+  SegmentState state = SegmentState::UNKNOWN;
+  std::string content;
+};
+
 struct SegmentHasher {
 	std::size_t operator()(hls::Segment segment) const {
 		using std::size_t;
@@ -37,12 +42,14 @@ public:
   void add_segment(hls::Segment segment);
   std::future<std::string> get_download_segment(uint32_t download_segment_index);
 private:
+  bool has_next_demux_segment();
   bool has_next_download_segment();
-  void background_job();
   void download_next_segment();
+  void demux_next_segment();
 private:
   std::unique_ptr<Downloader> downloader;
-  std::unordered_map<hls::Segment, SegmentState, SegmentHasher> segment_state;
+  FRIEND_TEST(ActiveSegmentController, DownloadSegment);
+  std::unordered_map<hls::Segment, SegmentData, SegmentHasher> segment_data;
 
 
   std::mutex private_data_mutex;
@@ -54,15 +61,18 @@ private:
   // TODO: Change to ActiveSegment later
   std::vector<int> active_segments;
 
+  hls::Segment last_downloaded_segment;
+
   // Download thread
-  std::promise<std::string> download_promise;
   std::condition_variable download_cv;
   std::mutex download_mutex;
   std::thread download_thread;
 
-  // Controls background processing
-  // to fire off downloads and demux
-  std::thread background_thread;
+
+  // Demux thread
+  std::condition_variable demux_cv;
+  std::mutex demux_mutex;
+  std::thread demux_thread;
 
   std::atomic_bool quit_processing;
 };
