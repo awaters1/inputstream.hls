@@ -1,5 +1,6 @@
 # build artifacts
 build/
+build-android/
 debian/changelog
 debian/files
 debian/kodi-inputstream-mpd-dbg.debhelper.log

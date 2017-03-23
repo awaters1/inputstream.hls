@@ -10,6 +10,25 @@
 #include "../hls/session.h"
 #include "downloader.h"
 
+enum class SegmentState {
+	UNKNOWN,
+	DOWNLOADING,
+	DOWNLOADED,
+	DEMUXED
+};
+
+struct SegmentHasher {
+	std::size_t operator()(hls::Segment segment) const {
+		using std::size_t;
+		using std::hash;
+		using std::string;
+
+		return (hash<string>()(segment.get_url()))
+				^ (hash<uint32_t>()(segment.byte_length) >> 1)
+				^ (hash<uint32_t>()(segment.byte_offset) << 1);
+	}
+};
+
 class ActiveSegmentController {
 public:
   ActiveSegmentController(std::unique_ptr<Downloader> downloader);
@@ -21,8 +40,10 @@ private:
   bool has_next_download_segment();
   void background_job();
   void download_next_segment();
-
+private:
   std::unique_ptr<Downloader> downloader;
+  std::unordered_map<hls::Segment, SegmentState, SegmentHasher> segment_state;
+
 
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
