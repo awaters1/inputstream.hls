@@ -7,40 +7,42 @@
 #include "active_segment_controller.h"
 
 void ActiveSegmentController::download_next_segment() {
-  std::unique_lock<std::mutex> lock(download_mutex);
-  download_cv.wait(lock, [this] {
-    return (active_segments.size() < max_active_segments && has_next_download_segment())
-        || quit_processing;
-  });
+  while(!quit_processing) {
+    std::unique_lock<std::mutex> lock(download_mutex);
+    download_cv.wait(lock, [this] {
+      return (active_segments.size() < max_active_segments && has_next_download_segment())
+          || quit_processing;
+    });
 
-  if (quit_processing) {
-    std::cout << "Exiting download thread\n";
-    return;
-  }
+    if (quit_processing) {
+      std::cout << "Exiting download thread\n";
+      return;
+    }
 
-  uint32_t download_index;
-  {
-    std::lock_guard<std::mutex> lock(private_data_mutex);
-    download_index = download_segment_index;
-  }
-
-  std::cout << "Starting download of " << download_index << "\n";
-
-  // TODO: Implement download
-  {
+    uint32_t download_index;
+    {
       std::lock_guard<std::mutex> lock(private_data_mutex);
-      if (download_index == download_segment_index) {
-        ++download_segment_index;
-      } else {
-        // TODO: Handle download_segment_index changing, we should still mark
-        // the segment downloaded, but depends on if we cache the downloads or not
-      }
-  }
+      download_index = download_segment_index;
+    }
 
-  lock.unlock();
-  download_cv.notify_one();
-  std::cout << "Finished download\n";
-  download_promise.set_value("test");
+    std::cout << "Starting download of " << download_index << "\n";
+
+    // TODO: Implement download
+    {
+        std::lock_guard<std::mutex> lock(private_data_mutex);
+        if (download_index == download_segment_index) {
+          ++download_segment_index;
+        } else {
+          // TODO: Handle download_segment_index changing, we should still mark
+          // the segment downloaded, but depends on if we cache the downloads or not
+        }
+    }
+
+    lock.unlock();
+    download_cv.notify_one();
+    std::cout << "Finished download\n";
+    download_promise.set_value("test");
+  }
 }
 
 void ActiveSegmentController::background_job() {
