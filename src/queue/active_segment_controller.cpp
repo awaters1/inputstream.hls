@@ -76,6 +76,11 @@ void ActiveSegmentController::demux_next_segment() {
       last_downloaded_segments.erase(last_downloaded_segments.begin());
       current_segment_data = segment_data[segment];
     }
+    // Trigger a download when we remove one
+    {
+      std::lock_guard<std::mutex> lock(download_mutex);
+      download_cv.notify_one();
+    }
 
     std::cout << "Starting decrypt and demux of " << segment.get_url() << "\n";
     std::string content = current_segment_data.content;
@@ -108,7 +113,7 @@ void ActiveSegmentController::demux_next_segment() {
           stream_change_pkt->pts = pkt->pts;
           stream_change_pkt->dts = pkt->dts;
           // These are needed by kodi to correctly initialize the decoder
-          packets.push_back(stream_change_pkt);
+          // packets.push_back(stream_change_pkt);
           pkt->streamChange = false;
           TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
           hls::Stream stream;
@@ -122,6 +127,7 @@ void ActiveSegmentController::demux_next_segment() {
         }
         packets.push_back(pkt);
     }
+    // TODO: maybe packtes need to be sorted
     hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, packets, streams);
     bool erased = false;
     {

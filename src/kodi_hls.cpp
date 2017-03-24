@@ -56,7 +56,6 @@ void KodiMasterPlaylist::select_media_playlist() {
   // Just selects the first one for now
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
       download_playlist_impl(it->get_url().c_str(), *it);
-      break;
   }
 }
 

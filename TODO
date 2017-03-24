@@ -3,6 +3,9 @@ Multi-threaded TODO
 when the playlist is reloaded
 2. Make it work with variant stream switching - which is disabled at the moment
 
+Microstuttering still happening, may be due to
+CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42755.821683, adjusted:42755.821683
+
 
 Priorities:
 1. Switching between variant streams
