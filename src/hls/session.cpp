@@ -202,7 +202,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     download_speed(0),
     active_segment_controller(std::unique_ptr<Downloader>(downloader)),
     media_playlists(master_playlist.get_media_playlist()){
-  active_playlist = media_playlists.at(3);
+  active_playlist = media_playlists.at(0);
   std::vector<Segment> segments = active_playlist.get_segments();
   for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
     total_time += it->duration;

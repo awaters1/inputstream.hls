@@ -5,8 +5,8 @@
 #include <limits.h>
 #include "gtest/gtest.h"
 
-#include "../src/queue/active_segment_controller.h"
-#include "../src/queue/file_downloader.h"
+#include "../src/hls/active_segment_controller.h"
+#include "../src/downloader/file_downloader.h"
 
 TEST(ActiveSegmentController, CreateController) {
   ActiveSegmentController active_segment_controller(

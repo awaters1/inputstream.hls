@@ -5,6 +5,7 @@ when the playlist is reloaded
 
 Microstuttering still happening, may be due to
 CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42755.821683, adjusted:42755.821683
+May be due to video fps not being correctly reported
 
 
 Priorities:

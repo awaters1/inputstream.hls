@@ -20,8 +20,8 @@ set(HLS_SOURCES
   src/hls/session.cpp
   src/kodi_hls.cpp
   src/hls/decrypter.cpp
-  src/queue/active_segment_controller.cpp
-  src/queue/kodi_downloader.cpp
+  src/hls/active_segment_controller.cpp
+  src/downloader/kodi_downloader.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -60,8 +60,8 @@ add_executable(inputstreamhlstest
     src/hls/decrypter.cpp
     test/decrypter_test.cpp
     src/helpers.cpp
-    src/queue/active_segment_controller.cpp
-    src/queue/file_downloader.cpp
+    src/hls/active_segment_controller.cpp
+    src/downloader/file_downloader.cpp
     test/active_segment_controller_test.cpp
     )
 target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)

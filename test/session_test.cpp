@@ -6,7 +6,7 @@
 #include "gtest/gtest.h"
 
 #include "../src/hls/session.h"
-#include "../src/queue/file_downloader.h"
+#include "../src/downloader/file_downloader.h"
 
 namespace hls {
 

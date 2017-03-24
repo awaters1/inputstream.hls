@@ -10,8 +10,8 @@
 #include <vector>
 #include <atomic>
 
-#include "../hls/active_segment.h"
-#include "downloader.h"
+#include "active_segment.h"
+#include "../downloader/downloader.h"
 
 enum class SegmentState {
 	UNKNOWN,

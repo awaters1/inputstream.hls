@@ -11,8 +11,8 @@
 
 #include "HLS.h"
 #include "active_segment.h"
-#include "../queue/downloader.h"
-#include "../queue/active_segment_controller.h"
+#include "../downloader/downloader.h"
+#include "active_segment_controller.h"
 
 namespace hls {
 

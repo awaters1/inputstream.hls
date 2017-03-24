@@ -6,7 +6,7 @@
 
 #include "hls/HLS.h"
 #include "hls/session.h"
-#include "queue/kodi_downloader.h"
+#include "downloader/kodi_downloader.h"
 
 class KodiMasterPlaylist : public hls::MasterPlaylist {
   public:

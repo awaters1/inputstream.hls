@@ -212,8 +212,8 @@ extern "C" {
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
-    caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = hls_session && !hls_session->is_live();
+    caps.m_supportsIDisplayTime = false;
+    caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
     caps.m_supportsPause = caps.m_supportsSeek;
     return caps;
   }
@@ -237,10 +237,12 @@ extern "C" {
         } else if (stream.codec_name == "h264") {
           strcpy(stream_info.m_codecName, "h264");
           stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+          stream_info.m_FpsScale = 1000;
+          stream_info.m_FpsRate = 29970;
         }
         stream_info.m_pID = stream.stream_id;
         stream_info.m_Channels = stream.channels;
-        stream_info.m_SampleRate = stream.sample_rate;
+        stream_info.m_SampleRate = stream.sample_rate * 2;
         stream_info.m_BitRate = stream.bit_rate;
         stream_info.m_BitsPerSample = stream.bits_per_sample;
 
@@ -370,7 +372,7 @@ extern "C" {
     } else {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
       // DVD_TIME_BASE / PTS
-      double offset = (1000000 / 90000.0);
+      double offset = (1000000.0 / 90000.0);
       p->dts = pkt->dts * offset;
       p->pts = pkt->pts * offset;
       p->duration = pkt->duration * offset;
@@ -417,6 +419,7 @@ extern "C" {
 
   int GetTotalTime()
   {
+    return 0;
     if (!hls_session)
       return 0;
     // TODO: Doesn't work for live streams
@@ -425,6 +428,7 @@ extern "C" {
 
   int GetTime()
   {
+    return 0;
     if (!hls_session)
       return 0;
     // TODO: Doesnt' get the correct time
