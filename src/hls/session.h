@@ -11,6 +11,7 @@
 
 #include "HLS.h"
 #include "../demux/demux.h"
+#include "../queue/active_segment_controller.h"
 
 namespace hls {
   class Stream {
@@ -25,9 +26,10 @@ namespace hls {
 
   class ActiveSegment {
   public:
-    ActiveSegment(Segment segment):
+    ActiveSegment(Segment segment, std::vector<TSDemux::STREAM_PKT*> packets, std::vector<Stream> streams):
       segment(segment),
-      segment_buffer(""),
+      packets(packets),
+      streams(streams),
       packet_index(0)
   {}
     ~ActiveSegment();
@@ -35,11 +37,9 @@ namespace hls {
     ActiveSegment & operator= (const ActiveSegment & other) = delete;
 
     std::string get_url() { return segment.get_url(); }
-    bool write_data(const void *buffer, size_t buffer_size);
     TSDemux::STREAM_PKT* get_next_pkt();
-    void create_demuxer(std::string aes_key);
-    void create_demuxer();
-    int64_t get_current_time() { return demux->get_current_time(); };
+    // TODO: Doesn't return PTS of main segment
+    int64_t get_current_time() { return packets.at(packet_index)->pts; };
     uint32_t get_byte_length() { return segment.byte_length; };
     uint32_t get_byte_offset() { return segment.byte_offset; };
     std::vector<Stream> streams;
@@ -47,9 +47,7 @@ namespace hls {
     // Segment as defined in the playlist
     uint32_t packet_index;
     Segment segment;
-    std::unique_ptr<Demux> demux;
     std::vector<TSDemux::STREAM_PKT*> packets;
-    std::string segment_buffer;
   };
 
   class Session {
@@ -68,24 +66,17 @@ namespace hls {
     uint32_t get_total_time() { return total_time; };
     bool is_live() { return active_playlist.live; };
   protected:
-    virtual bool download_segment(ActiveSegment *active_segment);
-    virtual std::string download_aes_key(std::string aes_uri);
     virtual MediaPlaylist download_playlist(std::string url);
 
     double download_speed;
   private:
     void reload_media_playlist(MediaPlaylist &mediaPlaylist);
     void switch_streams();
-    ActiveSegment* load_next_segment(Segment segment);
     bool load_segments();
-    void create_next_segment_future();
 
-    ActiveSegment *active_segment;
-    ActiveSegment *previous_segment;
-    std::future<ActiveSegment*> next_segment_future;
+
+    ActiveSegmentController active_segment_controller;
     TSDemux::STREAM_PKT* current_pkt;
-
-    std::unordered_map<std::string, std::string> aes_uri_to_key;
 
     MediaPlaylist active_playlist;
     uint32_t active_segment_sequence;

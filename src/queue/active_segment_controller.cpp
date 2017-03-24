@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "active_segment_controller.h"
+#include "../hls/decrypter.h"
 
 void ActiveSegmentController::download_next_segment() {
   while(!quit_processing) {
@@ -32,7 +33,7 @@ void ActiveSegmentController::download_next_segment() {
 
     std::cout << "Starting download of " << download_index << " at " << segment.get_url() << "\n";
 
-    std::string contents = downloader->download(segment.get_url());
+    std::string contents = downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length);
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         if (download_index == download_segment_index) {
@@ -75,8 +76,51 @@ void ActiveSegmentController::demux_next_segment() {
     }
 
     std::cout << "Starting decrypt and demux of " << segment.get_url() << "\n";
-    // TODO: Implement decrypting and demuxing
-    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment);
+    std::string content = current_segment_data.content;
+    if (segment.encrypted) {
+      std::cout << "Decrypting segment\n";
+      auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
+      std::string aes_key;
+      if (aes_key_it == aes_uri_to_key.end()) {
+          std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
+          aes_key = downloader->download(segment.aes_uri);
+          aes_uri_to_key.insert({segment.aes_uri, aes_key});
+      } else {
+          aes_key = aes_key_it->second;
+      }
+      content = decrypt(aes_key, segment.aes_iv, content);
+    }
+    std::vector<TSDemux::STREAM_PKT*> packets;
+    std::vector<hls::Stream> streams;
+    std::unique_ptr<Demux> demux = std::unique_ptr<Demux>(new Demux(content, 0));
+    TSDemux::STREAM_PKT* pkt = 0;
+    while (pkt = demux->get_next_pkt()) {
+        unsigned char *data = new unsigned char[pkt->size];
+        memcpy(data, pkt->data, pkt->size);
+        pkt->data = data;
+        if (pkt->streamChange) {
+          // Insert a fake streamChange packet
+          TSDemux::STREAM_PKT* stream_change_pkt = new TSDemux::STREAM_PKT();
+          stream_change_pkt->streamChange = true;
+          stream_change_pkt->pid = pkt->pid;
+          stream_change_pkt->pts = pkt->pts;
+          stream_change_pkt->dts = pkt->dts;
+          // These are needed by kodi to correctly initialize the decoder
+          packets.push_back(stream_change_pkt);
+          pkt->streamChange = false;
+          TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
+          hls::Stream stream;
+          stream.stream_id = pkt->pid;
+          stream.codec_name = es->GetStreamCodecName();
+          stream.channels = es->stream_info.channels;
+          stream.sample_rate = es->stream_info.sample_rate;
+          stream.bit_rate = es->stream_info.bit_rate;
+          stream.bits_per_sample = es->stream_info.bits_per_sample;
+          streams.push_back(stream);
+        }
+        packets.push_back(pkt);
+    }
+    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, packets, streams);
 
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
@@ -128,6 +172,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
     return promise.get_future();
   }
   }
+  return std::future<std::unique_ptr<hls::ActiveSegment>>();
 }
 
 bool ActiveSegmentController::has_next_download_segment() {

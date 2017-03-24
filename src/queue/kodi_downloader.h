@@ -9,6 +9,6 @@
 
 #include "downloader.h"
 
-class FileDownloader : public Downloader {
+class KodiDownloader : public Downloader {
   std::string download(std::string location, uint32_t byte_offset, uint32_t byte_length);
 };

@@ -8,5 +8,9 @@
 
 class Downloader {
 public:
-  virtual std::string download(std::string location) = 0;
+  std::string download(std::string location) {
+    return download(location, 0, 0);
+  };
+  virtual std::string download(std::string location, uint32_t byte_offset, uint32_t byte_length) = 0;
+  double download_speed;
 };

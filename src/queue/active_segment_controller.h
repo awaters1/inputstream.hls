@@ -54,6 +54,7 @@ private:
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   std::unordered_map<hls::Segment, SegmentData, SegmentHasher> segment_data;
   std::unordered_map<hls::Segment, std::promise<std::unique_ptr<hls::ActiveSegment>>, SegmentHasher> segment_promises;
+  std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
@@ -66,7 +67,6 @@ private:
   std::condition_variable download_cv;
   std::mutex download_mutex;
   std::thread download_thread;
-
 
   // Demux thread
   std::condition_variable demux_cv;
