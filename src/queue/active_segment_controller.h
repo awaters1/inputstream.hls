@@ -64,7 +64,7 @@ private:
   uint32_t download_segment_index;
   std::vector<hls::Segment> segments;
 
-  hls::Segment last_downloaded_segment;
+  std::vector<hls::Segment> last_downloaded_segments;
 
   // Download thread
   std::condition_variable download_cv;

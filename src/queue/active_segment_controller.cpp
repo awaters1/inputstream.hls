@@ -43,12 +43,13 @@ void ActiveSegmentController::download_next_segment() {
         	// where we are in the stream
         }
         segment_data[segment].state = SegmentState::DOWNLOADED;
+        segment_data[segment].content = contents;
     }
     lock.unlock();
     std::cout << "Finished download\n";
     {
       std::lock_guard<std::mutex> demux_lock(demux_mutex);
-      last_downloaded_segment = segment;
+      last_downloaded_segments.push_back(segment);
       demux_cv.notify_one();
     }
   }
@@ -71,7 +72,8 @@ void ActiveSegmentController::demux_next_segment() {
     SegmentData current_segment_data;
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
-      segment = last_downloaded_segment;
+      segment = last_downloaded_segments.front();
+      last_downloaded_segments.erase(last_downloaded_segments.begin());
       current_segment_data = segment_data[segment];
     }
 
@@ -125,10 +127,11 @@ void ActiveSegmentController::demux_next_segment() {
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         segment_data[segment].state = SegmentState::DEMUXED;
+        segment_data[segment].active_segment = active_segment;
         auto it = segment_promises.find(segment);
         if (it != segment_promises.end()) {
           auto promise = std::move(it->second);
-          promise.set_value(std::unique_ptr<hls::ActiveSegment>(std::move(active_segment)));
+          promise.set_value(std::unique_ptr<hls::ActiveSegment>(active_segment));
           segment_promises.erase(segment);
         }
     }
@@ -139,8 +142,11 @@ void ActiveSegmentController::demux_next_segment() {
 }
 
 std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_active_segment(hls::Segment segment) {
-  std::lock_guard<std::mutex> lock(private_data_mutex);
-  SegmentData current_segment_data = segment_data[segment];
+  SegmentData current_segment_data;
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    current_segment_data = segment_data[segment];
+  }
   switch(segment_data[segment].state) {
   case SegmentState::UNKNOWN: {
     std::cout << "Have to download segment " << segment.get_url() << "\n";
@@ -151,7 +157,10 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
     } else {
       uint32_t index = it - segments.begin();
       if (index != download_segment_index) {
-        download_segment_index = index;
+        {
+          std::lock_guard<std::mutex> lock(private_data_mutex);
+          download_segment_index = index;
+        }
         std::lock_guard<std::mutex> lock(download_mutex);
         download_cv.notify_one();
       }
@@ -162,12 +171,18 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
     std::cout << "Have to wait for segment " << segment.get_url() << "\n";
     std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
     auto future = promise.get_future();
-    segment_promises[segment] = std::move(promise);
+    {
+      std::lock_guard<std::mutex> lock(private_data_mutex);
+      segment_promises[segment] = std::move(promise);
+    }
     return future;
   } case SegmentState::DEMUXED: {
     std::cout << "Segment is ready " << segment.get_url() << "\n";
     std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
-    segment_data.erase(segment);
+    {
+      std::lock_guard<std::mutex> lock(private_data_mutex);
+      segment_data.erase(segment);
+    }
     promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
     return promise.get_future();
   }
@@ -182,7 +197,7 @@ bool ActiveSegmentController::has_next_download_segment() {
 
 bool ActiveSegmentController::has_next_demux_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
-  return segment_data[last_downloaded_segment].state == SegmentState::DOWNLOADED;
+  return !last_downloaded_segments.empty();
 }
 
 void ActiveSegmentController::add_segment(hls::Segment segment) {
