@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 
 #include "../src/hls/session.h"
+#include "../src/queue/file_downloader.h"
 
 namespace hls {
 
@@ -14,7 +15,7 @@ protected:
   virtual void SetUp() {
     FileMasterPlaylist master_playlist = FileMasterPlaylist();
     master_playlist.open("test/hls/bipbopall.m3u8");
-    session = new Session(master_playlist);
+    session = new Session(master_playlist, new FileDownloader());
   }
 
   virtual void TearDown() {
@@ -53,7 +54,7 @@ protected:
   virtual void SetUp() {
     FileMasterPlaylist master_playlist = FileMasterPlaylist();
     master_playlist.open("test/hls/encrypted.m3u8");
-    session = new Session(master_playlist);
+    session = new Session(master_playlist, new FileDownloader());
   }
 
   virtual void TearDown() {

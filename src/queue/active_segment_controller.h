@@ -4,10 +4,13 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <future>
+#include <thread>
 #include <vector>
 #include <atomic>
 
-#include "../hls/session.h"
+#include "../hls/active_segment.h"
 #include "downloader.h"
 
 enum class SegmentState {
@@ -40,7 +43,6 @@ class ActiveSegmentController {
 public:
   ActiveSegmentController(std::unique_ptr<Downloader> downloader);
   ~ActiveSegmentController();
-  hls::ActiveSegment get_next_segment();
   void add_segment(hls::Segment segment);
   std::future<std::unique_ptr<hls::ActiveSegment>> get_active_segment(hls::Segment segment);
 private:

@@ -48,15 +48,6 @@ void hls::Session::read_next_pkt() {
     current_pkt = active_segment->get_next_pkt();
     if (!current_pkt && load_segments()) {
       current_pkt = active_segment->get_next_pkt();
-    } else if (!current_pkt) {
-      if (active_segment) {
-        delete active_segment;
-        active_segment = 0;
-      }
-      if (previous_segment) {
-        delete previous_segment;
-        previous_segment = 0;
-      }
     }
   } else {
     current_pkt = nullptr;
@@ -124,34 +115,11 @@ void hls::Session::switch_streams() {
   }
 }
 
-void hls::Session::create_next_segment_future() {
-  switch_streams();
-  if (!active_playlist.has_next_segment(active_segment_sequence)) {
-    // Try to reload the playlist before bailing
-    reload_media_playlist(active_playlist);
-    if (!active_playlist.has_next_segment(active_segment_sequence)) {
-      std::cerr << "Unable to get the next segment " << active_segment_sequence << std::endl;
-      next_segment_future = std::future<ActiveSegment*>();
-      return;
-    }
-  }
-  Segment segment = active_playlist.get_next_segment(active_segment_sequence);
-  active_segment_sequence = segment.media_sequence;
-  std::cout << "Loading segment " << segment.media_sequence << "\n";
-  // TODO: Update the segments in the controller
-  // TODO: Request the segments from the controller
-}
-
 bool hls::Session::load_segments() {
   timespec res, t1, t2;
   clock_getres(CLOCK_REALTIME, &res);
-
   clock_gettime(CLOCK_REALTIME, &t1);
-
-  if (previous_segment) {
-    delete previous_segment;
-  }
-  previous_segment = active_segment;
+  /*
   uint32_t tries = 0;
   while(!next_segment_future.valid() && tries < 10) {
     std::cout << "Invalid next segment future, attempting to get synchronously\n";
@@ -167,13 +135,32 @@ bool hls::Session::load_segments() {
     }
     ++tries;
   }
-  if (next_segment_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+  */
+  // TODO: When to reload playlist
+  /*
+   *  switch_streams();
+  if (!active_playlist.has_next_segment(active_segment_sequence)) {
+    // Try to reload the playlist before bailing
+    reload_media_playlist(active_playlist);
+    if (!active_playlist.has_next_segment(active_segment_sequence)) {
+      std::cerr << "Unable to get the next segment " << active_segment_sequence << std::endl;
+      next_segment_future = std::future<ActiveSegment*>();
+      return;
+    }
+  }
+  Segment segment = active_playlist.get_next_segment(active_segment_sequence);
+  active_segment_sequence = segment.media_sequence;
+  std::cout << "Loading segment " << segment.media_sequence << "\n";
+  // TODO: Update the segments in the controller
+  // TODO: Request the segments from the controller
+   */
+  hls::Segment segment = active_playlist.get_next_segment(active_segment_sequence);
+  auto future = active_segment_controller.get_active_segment(segment);
+  if (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
       // TODO: We can also use this to lower the quality
     std::cout << "Next segment isn't ready, we will likely stall\n";
   }
-  active_segment = next_segment_future.get();
-  create_next_segment_future();
-
+  active_segment = future.get();
   clock_gettime(CLOCK_REALTIME, &t2);
 
   std::cout << "clock_gettime() : "
@@ -204,15 +191,14 @@ hls::Stream hls::Session::get_stream(uint32_t stream_id) {
   return hls::Stream();
 }
 
-hls::Session::Session(MasterPlaylist master_playlist) :
+hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     active_segment_sequence(-1),
     master_playlist(master_playlist),
-    previous_segment(0),
-    active_segment(0),
     total_time(0),
     start_pts(-1),
     current_pkt(0),
     download_speed(0),
+    active_segment_controller(std::unique_ptr<Downloader>(downloader)),
     media_playlists(master_playlist.get_media_playlist()){
   active_playlist = media_playlists.at(0);
   std::vector<Segment> segments = active_playlist.get_segments();
@@ -223,13 +209,5 @@ hls::Session::Session(MasterPlaylist master_playlist) :
 }
 
 hls::Session::~Session() {
-  if (active_segment) {
-    delete active_segment;
-  }
-  if (previous_segment) {
-    delete previous_segment;
-  }
-  if (next_segment_future.valid()) {
-      delete next_segment_future.get();
-  }
+
 }

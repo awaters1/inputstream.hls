@@ -6,6 +6,7 @@
 
 #include "hls/HLS.h"
 #include "hls/session.h"
+#include "queue/kodi_downloader.h"
 
 class KodiMasterPlaylist : public hls::MasterPlaylist {
   public:
@@ -15,7 +16,7 @@ class KodiMasterPlaylist : public hls::MasterPlaylist {
 
 class KodiSession : public hls::Session {
 public:
-  KodiSession(KodiMasterPlaylist master_playlist) : hls::Session(master_playlist) { };
+  KodiSession(KodiMasterPlaylist master_playlist) : hls::Session(master_playlist, new KodiDownloader()) { };
 protected:
     bool download_segment(hls::ActiveSegment *active_segment);
     hls::MediaPlaylist download_playlist(std::string url);
