@@ -123,6 +123,8 @@ void ActiveSegmentController::demux_next_segment() {
           stream.sample_rate = es->stream_info.sample_rate;
           stream.bit_rate = es->stream_info.bit_rate;
           stream.bits_per_sample = es->stream_info.bits_per_sample;
+          stream.fps_rate = es->stream_info.fps_rate;
+          stream.fps_scale = es->stream_info.fps_scale;
           streams.push_back(stream);
         }
         packets.push_back(pkt);

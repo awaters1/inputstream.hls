@@ -32,6 +32,14 @@ TEST_F(SessionTest, CreateSession) {
   EXPECT_EQ("h264", streams[1].codec_name);
 }
 
+TEST_F(SessionTest, StreamInfo) {
+  std::vector<Stream> streams = session->get_streams();
+  ASSERT_EQ(2, streams.size());
+  EXPECT_EQ("h264", streams[1].codec_name);
+  EXPECT_EQ(66733, streams[1].fps_scale);
+  EXPECT_EQ(1000000, streams[1].fps_rate);
+}
+
 TEST_F(SessionTest, TotalTime) {
   EXPECT_EQ(1801, session->get_total_time());
 }

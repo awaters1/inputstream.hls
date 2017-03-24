@@ -238,7 +238,7 @@ extern "C" {
           strcpy(stream_info.m_codecName, "h264");
           stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
           stream_info.m_FpsScale = 1000;
-          stream_info.m_FpsRate = 29970;
+          stream_info.m_FpsRate = 15000;
         }
         stream_info.m_pID = stream.stream_id;
         stream_info.m_Channels = stream.channels;
@@ -373,9 +373,9 @@ extern "C" {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
       // DVD_TIME_BASE / PTS
       double offset = (1000000.0 / 90000.0);
-      p->dts = pkt->dts * offset;
-      p->pts = pkt->pts * offset;
-      p->duration = pkt->duration * offset;
+      p->dts = (pkt->dts * 1000000) / 90000.0;
+      p->pts = (pkt->pts * 1000000) / 90000.0;
+      p->duration = (pkt->duration * 1000000) / 90000.0;
       p->iStreamId = pkt->pid;
       p->iGroupId = 0;
       p->iSize = pkt->size;

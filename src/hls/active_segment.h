@@ -16,6 +16,8 @@ namespace hls {
      uint32_t sample_rate;
      uint32_t bit_rate;
      uint32_t bits_per_sample;
+     uint32_t fps_scale;
+     uint32_t fps_rate;
    };
 
   class ActiveSegment {
