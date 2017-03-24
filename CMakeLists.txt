@@ -20,6 +20,8 @@ set(HLS_SOURCES
   src/hls/session.cpp
   src/kodi_hls.cpp
   src/hls/decrypter.cpp
+  src/queue/active_segment_controller.cpp
+  src/queue/kodi_downloader.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/

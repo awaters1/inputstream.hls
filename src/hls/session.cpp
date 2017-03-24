@@ -161,6 +161,8 @@ bool hls::Session::load_segments() {
     std::cout << "Next segment isn't ready, we will likely stall\n";
   }
   active_segment = future.get();
+  std::cout << "Got segment " << segment.get_url() << "\n";
+  active_segment_sequence = segment.media_sequence;
   clock_gettime(CLOCK_REALTIME, &t2);
 
   std::cout << "clock_gettime() : "

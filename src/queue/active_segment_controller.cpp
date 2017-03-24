@@ -123,7 +123,7 @@ void ActiveSegmentController::demux_next_segment() {
         packets.push_back(pkt);
     }
     hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, packets, streams);
-
+    bool erased = false;
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         segment_data[segment].state = SegmentState::DEMUXED;
@@ -133,7 +133,13 @@ void ActiveSegmentController::demux_next_segment() {
           auto promise = std::move(it->second);
           promise.set_value(std::unique_ptr<hls::ActiveSegment>(active_segment));
           segment_promises.erase(segment);
+          erased = true;
         }
+    }
+
+    if (erased) {
+      std::lock_guard<std::mutex> lock(download_mutex);
+      download_cv.notify_one();
     }
 
     lock.unlock();
@@ -149,6 +155,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
   }
   switch(segment_data[segment].state) {
   case SegmentState::UNKNOWN: {
+    // TODO: May have to remove a segment from segment_data so this one gets processed
     std::cout << "Have to download segment " << segment.get_url() << "\n";
     auto it = std::find(segments.begin(), segments.end(), segment);
     if (it == segments.end()) {
@@ -182,6 +189,10 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
       segment_data.erase(segment);
+    }
+    {
+      std::lock_guard<std::mutex> lock(download_mutex);
+      download_cv.notify_one();
     }
     promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
     return promise.get_future();

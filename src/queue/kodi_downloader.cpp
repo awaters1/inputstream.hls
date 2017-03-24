@@ -4,14 +4,17 @@
 
 #include <fstream>
 #include <sstream>
+#include <iostream>
+#include <inttypes.h>
 
+#include "../globals.h"
 #include "kodi_downloader.h"
 
 std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length) {
   // open the file
   void* file = xbmc->CURLCreate(url.c_str());
   if (!file)
-    return false;
+    return "";
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
@@ -37,7 +40,7 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
   if (!nbReadOverall)
   {
     xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url.c_str());
-    return false;
+    return "";
   }
 
   double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
