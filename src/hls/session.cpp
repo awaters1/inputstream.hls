@@ -205,6 +205,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
   for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
     total_time += it->duration;
   }
+  active_segment_controller.add_segments(segments);
   std::cout << "Total time is " << total_time << "\n";
 }
 

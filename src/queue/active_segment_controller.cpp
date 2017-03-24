@@ -13,7 +13,7 @@ void ActiveSegmentController::download_next_segment() {
     std::unique_lock<std::mutex> lock(download_mutex);
     std::cout << "Download waiting for conditional variable\n";
     download_cv.wait(lock, [this] {
-      return (segments.size() < max_segment_data && has_next_download_segment())
+      return (segment_data.size() < max_segment_data && has_next_download_segment())
           || quit_processing;
     });
 
@@ -189,6 +189,17 @@ void ActiveSegmentController::add_segment(hls::Segment segment) {
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     segments.push_back(segment);
+  }
+  std::lock_guard<std::mutex> lock(download_mutex);
+  download_cv.notify_one();
+}
+
+void ActiveSegmentController::add_segments(std::vector<hls::Segment> segments) {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    for(auto it = segments.begin(); it != segments.end(); ++it) {
+        this->segments.push_back(*it);
+    }
   }
   std::lock_guard<std::mutex> lock(download_mutex);
   download_cv.notify_one();

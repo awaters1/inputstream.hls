@@ -44,6 +44,7 @@ public:
   ActiveSegmentController(std::unique_ptr<Downloader> downloader);
   ~ActiveSegmentController();
   void add_segment(hls::Segment segment);
+  void add_segments(std::vector<hls::Segment> segments);
   std::future<std::unique_ptr<hls::ActiveSegment>> get_active_segment(hls::Segment segment);
 private:
   bool has_next_demux_segment();
