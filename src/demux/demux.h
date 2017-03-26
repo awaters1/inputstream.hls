@@ -74,7 +74,7 @@ private:
   } AV_POSMAP_ITEM;
   std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
 
-  int g_loglevel = DEMUX_DBG_INFO;
+  int g_loglevel = DEMUX_DBG_PARSE;
   bool reading_packets = false;
 };
 

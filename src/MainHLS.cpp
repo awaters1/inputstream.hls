@@ -237,14 +237,14 @@ extern "C" {
         } else if (stream.codec_name == "h264") {
           strcpy(stream_info.m_codecName, "h264");
           stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-          stream_info.m_FpsScale = 1000;
-          stream_info.m_FpsRate = 15000;
         }
         stream_info.m_pID = stream.stream_id;
         stream_info.m_Channels = stream.channels;
         stream_info.m_SampleRate = stream.sample_rate * 2;
         stream_info.m_BitRate = stream.bit_rate;
         stream_info.m_BitsPerSample = stream.bits_per_sample;
+        stream_info.m_FpsRate = stream.fps_rate;
+        stream_info.m_FpsScale = stream.fps_scale;
 
         return stream_info;
       } else {
