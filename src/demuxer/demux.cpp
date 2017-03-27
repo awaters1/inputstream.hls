@@ -290,8 +290,8 @@ void Demux::Abort()
 DemuxPacket* Demux::Read()
 {
   if (!m_demuxPacketBuffer.empty()) {
-    DemuxPacket *packet = m_demuxPacketBuffer.back();
-    // m_demuxPacketBuffer.pop_back();
+    DemuxPacket *packet = m_demuxPacketBuffer.front();
+    m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
     return packet;
   }
   return nullptr;
@@ -495,6 +495,8 @@ void Demux::populate_pvr_streams()
       m_streams[count].m_BlockAlign    = (*it)->stream_info.block_align;
       m_streams[count].m_BitRate       = (*it)->stream_info.bit_rate;
       m_streams[count].m_BitsPerSample = (*it)->stream_info.bits_per_sample;
+
+      m_streamIds.m_streamIds[count] = (*it)->pid;
 
       count++;
       m_AVContext->StartStreaming((*it)->pid);

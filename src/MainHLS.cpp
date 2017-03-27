@@ -348,18 +348,8 @@ extern "C" {
       return NULL;
 
     DemuxPacket *packet = hls_session->get_current_pkt();
-    // TODO: Not sure why I have to copy the whole thing
-    DemuxPacket *copy = ipsh->AllocateDemuxPacket(packet->iSize);
-    copy->demuxerId = packet->demuxerId;
-    copy->dispTime = packet->dispTime;
-    copy->dts = packet->dts;
-    copy->duration = packet->duration;
-    copy->iGroupId = packet->iGroupId;
-    copy->iSize = packet->iSize;
-    copy->iStreamId = packet->iStreamId;
-    memcpy(copy->pData, packet->pData, packet->iSize);
-    copy->pts = packet->pts;
-    return copy;
+    hls_session->read_next_pkt();
+    return packet;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
