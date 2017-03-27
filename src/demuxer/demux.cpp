@@ -82,7 +82,7 @@ Demux::Demux(std::string buffer)
   , m_PTS(PTS_UNSET)
   , m_dts(PTS_UNSET)
   , m_pts(PTS_UNSET)
-  , m_startpts(PTS_UNSET)
+  , m_startpts(0)
   , m_pinTime(0)
   , m_curTime(0)
   , m_endTime(0)
@@ -268,7 +268,6 @@ INPUTSTREAM_INFO* Demux::GetStreams()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
-
   return m_streams;
 }
 
@@ -495,6 +494,9 @@ void Demux::populate_pvr_streams()
       m_streams[count].m_BlockAlign    = (*it)->stream_info.block_align;
       m_streams[count].m_BitRate       = (*it)->stream_info.bit_rate;
       m_streams[count].m_BitsPerSample = (*it)->stream_info.bits_per_sample;
+      m_streams[count].m_Bandwidth = 0;
+      m_streams[count].m_ExtraSize = 0;
+      m_streams[count].m_ExtraData = nullptr;
 
       m_streamIds.m_streamIds[count] = (*it)->pid;
 

@@ -237,11 +237,8 @@ extern "C" {
 
     if(hls_session) {
       INPUTSTREAM_INFO stream_info = hls_session->get_stream(streamid);
-      if (stream_info.m_pID == streamid) {
-        return stream_info;
-      } else {
-        return dummy_info;
-      }
+      memcpy(&dummy_info, &stream_info, sizeof(INPUTSTREAM_INFO));
+      return dummy_info;
     }
     return dummy_info;
   }
