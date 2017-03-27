@@ -207,11 +207,7 @@ extern "C" {
 
     if(hls_session)
     {
-        std::vector<hls::Stream> streams = hls_session->get_streams();
-        iids.m_streamCount = streams.size();
-        for(int i = 0; i < streams.size(); ++i) {
-          iids.m_streamIds[i] = streams[i].stream_id;
-        }
+        return hls_session->get_streams();
     } else
         iids.m_streamCount = 0;
 
@@ -240,24 +236,8 @@ extern "C" {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
     if(hls_session) {
-      hls::Stream stream = hls_session->get_stream(streamid);
-      if (stream.stream_id == streamid) {
-        INPUTSTREAM_INFO stream_info = {};
-        if (stream.codec_name == "aac") {
-          strcpy(stream_info.m_codecName, "aac");
-          stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
-        } else if (stream.codec_name == "h264") {
-          strcpy(stream_info.m_codecName, "h264");
-          stream_info.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-        }
-        stream_info.m_pID = stream.stream_id;
-        stream_info.m_Channels = stream.channels;
-        stream_info.m_SampleRate = stream.sample_rate * 2;
-        stream_info.m_BitRate = stream.bit_rate;
-        stream_info.m_BitsPerSample = stream.bits_per_sample;
-        stream_info.m_FpsRate = stream.fps_rate;
-        stream_info.m_FpsScale = stream.fps_scale;
-
+      INPUTSTREAM_INFO stream_info = hls_session->get_stream(streamid);
+      if (stream_info.m_pID == streamid) {
         return stream_info;
       } else {
         return dummy_info;
@@ -367,7 +347,19 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    return hls_session->get_current_pkt();
+    DemuxPacket *packet = hls_session->get_current_pkt();
+    // TODO: Not sure why I have to copy the whole thing
+    DemuxPacket *copy = ipsh->AllocateDemuxPacket(packet->iSize);
+    copy->demuxerId = packet->demuxerId;
+    copy->dispTime = packet->dispTime;
+    copy->dts = packet->dts;
+    copy->duration = packet->duration;
+    copy->iGroupId = packet->iGroupId;
+    copy->iSize = packet->iSize;
+    copy->iStreamId = packet->iStreamId;
+    memcpy(copy->pData, packet->pData, packet->iSize);
+    copy->pts = packet->pts;
+    return copy;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)

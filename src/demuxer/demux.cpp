@@ -262,6 +262,16 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
   return m_streamIds;
 }
 
+INPUTSTREAM_INFO* Demux::GetStreams()
+{
+  if (!m_nosetup.empty())
+    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
+
+  CLockObject lock(m_mutex);
+
+  return m_streams;
+}
+
 void Demux::Flush(void)
 {
   CLockObject lock(m_mutex);
@@ -281,7 +291,7 @@ DemuxPacket* Demux::Read()
 {
   if (!m_demuxPacketBuffer.empty()) {
     DemuxPacket *packet = m_demuxPacketBuffer.back();
-    m_demuxPacketBuffer.pop_back();
+    // m_demuxPacketBuffer.pop_back();
     return packet;
   }
   return nullptr;

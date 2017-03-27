@@ -36,7 +36,8 @@ namespace hls {
     int64_t get_current_time() { return demux->GetPlayingTime(); };
     uint32_t get_byte_length() { return segment.byte_length; };
     uint32_t get_byte_offset() { return segment.byte_offset; };
-    std::vector<Stream> streams;
+    INPUTSTREAM_IDS get_input_stream_ids() { return demux->GetStreamIds(); };
+    INPUTSTREAM_INFO* get_input_stream_info() { return demux->GetStreams(); };
   private:
     // Segment as defined in the playlist
     Segment segment;

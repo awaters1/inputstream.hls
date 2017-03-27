@@ -23,8 +23,8 @@ namespace hls {
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
 
-    std::vector<Stream> get_streams();
-    Stream get_stream(uint32_t stream_id);
+    INPUTSTREAM_IDS get_streams();
+    INPUTSTREAM_INFO get_stream(uint32_t stream_id);
 
     DemuxPacket* get_current_pkt();
     void read_next_pkt();

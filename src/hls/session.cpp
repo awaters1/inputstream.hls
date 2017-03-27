@@ -167,23 +167,22 @@ bool hls::Session::load_segments() {
   return true;
 }
 
-std::vector<hls::Stream> hls::Session::get_streams() {
+INPUTSTREAM_IDS hls::Session::get_streams() {
   // Load the first segment of the active playlactive_segmentist to obtain the streams
   // from the mpeg2ts
   if (!active_segment) {
     load_segments();
   }
-  return active_segment->streams;
+  return active_segment->get_input_stream_ids();
 }
 
-hls::Stream hls::Session::get_stream(uint32_t stream_id) {
-  std::vector<hls::Stream> streams = get_streams();
-  for(std::vector<hls::Stream>::iterator it = streams.begin(); it != streams.end(); ++it) {
-    if (it->stream_id == stream_id) {
-      return *it;
+INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
+  for(size_t i = 0; i < get_streams().m_streamCount; ++i) {
+    if (active_segment->get_input_stream_info()[i].m_pID == stream_id) {
+      return active_segment->get_input_stream_info()[i];
     }
   }
-  return hls::Stream();
+  return INPUTSTREAM_INFO();
 }
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
