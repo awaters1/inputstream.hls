@@ -28,8 +28,9 @@
 #include "helpers.h"
 #include "kodi_vfs_types.h"
 #include "SSD_dll.h"
-#include "demux/demux.h"
 #include "kodi.h"
+
+#include "kodi_inputstream_dll.h"
 
 // HLS specific
 #include "hls/session.h"
@@ -45,12 +46,14 @@ KodiSession *hls_session = 0;
 KodiHost kodihost;
 ADDON::CHelper_libXBMC_addon *xbmc = nullptr;
 std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
+
+bool g_bExtraDebug = true;
 /***************************  Interface *********************************/
 
-#include "kodi_inputstream_dll.h"
 #include "libKODI_inputstream.h"
 
 CHelper_libKODI_inputstream *ipsh = 0;
+CHelper_libXBMC_codec *CODEC = 0;
 
 extern "C" {
 
@@ -87,6 +90,15 @@ extern "C" {
     }
 
     xbmc->Log(ADDON::LOG_DEBUG, "ADDON_Create()");
+
+    CODEC = new CHelper_libXBMC_codec;
+    if (!CODEC->RegisterMe(hdl))
+    {
+      SAFE_DELETE(xbmc);
+      SAFE_DELETE(ipsh);
+      SAFE_DELETE(CODEC);
+      return ADDON_STATUS_PERMANENT_FAILURE;
+    }
 
     curAddonStatus = ADDON_STATUS_OK;
     return curAddonStatus;
@@ -212,9 +224,9 @@ extern "C" {
     INPUTSTREAM_CAPABILITIES caps;
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
-    caps.m_supportsIDisplayTime = false;
+    caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
-    caps.m_supportsPause = caps.m_supportsSeek;
+    caps.m_supportsPause = true; //caps.m_supportsSeek;
     return caps;
   }
 
@@ -355,35 +367,7 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    TSDemux::STREAM_PKT* pkt = hls_session->get_current_pkt();
-    if (!pkt) {
-      // No packet available
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
-      return p;
-    }
-    // std::cout << "Packet PTS: " << pkt->pts << " DTS: " << pkt->dts << " Duration: " << pkt->duration << "\n";
-
-    if (pkt->streamChange) {
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(0);
-      p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-      xbmc->Log(ADDON::LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
-      hls_session->read_next_pkt();
-      return p;
-    } else {
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(pkt->size);
-      // DVD_TIME_BASE / PTS
-      double offset = (1000000.0 / 90000.0);
-      p->dts = (pkt->dts * 1000000) / 90000.0;
-      p->pts = (pkt->pts * 1000000) / 90000.0;
-      p->duration = (pkt->duration * 1000000) / 90000.0;
-      p->iStreamId = pkt->pid;
-      p->iGroupId = 0;
-      p->iSize = pkt->size;
-      // std::cout << "Sending packet for stream " << p->iStreamId << " of size " << p->iSize << "\n";
-      memcpy(p->pData, pkt->data, p->iSize);
-      hls_session->read_next_pkt();
-      return p;
-    }
+    return hls_session->get_current_pkt();
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
@@ -419,7 +403,6 @@ extern "C" {
 
   int GetTotalTime()
   {
-    return 0;
     if (!hls_session)
       return 0;
     // TODO: Doesn't work for live streams
@@ -428,10 +411,10 @@ extern "C" {
 
   int GetTime()
   {
-    return 0;
     if (!hls_session)
       return 0;
     // TODO: Doesnt' get the correct time
+    // return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
     return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
   }
 

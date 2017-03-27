@@ -55,6 +55,10 @@ void ActiveSegmentController::download_next_segment() {
   }
 }
 
+bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
+  return pkt1->dts < pkt2->dts;
+}
+
 void ActiveSegmentController::demux_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(demux_mutex);
@@ -97,40 +101,9 @@ void ActiveSegmentController::demux_next_segment() {
       }
       content = decrypt(aes_key, segment.aes_iv, content);
     }
-    std::vector<TSDemux::STREAM_PKT*> packets;
-    std::vector<hls::Stream> streams;
-    std::unique_ptr<Demux> demux = std::unique_ptr<Demux>(new Demux(content, 0));
-    TSDemux::STREAM_PKT* pkt = 0;
-    while (pkt = demux->get_next_pkt()) {
-        unsigned char *data = new unsigned char[pkt->size];
-        memcpy(data, pkt->data, pkt->size);
-        pkt->data = data;
-        if (pkt->streamChange) {
-          // Insert a fake streamChange packet
-          TSDemux::STREAM_PKT* stream_change_pkt = new TSDemux::STREAM_PKT();
-          stream_change_pkt->streamChange = true;
-          stream_change_pkt->pid = pkt->pid;
-          stream_change_pkt->pts = pkt->pts;
-          stream_change_pkt->dts = pkt->dts;
-          // These are needed by kodi to correctly initialize the decoder
-          // packets.push_back(stream_change_pkt);
-          pkt->streamChange = false;
-          TSDemux::ElementaryStream *es = demux->get_elementary_stream(pkt->pid);
-          hls::Stream stream;
-          stream.stream_id = pkt->pid;
-          stream.codec_name = es->GetStreamCodecName();
-          stream.channels = es->stream_info.channels;
-          stream.sample_rate = es->stream_info.sample_rate;
-          stream.bit_rate = es->stream_info.bit_rate;
-          stream.bits_per_sample = es->stream_info.bits_per_sample;
-          stream.fps_rate = es->stream_info.fps_rate;
-          stream.fps_scale = es->stream_info.fps_scale;
-          streams.push_back(stream);
-        }
-        packets.push_back(pkt);
-    }
-    // TODO: maybe packtes need to be sorted
-    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, packets, streams);
+    Demux *demux = new Demux(content);
+    demux->Process();
+    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux));
     bool erased = false;
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);

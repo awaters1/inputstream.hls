@@ -26,7 +26,7 @@ namespace hls {
     std::vector<Stream> get_streams();
     Stream get_stream(uint32_t stream_id);
 
-    TSDemux::STREAM_PKT* get_current_pkt();
+    DemuxPacket* get_current_pkt();
     void read_next_pkt();
     uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
@@ -42,7 +42,7 @@ namespace hls {
 
     std::unique_ptr<ActiveSegment> active_segment;
     ActiveSegmentController active_segment_controller;
-    TSDemux::STREAM_PKT* current_pkt;
+    DemuxPacket* current_pkt;
 
     MediaPlaylist active_playlist;
     uint32_t active_segment_sequence;

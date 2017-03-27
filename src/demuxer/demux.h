@@ -1,5 +1,7 @@
+#pragma once
 /*
- *      Copyright (C) 2013 Jean-Luc Barriere
+ *      Copyright (C) 2013-2016 Team Kodi
+ *      http://www.kodi.tv
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -12,45 +14,61 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program; see the file COPYING.  If not, write to
- *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  along with XBMC; see the file COPYING.  If not, write to
+ *  the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+ *  MA 02110-1301 USA
  *  http://www.gnu.org/copyleft/gpl.html
  *
  */
 
-#ifndef TEST_DEMUX_H
-#define TEST_DEMUX_H
-
 #include "tsDemuxer.h"
-#include "debug.h"
 
+#include <p8-platform/threads/threads.h>
+#include <p8-platform/threads/mutex.h>
+#include <p8-platform/util/buffer.h>
+
+#include <map>
+#include <set>
+
+#include "kodi_inputstream_types.h"
 
 #define AV_BUFFER_SIZE          131072
-#define POSMAP_PTS_INTERVAL     270000LL
 
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(std::string buffer, uint16_t channel);
+  Demux(std::string buffer);
   ~Demux();
 
-  TSDemux::STREAM_PKT* get_next_pkt(void);
-  TSDemux::ElementaryStream* get_elementary_stream(uint16_t pid);
-  std::vector<TSDemux::ElementaryStream*> get_elementary_streams();
-
   const unsigned char* ReadAV(uint64_t pos, size_t n);
-  void reset_buffer();
-  uint64_t get_current_time();
+
+  void* Process();
+
+  INPUTSTREAM_IDS GetStreamIds();
+  INPUTSTREAM_INFO* GetStreams();
+  void Flush();
+  void Abort();
+  DemuxPacket* Read();
+  bool SeekTime(double time, bool backwards, double* startpts);
+
+  int GetPlayingTime();
+
 private:
-  Demux(uint16_t channel);
-  std::string m_buffer;
-  uint64_t m_buffer_pos;
   uint16_t m_channel;
+  std::vector<DemuxPacket*> m_demuxPacketBuffer;
+  P8PLATFORM::CMutex m_mutex;
+  INPUTSTREAM_IDS m_streamIds;
+  INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 
   bool get_stream_data(TSDemux::STREAM_PKT* pkt);
   void reset_posmap();
-  void register_pmt();
-  void show_stream_info(uint16_t pid);
+
+  // PVR interfaces
+  void populate_pvr_streams();
+  bool update_pvr_stream(uint16_t pid);
+  void push_stream_change();
+  DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
+  void push_stream_data(DemuxPacket* dxp);
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer
@@ -64,6 +82,9 @@ private:
   uint16_t m_mainStreamPID;     ///< PID of main stream
   uint64_t m_DTS;               ///< absolute decode time of main stream
   uint64_t m_PTS;               ///< absolute presentation time of main stream
+  uint64_t m_dts;               ///< rebased DTS for the program chain
+  uint64_t m_pts;               ///< rebased PTS for the program chain
+  uint64_t m_startpts;          ///< start PTS for the program chain
   int64_t m_pinTime;            ///< pinned relative position (90Khz)
   int64_t m_curTime;            ///< current relative position (90Khz)
   int64_t m_endTime;            ///< last relative marked position (90Khz))
@@ -74,9 +95,9 @@ private:
   } AV_POSMAP_ITEM;
   std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
 
-  int g_loglevel = DEMUX_DBG_INFO;
-  bool reading_packets = false;
+  bool m_isChangePlaced;
+  std::set<uint16_t> m_nosetup;
+
+  std::string m_buffer;
+  uint64_t m_buffer_pos;
 };
-
-#endif /* TEST_DEMUX_H */
-

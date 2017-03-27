@@ -16,17 +16,10 @@
 
 hls::ActiveSegment::~ActiveSegment() {
   std::cout << "Deleting active segment for " << segment.media_sequence << "\n";
-  for(std::vector<TSDemux::STREAM_PKT*>::iterator it = packets.begin(); it != packets.end(); ++it) {
-      delete [] (*it)->data;
-      delete *it;
-  }
 }
 
-TSDemux::STREAM_PKT* hls::ActiveSegment::get_next_pkt() {
-  if (packet_index < 0 || packet_index >= packets.size()) {
-      return nullptr;
-  }
-  return packets[packet_index++];
+DemuxPacket* hls::ActiveSegment::get_next_pkt() {
+  return demux->Read();
 }
 
 uint64_t hls::Session::get_current_time() {
@@ -36,7 +29,7 @@ uint64_t hls::Session::get_current_time() {
   return 0;
 }
 
-TSDemux::STREAM_PKT* hls::Session::get_current_pkt() {
+DemuxPacket* hls::Session::get_current_pkt() {
   if (!current_pkt) {
     read_next_pkt();
   }

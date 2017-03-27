@@ -15,13 +15,25 @@ set(HLS_SOURCES
   src/MainHLS.cpp
   src/helpers.cpp
   src/oscompat.cpp
-  src/demux/demux.cpp
   src/hls/HLS.cpp
   src/hls/session.cpp
   src/kodi_hls.cpp
   src/hls/decrypter.cpp
   src/hls/active_segment_controller.cpp
   src/downloader/kodi_downloader.cpp
+    src/demuxer/bitstream.cpp
+    src/demuxer/debug.cpp
+    src/demuxer/demux.cpp
+    src/demuxer/elementaryStream.cpp
+    src/demuxer/ES_AAC.cpp
+    src/demuxer/ES_AC3.cpp
+    src/demuxer/ES_h264.cpp
+    src/demuxer/ES_hevc.cpp
+    src/demuxer/ES_MPEGAudio.cpp
+    src/demuxer/ES_MPEGVideo.cpp
+    src/demuxer/ES_Subtitle.cpp
+    src/demuxer/ES_Teletext.cpp
+    src/demuxer/tsDemuxer.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -54,17 +66,16 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
 add_executable(inputstreamhlstest 
     test/hls/hls_test.cpp 
     src/hls/HLS.cpp
-    test/session_test.cpp
-    src/hls/session.cpp
-    src/demux/demux.cpp
-    src/hls/decrypter.cpp
-    test/decrypter_test.cpp
-    src/helpers.cpp
-    src/hls/active_segment_controller.cpp
-    src/downloader/file_downloader.cpp
-    test/active_segment_controller_test.cpp
+   # test/session_test.cpp
+   # src/hls/session.cpp
+   # src/hls/decrypter.cpp
+   # test/decrypter_test.cpp
+   # src/helpers.cpp
+  #  src/hls/active_segment_controller.cpp
+   # src/downloader/file_downloader.cpp
+   # test/active_segment_controller_test.cpp
     )
-target_link_libraries(inputstreamhlstest gtest_main tsDemuxerStatic bento4)
+target_link_libraries(inputstreamhlstest gtest_main bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
 
@@ -75,6 +86,7 @@ include_directories(${INCLUDES}
                     ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
+                    lib/libbento4/Codecs
                     lib/demux-mpegts/src
                     "${gtest_SOURCE_DIR}/include"
 )
@@ -94,8 +106,8 @@ endif()
 
 add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
-add_subdirectory(lib/demux-mpegts)
-list(APPEND DEPLIBS tsDemuxerStatic)
+# add_subdirectory(lib/demux-mpegts)
+# list(APPEND DEPLIBS tsDemuxerStatic)
 					
 build_addon(inputstream.hls HLS DEPLIBS)
 
