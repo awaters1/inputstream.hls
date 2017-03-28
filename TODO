@@ -1,3 +1,12 @@
+For some reason demuxing the mpeg stream causes stuttering when the
+segment changes, due to synchronization issues between the video and the audio
+
+Using ReadStream doesn't cause any issues
+
+Not sure how ffmpeg can synchronize the mpeg transport stream
+
+
+
 Multi-threaded TODO
 1. Make it work with live streams, right now it doesn't add the segments
 when the playlist is reloaded
