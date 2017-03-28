@@ -203,22 +203,14 @@ extern "C" {
   struct INPUTSTREAM_IDS GetStreamIds()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
-    INPUTSTREAM_IDS iids;
-
-    if(hls_session)
-    {
-        return hls_session->get_streams();
-    } else
-        iids.m_streamCount = 0;
-
-    return iids;
+    return INPUTSTREAM_IDS();
   }
 
   struct INPUTSTREAM_CAPABILITIES GetCapabilities()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
-    caps.m_supportsIDemux = true;
+    caps.m_supportsIDemux = false;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
@@ -228,83 +220,11 @@ extern "C" {
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
-    static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
-      0, 0, 0, 0, 0.0f,
-      0, 0, 0, 0, 0 };
-
-    xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
-
-    if(hls_session) {
-      INPUTSTREAM_INFO stream_info = hls_session->get_stream(streamid);
-      memcpy(&dummy_info, &stream_info, sizeof(INPUTSTREAM_INFO));
-      return dummy_info;
-    }
-    return dummy_info;
+    return INPUTSTREAM_INFO();
   }
 
   void EnableStream(int streamid, bool enable)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
-    // TODO: Unsure if I need to support EnableStream
-//
-//    if (!session)
-//      return;
-//
-//    Session::STREAM *stream(session->GetStream(streamid));
-//
-//    if (!stream)
-//      return;
-//
-//    if (enable)
-//    {
-//      if (stream->enabled)
-//        return;
-//
-//      stream->enabled = true;
-//
-//      stream->stream_.start_stream(~0, session->GetWidth(), session->GetHeight());
-//      const dash::DASHTree::Representation *rep(stream->stream_.getRepresentation());
-//      xbmc->Log(ADDON::LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u",
-//        stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
-//
-//      if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
-//      {
-//        xbmc->Log(ADDON::LOG_ERROR, "Unable to select stream!");
-//        return stream->disable();
-//      }
-//
-//      if(rep != stream->stream_.getRepresentation())
-//      {
-//        session->UpdateStream(*stream);
-//        session->CheckChange(true);
-//      }
-//
-//      stream->input_ = new AP4_DASHStream(&stream->stream_);
-//      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
-//      AP4_Movie* movie = stream->input_file_->GetMovie();
-//      if (movie == NULL)
-//      {
-//        xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
-//        return stream->disable();
-//      }
-//
-//      static const AP4_Track::Type TIDC[dash::DASHTree::STREAM_TYPE_COUNT] =
-//      { AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO, AP4_Track::TYPE_TEXT };
-//
-//      AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
-//      if (!track)
-//      {
-//        xbmc->Log(ADDON::LOG_ERROR, "No suitable track found in stream");
-//        return stream->disable();
-//      }
-//
-//      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
-//      stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
-//
-//      return;
-//    }
-//    return stream->disable();
   }
 
   // Doesn't cause any skpping, so it is something related
@@ -312,8 +232,7 @@ extern "C" {
   int ReadStream(unsigned char* buf, unsigned int size)
   {
     if (hls_session) {
-      hls_session->read_stream(buf, size);
-      return size;
+      return hls_session->read_stream(buf, size);
     }
     return -1;
   }
@@ -347,24 +266,11 @@ extern "C" {
 
   DemuxPacket* __cdecl DemuxRead(void)
   {
-    if (!hls_session)
-      return NULL;
-
-    DemuxPacket *packet = hls_session->get_current_pkt();
-    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << "\n";
-    hls_session->read_next_pkt();
-    return packet;
+    return nullptr;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
-    if (!hls_session)
-      return false;
-
-    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
-
-    // TODO: Support seek time
-    // return session->SeekTime(time * 0.001f, 0, !backwards);
     return false;
   }
 
@@ -377,18 +283,11 @@ extern "C" {
   void SetVideoResolution(int width, int height)
   {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
-    if (hls_session) {
-      // TODO: Support set video resolution
-      // session->SetVideoResolution(width, height);
-    } else
-    {
-      kodiDisplayWidth = width;
-      kodiDisplayHeight = height;
-    }
   }
 
   int GetTotalTime()
   {
+    xbmc->Log(ADDON::LOG_INFO, "GetTotalTime");
     if (!hls_session)
       return 0;
     // TODO: Doesn't work for live streams
@@ -397,11 +296,8 @@ extern "C" {
 
   int GetTime()
   {
-    if (!hls_session)
-      return 0;
-    // TODO: Doesnt' get the correct time
-    // return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
-    return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
+    xbmc->Log(ADDON::LOG_INFO, "GetTime");
+    return 0;
   }
 
   bool CanPauseStream(void)
