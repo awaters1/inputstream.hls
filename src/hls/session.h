@@ -22,16 +22,10 @@ namespace hls {
     ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
-
-    INPUTSTREAM_IDS get_streams();
-    INPUTSTREAM_INFO get_stream(uint32_t stream_id);
-
-    DemuxPacket* get_current_pkt();
-    void read_next_pkt();
     uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
     bool is_live() { return active_playlist.live; };
-    void read_stream(uint8_t *buf, size_t size);
+    int read_stream(uint8_t *buf, size_t size);
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
 
@@ -43,7 +37,6 @@ namespace hls {
 
     std::unique_ptr<ActiveSegment> active_segment;
     ActiveSegmentController active_segment_controller;
-    DemuxPacket* current_pkt;
 
     MediaPlaylist active_playlist;
     uint32_t active_segment_sequence;

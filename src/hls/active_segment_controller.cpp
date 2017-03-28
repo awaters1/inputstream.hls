@@ -55,10 +55,6 @@ void ActiveSegmentController::download_next_segment() {
   }
 }
 
-bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
-  return pkt1->dts < pkt2->dts;
-}
-
 void ActiveSegmentController::demux_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(demux_mutex);
@@ -101,9 +97,8 @@ void ActiveSegmentController::demux_next_segment() {
       }
       content = decrypt(aes_key, segment.aes_iv, content);
     }
-    Demux *demux = new Demux(content);
-    demux->Process(segment.media_sequence == 0);
-    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux), content);
+
+    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, content);
     bool erased = false;
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
