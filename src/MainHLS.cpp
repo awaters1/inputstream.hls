@@ -225,7 +225,6 @@ extern "C" {
 
   void EnableStream(int streamid, bool enable)
   {
-    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
   }
 
   // Doesn't cause any skpping, so it is something related
@@ -272,13 +271,6 @@ extern "C" {
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
-    if (!hls_session)
-      return false;
-
-    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
-
-    // TODO: Support seek time
-    // return session->SeekTime(time * 0.001f, 0, !backwards);
     return false;
   }
 
@@ -291,18 +283,11 @@ extern "C" {
   void SetVideoResolution(int width, int height)
   {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
-    if (hls_session) {
-      // TODO: Support set video resolution
-      // session->SetVideoResolution(width, height);
-    } else
-    {
-      kodiDisplayWidth = width;
-      kodiDisplayHeight = height;
-    }
   }
 
   int GetTotalTime()
   {
+    xbmc->Log(ADDON::LOG_INFO, "GetTotalTime");
     if (!hls_session)
       return 0;
     // TODO: Doesn't work for live streams
@@ -311,10 +296,7 @@ extern "C" {
 
   int GetTime()
   {
-    if (!hls_session)
-      return 0;
-    // TODO: Doesnt' get the correct time
-    // return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
+    xbmc->Log(ADDON::LOG_INFO, "GetTime");
     return 0;
   }
 
