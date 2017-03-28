@@ -114,6 +114,7 @@ bool hls::Session::load_segments() {
   // TODO: Update the segments in the controller
   // TODO: Request the segments from the controller
    */
+  /// TODO: Doesn't work on the last segment
   hls::Segment segment = active_playlist.get_next_segment(active_segment_sequence);
   auto future = active_segment_controller.get_active_segment(segment);
   if (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
@@ -134,38 +135,28 @@ bool hls::Session::load_segments() {
   return true;
 }
 
-// TODO: Have to support reading to the end
-// and reading across more than one segment
 int hls::Session::read_stream(uint8_t *buf, size_t size) {
-  if (!active_segment) {
-    load_segments();
-    active_segment_content_offset = 0;
-  }
-  std::string content = active_segment->content;
-  if (active_segment_content_offset >= content.length()) {
-    load_segments();
-    active_segment_content_offset = 0;
-  }
-  size_t chars_to_write = size;
-  if (chars_to_write + active_segment_content_offset >= content.length()) {
-    chars_to_write = content.length() - active_segment_content_offset;
-  }
-  memcpy(buf, content.c_str() + active_segment_content_offset, chars_to_write);
-  if (chars_to_write != size) {
-    load_segments();
-    active_segment_content_offset = 0;
-    if (active_segment) {
-      content = active_segment->content;
-      memcpy(buf + chars_to_write, content.c_str(), size - chars_to_write);
-      active_segment_content_offset += size - chars_to_write;
-      return size;
-    } else {
-      return chars_to_write;
+  size_t data_to_read = size;
+  while(data_to_read > 0 && active_segment) {
+    if (active_segment_content_offset >= active_segment->content.length()) {
+      load_segments();
+      if (!active_segment) {
+        break;
+      }
+      active_segment_content_offset = 0;
     }
-  } else {
-    active_segment_content_offset += size;
-    return size;
+    std::string content = active_segment->content;
+    size_t amount_already_read = size - data_to_read;
+    size_t amount_to_read = data_to_read;
+    if (amount_to_read + active_segment_content_offset >= content.length()) {
+      amount_to_read = content.length() - active_segment_content_offset;
+    }
+    memcpy(buf + amount_already_read,
+        content.c_str() + active_segment_content_offset, amount_to_read);
+    active_segment_content_offset += amount_to_read;
+    data_to_read -= amount_to_read;
   }
+  return size - data_to_read;
 }
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
@@ -184,6 +175,8 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
   }
   active_segment_controller.add_segments(segments);
   std::cout << "Total time is " << total_time << "\n";
+
+  load_segments();
 }
 
 hls::Session::~Session() {
