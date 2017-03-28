@@ -162,6 +162,7 @@ hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequen
   if (segments.front().media_sequence > active_segment_sequence) {
     return segments.front();
   }
+  return segments.back();
 }
 
 bool hls::MediaPlaylist::has_next_segment(uint32_t active_segment_sequence) {
