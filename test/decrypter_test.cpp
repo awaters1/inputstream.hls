@@ -3,24 +3,13 @@
  */
 
 #include <limits.h>
-#include <fstream>
 #include <iostream>
 #include "gtest/gtest.h"
+#include "helpers.h"
 
 #include "../src/hls/decrypter.h"
 
 namespace hls {
-
-std::string load_file_contents(const char* file_name) {
-  std::ifstream file(file_name);
-  if (!file.is_open()) {
-    std::cerr << "Unable to open " << file_name << std::endl;
-  }
-  std::ostringstream ostrm;
-
-  ostrm << file.rdbuf();
-  return ostrm.str();
-}
 
 TEST(DecrypterTest, Decrypt) {
   std::string aes_key = "3uGvlV84qanaLAtEEPNMBw==";

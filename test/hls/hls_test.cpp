@@ -84,7 +84,7 @@ TEST(HlsTest, SegmentUrl) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   mp.open("test/hls/gear1/prog_index.m3u8");
   std::vector<Segment> segments = mp.get_segments();
-  ASSERT_EQ(181, segments.size());
+  ASSERT_EQ(2, segments.size());
   EXPECT_EQ("test/hls/gear1/fileSequence0.ts", segments[0].get_url());
 }
 
@@ -92,7 +92,7 @@ TEST(HlsTest, MasterPlaylistLoadsMediaPlaylist) {
   FileMasterPlaylist master_playlist = FileMasterPlaylist();
   master_playlist.open("test/hls/bipbopall.m3u8");
   ASSERT_EQ(4, master_playlist.get_media_playlist().size());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[0].get_segments().size());
+  EXPECT_EQ(2, master_playlist.get_media_playlist()[0].get_segments().size());
   EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_segments().size());
   EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_segments().size());
   EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_segments().size());

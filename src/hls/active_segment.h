@@ -7,25 +7,12 @@
 #include "HLS.h"
 
 namespace hls {
-  class Stream {
-   public:
-     uint32_t stream_id;
-     std::string codec_name;
-     uint32_t channels;
-     uint32_t sample_rate;
-     uint32_t bit_rate;
-     uint32_t bits_per_sample;
-     uint32_t fps_scale;
-     uint32_t fps_rate;
-   };
-
   class ActiveSegment {
   public:
     ActiveSegment(Segment segment, std::string content):
       segment(segment),
       content(content)
   {}
-    ~ActiveSegment();
     ActiveSegment(const ActiveSegment& other) = delete;
     ActiveSegment & operator= (const ActiveSegment & other) = delete;
 

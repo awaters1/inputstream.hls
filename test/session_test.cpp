@@ -4,6 +4,7 @@
 
 #include <limits.h>
 #include "gtest/gtest.h"
+#include "helpers.h"
 
 #include "../src/hls/session.h"
 #include "../src/downloader/file_downloader.h"
@@ -25,36 +26,41 @@ protected:
   Session *session;
 };
 
-TEST_F(SessionTest, CreateSession) {
-  std::vector<Stream> streams = session->get_streams();
-  ASSERT_EQ(2, streams.size());
-  EXPECT_EQ("aac", streams[0].codec_name);
-  EXPECT_EQ("h264", streams[1].codec_name);
-}
-
-TEST_F(SessionTest, StreamInfo) {
-  std::vector<Stream> streams = session->get_streams();
-  ASSERT_EQ(2, streams.size());
-  EXPECT_EQ("h264", streams[1].codec_name);
-  EXPECT_EQ(66733, streams[1].fps_scale);
-  EXPECT_EQ(1000000, streams[1].fps_rate);
-}
-
 TEST_F(SessionTest, TotalTime) {
-  EXPECT_EQ(1801, session->get_total_time());
+  EXPECT_EQ(20, session->get_total_time());
 }
 
-TEST_F(SessionTest, StartCurrentTime) {
-  EXPECT_EQ(0, session->get_current_time());
+TEST_F(SessionTest, ReadStreamPart) {
+  std::string file_contents = load_file_contents("test/hls/gear1/fileSequence0.ts");
+  size_t len = 100;
+  uint8_t *buf = new uint8_t[len];
+  size_t amount_read = session->read_stream(buf, len);
+  EXPECT_TRUE(memcmp(file_contents.c_str(), buf, len) == 0);
+  EXPECT_EQ(len, amount_read);
 }
 
-TEST_F(SessionTest, CurrentTime) {
-  session->get_streams(); // fetches active_segment
-  for(int i = 0; i < 100; ++i) {
-    session->read_next_pkt();
-  }
-  // TODO: Not sure what the value should be
-  // EXPECT_EQ(10032, session->get_current_time());
+TEST_F(SessionTest, ReadStreamSplit) {
+  std::string file_contents1 = load_file_contents("test/hls/gear1/fileSequence0.ts");
+  std::string file_contents2 = load_file_contents("test/hls/gear1/fileSequence1.ts");
+  size_t len = 500000;
+  uint8_t *buf = new uint8_t[len];
+  size_t amount_read = session->read_stream(buf, len);
+  EXPECT_TRUE(memcmp(file_contents1.c_str(), buf, file_contents1.length()) == 0);
+  size_t left_over = amount_read - file_contents1.length();
+  EXPECT_TRUE(memcmp(file_contents2.c_str(), buf + file_contents1.length(), left_over) == 0);
+  EXPECT_EQ(len, amount_read);
+}
+
+TEST_F(SessionTest, ReadStreamEnd) {
+  std::string file_contents1 = load_file_contents("test/hls/gear1/fileSequence0.ts");
+  std::string file_contents2 = load_file_contents("test/hls/gear1/fileSequence1.ts");
+  size_t len = 10000000;
+  uint8_t *buf = new uint8_t[len];
+  size_t amount_read = session->read_stream(buf, len);
+  EXPECT_TRUE(memcmp(file_contents1.c_str(), buf, file_contents1.length()) == 0);
+  size_t left_over = amount_read - file_contents1.length();
+  EXPECT_TRUE(memcmp(file_contents2.c_str(), buf + file_contents1.length(), left_over) == 0);
+  EXPECT_EQ(50000, amount_read);
 }
 
 class EncryptedSessionTest : public ::testing::Test {
@@ -72,11 +78,5 @@ protected:
   Session *session;
 };
 
-TEST_F(EncryptedSessionTest, DecryptsSession) {
-  std::vector<Stream> streams = session->get_streams();
-  ASSERT_EQ(2, streams.size());
-  EXPECT_EQ("h264", streams[0].codec_name);
-  EXPECT_EQ("aac", streams[1].codec_name);
-}
 
 }

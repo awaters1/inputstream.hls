@@ -298,7 +298,7 @@ extern "C" {
   {
     // kodi calls this, can demux and get PTS
     xbmc->Log(ADDON::LOG_INFO, "GetTime");
-    return 0;
+    return -1;
   }
 
   bool CanPauseStream(void)

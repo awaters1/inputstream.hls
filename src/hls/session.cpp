@@ -14,10 +14,6 @@
 
 #include "session.h"
 
-hls::ActiveSegment::~ActiveSegment() {
-  std::cout << "Deleting active segment for " << segment.media_sequence << "\n";
-}
-
 hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   FileMediaPlaylist media_playlist;
   media_playlist.open(url.c_str());
@@ -138,6 +134,8 @@ bool hls::Session::load_segments() {
   return true;
 }
 
+// TODO: Have to support reading to the end
+// and reading across more than one segment
 int hls::Session::read_stream(uint8_t *buf, size_t size) {
   if (!active_segment) {
     load_segments();

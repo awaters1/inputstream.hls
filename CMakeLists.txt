@@ -53,14 +53,15 @@ add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
 add_executable(inputstreamhlstest 
     test/hls/hls_test.cpp 
     src/hls/HLS.cpp
-   # test/session_test.cpp
-   # src/hls/session.cpp
-   # src/hls/decrypter.cpp
-   # test/decrypter_test.cpp
-   # src/helpers.cpp
-  #  src/hls/active_segment_controller.cpp
-   # src/downloader/file_downloader.cpp
-   # test/active_segment_controller_test.cpp
+    test/session_test.cpp
+    src/hls/session.cpp
+    src/hls/decrypter.cpp
+    test/decrypter_test.cpp
+    src/helpers.cpp
+    src/hls/active_segment_controller.cpp
+    src/downloader/file_downloader.cpp
+    test/active_segment_controller_test.cpp
+    test/helpers.cpp
     )
 target_link_libraries(inputstreamhlstest gtest_main bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
