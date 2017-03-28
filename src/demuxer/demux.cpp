@@ -191,7 +191,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-void* Demux::Process()
+void* Demux::Process(bool add_in_stream_change)
 {
   if (!m_AVContext)
   {

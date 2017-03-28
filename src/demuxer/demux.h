@@ -42,7 +42,7 @@ public:
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 
-  void* Process();
+  void* Process(bool add_in_stream_change);
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();

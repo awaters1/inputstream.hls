@@ -185,6 +185,32 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   return INPUTSTREAM_INFO();
 }
 
+void hls::Session::read_stream(uint8_t *buf, size_t size) {
+  if (!active_segment) {
+    load_segments();
+    active_segment_content_offset = 0;
+  }
+  std::string content = active_segment->content;
+  if (active_segment_content_offset >= content.length()) {
+    load_segments();
+    active_segment_content_offset = 0;
+  }
+  size_t chars_to_write = size;
+  if (chars_to_write + active_segment_content_offset >= content.length()) {
+    chars_to_write = content.length() - active_segment_content_offset;
+  }
+  memcpy(buf, content.c_str() + active_segment_content_offset, chars_to_write);
+  if (chars_to_write != size) {
+    load_segments();
+    active_segment_content_offset = 0;
+    content = active_segment->content;
+    memcpy(buf + chars_to_write, content.c_str(), size - chars_to_write);
+    active_segment_content_offset += size - chars_to_write;
+  } else {
+    active_segment_content_offset += size;
+  }
+}
+
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     active_segment_sequence(-1),
     master_playlist(master_playlist),
@@ -193,6 +219,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     current_pkt(0),
     download_speed(0),
     active_segment_controller(std::unique_ptr<Downloader>(downloader)),
+    active_segment_content_offset(0),
     media_playlists(master_playlist.get_media_playlist()){
   active_playlist = media_playlists.at(0);
   std::vector<Segment> segments = active_playlist.get_segments();

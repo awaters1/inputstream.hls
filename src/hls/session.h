@@ -31,6 +31,7 @@ namespace hls {
     uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
     bool is_live() { return active_playlist.live; };
+    void read_stream(uint8_t *buf, size_t size);
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
 
@@ -51,5 +52,6 @@ namespace hls {
     std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;
     uint64_t start_pts;
+    uint32_t active_segment_content_offset;
   };
 }

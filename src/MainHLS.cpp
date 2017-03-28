@@ -307,8 +307,14 @@ extern "C" {
 //    return stream->disable();
   }
 
+  // Doesn't cause any skpping, so it is something related
+  // to how the streams are demuxed
   int ReadStream(unsigned char* buf, unsigned int size)
   {
+    if (hls_session) {
+      hls_session->read_stream(buf, size);
+      return size;
+    }
     return -1;
   }
 
@@ -345,6 +351,7 @@ extern "C" {
       return NULL;
 
     DemuxPacket *packet = hls_session->get_current_pkt();
+    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << "\n";
     hls_session->read_next_pkt();
     return packet;
   }

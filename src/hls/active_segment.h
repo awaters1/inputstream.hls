@@ -22,9 +22,10 @@ namespace hls {
 
   class ActiveSegment {
   public:
-    ActiveSegment(Segment segment, std::unique_ptr<Demux> demux):
+    ActiveSegment(Segment segment, std::unique_ptr<Demux> demux, std::string content):
       segment(segment),
-      demux(std::move(demux))
+      demux(std::move(demux)),
+      content(content)
   {}
     ~ActiveSegment();
     ActiveSegment(const ActiveSegment& other) = delete;
@@ -38,6 +39,8 @@ namespace hls {
     uint32_t get_byte_offset() { return segment.byte_offset; };
     INPUTSTREAM_IDS get_input_stream_ids() { return demux->GetStreamIds(); };
     INPUTSTREAM_INFO* get_input_stream_info() { return demux->GetStreams(); };
+
+    std::string content;
   private:
     // Segment as defined in the playlist
     Segment segment;

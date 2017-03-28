@@ -102,8 +102,8 @@ void ActiveSegmentController::demux_next_segment() {
       content = decrypt(aes_key, segment.aes_iv, content);
     }
     Demux *demux = new Demux(content);
-    demux->Process();
-    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux));
+    demux->Process(segment.media_sequence == 0);
+    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux), content);
     bool erased = false;
     {
         std::lock_guard<std::mutex> lock(private_data_mutex);
