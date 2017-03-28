@@ -315,7 +315,7 @@ extern "C" {
       return 0;
     // TODO: Doesnt' get the correct time
     // return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
-    return static_cast<int>((double)(hls_session->get_current_time())/ 90.0);
+    return 0;
   }
 
   bool CanPauseStream(void)

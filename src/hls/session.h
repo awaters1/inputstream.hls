@@ -22,7 +22,6 @@ namespace hls {
     ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
-    uint64_t get_current_time();
     uint32_t get_total_time() { return total_time; };
     bool is_live() { return active_playlist.live; };
     int read_stream(uint8_t *buf, size_t size);
