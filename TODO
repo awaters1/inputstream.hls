@@ -1,3 +1,8 @@
+TODO:
+1. Live streams
+2. Variant stream switching
+
+
 For some reason demuxing the mpeg stream causes stuttering when the
 segment changes, due to synchronization issues between the video and the audio
 
