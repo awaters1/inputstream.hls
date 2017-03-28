@@ -289,15 +289,15 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_INFO, "GetTotalTime");
     if (!hls_session)
-      return 0;
-    // TODO: Doesn't work for live streams
+      return -1;
+    if (hls_session->is_live()) {
+      return -1;
+    }
     return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
   int GetTime()
   {
-    // kodi calls this, can demux and get PTS
-    xbmc->Log(ADDON::LOG_INFO, "GetTime");
     return -1;
   }
 
