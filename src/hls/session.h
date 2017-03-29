@@ -30,7 +30,6 @@ namespace hls {
 
     double download_speed;
   private:
-    void reload_media_playlist(MediaPlaylist &mediaPlaylist);
     void switch_streams();
     bool load_segments();
 

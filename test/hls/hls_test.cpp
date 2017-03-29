@@ -83,19 +83,18 @@ TEST(HlsTest, MediaPlayistUrl) {
 TEST(HlsTest, SegmentUrl) {
   hls::FileMediaPlaylist mp = hls::FileMediaPlaylist();
   mp.open("test/hls/gear1/prog_index.m3u8");
-  std::vector<Segment> segments = mp.get_segments();
-  ASSERT_EQ(2, segments.size());
-  EXPECT_EQ("test/hls/gear1/fileSequence0.ts", segments[0].get_url());
+  ASSERT_EQ(2, mp.get_number_of_segments());
+  EXPECT_EQ("test/hls/gear1/fileSequence0.ts", mp.get_segment(0).get_url());
 }
 
 TEST(HlsTest, MasterPlaylistLoadsMediaPlaylist) {
   FileMasterPlaylist master_playlist = FileMasterPlaylist();
   master_playlist.open("test/hls/bipbopall.m3u8");
   ASSERT_EQ(4, master_playlist.get_media_playlist().size());
-  EXPECT_EQ(2, master_playlist.get_media_playlist()[0].get_segments().size());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_segments().size());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_segments().size());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_segments().size());
+  EXPECT_EQ(2, master_playlist.get_media_playlist()[0].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_number_of_segments());
 }
 
 TEST(HlsTest, EncryptedMediaPlaylist) {
@@ -109,7 +108,7 @@ TEST(HlsTest, EncryptedMediaPlaylist) {
 TEST(HlsTest, EncryptedSegments) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/hls/hls_400_.m3u8");
-  Segment segment = media_playlist.get_segments()[0];
+  Segment segment = media_playlist.get_segment(0);
   EXPECT_EQ("test/hls/aes_key", segment.aes_uri);
   EXPECT_EQ("0x9f11a1b6a9fe0d800f5c9688370e694d", segment.aes_iv);
   EXPECT_TRUE(segment.encrypted);
@@ -118,13 +117,13 @@ TEST(HlsTest, EncryptedSegments) {
 TEST(HlsTest, ByteRangeSegments) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/hls/byte_range.m3u8");
-  EXPECT_EQ(181, media_playlist.get_segments().size());
-  EXPECT_EQ(326744, media_playlist.get_segments()[0].byte_length);
-  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segments()[0].get_url());
-  EXPECT_EQ(0, media_playlist.get_segments()[0].byte_offset);
-  EXPECT_EQ(139872, media_playlist.get_segments()[180].byte_length);
-  EXPECT_EQ(59226768, media_playlist.get_segments()[180].byte_offset);
-  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segments()[180].get_url());
+  EXPECT_EQ(181, media_playlist.get_number_of_segments());
+  EXPECT_EQ(326744, media_playlist.get_segment(0).byte_length);
+  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segment(0).get_url());
+  EXPECT_EQ(0, media_playlist.get_segment(0).byte_offset);
+  EXPECT_EQ(139872, media_playlist.get_segment(180).byte_length);
+  EXPECT_EQ(59226768, media_playlist.get_segment(180).byte_offset);
+  EXPECT_EQ("test/hls/main.ts", media_playlist.get_segment(180).get_url());
 }
 
 TEST(HlsTest, LiveMediaPlaylist) {
@@ -136,20 +135,20 @@ TEST(HlsTest, LiveMediaPlaylist) {
 TEST(HlsTest, HasNextSegmentFirst) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/live/media.m3u8");
-  EXPECT_TRUE(media_playlist.has_next_segment(-1));
+  EXPECT_TRUE(media_playlist.has_segment(-1));
 }
 
 TEST(HlsTest, HasNextSegment) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/live/media.m3u8");
-  EXPECT_TRUE(media_playlist.has_next_segment(2));
-  EXPECT_FALSE(media_playlist.has_next_segment(6));
+  EXPECT_TRUE(media_playlist.has_segment(2));
+  EXPECT_FALSE(media_playlist.has_segment(6));
 }
 
 TEST(HlsTest, GetNextSegment) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/live/media.m3u8");
-  Segment segment = media_playlist.get_next_segment(5);
+  Segment segment = media_playlist.get_segment(6);
   EXPECT_EQ(segment.media_sequence, 6);
 }
 }

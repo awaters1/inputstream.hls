@@ -71,15 +71,13 @@ namespace hls
     bool live;
     void add_segment(Segment segment) { segments.push_back(segment); };
     uint32_t get_number_of_segments() { return segments.size(); };
-    std::vector<Segment> get_segments() { return segments; };
     float get_segment_target_duration() { return segment_target_duration; };
-    bool has_next_segment(uint32_t active_segment_sequence);
-    // Returns the segment after the active one
-    Segment get_next_segment(uint32_t active_segment_sequence);
+    bool has_segment(uint32_t segment_index);
+    Segment get_segment(uint32_t segment_index);
+    uint32_t get_total_duration();
   protected:
     bool write_data(std::string line);
   private:
-
     bool in_segment;
     float segment_target_duration;
     uint32_t starting_media_sequence;

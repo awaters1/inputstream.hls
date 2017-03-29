@@ -149,23 +149,19 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   return true;
 }
 
-hls::Segment hls::MediaPlaylist::get_next_segment(uint32_t active_segment_sequence) {
-  if (active_segment_sequence == uint32_t(-1)) {
-        return segments.front();
-    }
-  for(auto it = segments.begin(); it != segments.end(); ++it) {
-      if (active_segment_sequence == it->media_sequence) {
-          return *(++it);
-      }
+uint32_t hls::MediaPlaylist::get_total_duration() {
+  uint32_t total_time = 0;
+  for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
+    total_time += it->duration;
   }
-  // Either at the end or the beginning
-  if (segments.front().media_sequence > active_segment_sequence) {
-    return segments.front();
-  }
-  return segments.back();
+  return total_time;
 }
 
-bool hls::MediaPlaylist::has_next_segment(uint32_t active_segment_sequence) {
+hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
+  return segments.at(segment_index);
+}
+
+bool hls::MediaPlaylist::has_segment(uint32_t active_segment_sequence) {
   if (active_segment_sequence == uint32_t(-1)) {
       return !segments.empty();
   }

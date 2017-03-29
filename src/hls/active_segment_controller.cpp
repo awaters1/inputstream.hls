@@ -29,7 +29,7 @@ void ActiveSegmentController::download_next_segment() {
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
       download_index = download_segment_index;
-      segment = segments.at(download_index);
+      segment = media_playlist.get_segment(download_index);
       segment_data[segment].state = SegmentState::DOWNLOADING;
     }
 
@@ -125,30 +125,61 @@ void ActiveSegmentController::demux_next_segment() {
   }
 }
 
-std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_active_segment(hls::Segment segment) {
+//void ActiveSegmentController::reload_media_playlist() {
+//  std::cout << "Reloading playlist bandwidth: " << media_playlist.bandwidth << "\n";
+//  if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
+//     MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
+//     std::vector<Segment> new_segments = new_media_playlist.get_segments();
+//     uint32_t last_media_sequence;
+//     if (media_playlist.get_number_of_segments() > 0) {
+//       last_media_sequence = media_playlist.get_segments().back().media_sequence;
+//     } else {
+//       last_media_sequence = -1;
+//     }
+//     uint32_t added_segments = 0;
+//     uint32_t last_added_sequence = 0;
+//     for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
+//         if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
+//             media_playlist.add_segment(*it);
+//             ++added_segments;
+//             last_added_sequence = it->media_sequence;
+//         }
+//     }
+//     std::cout << "Reloaded playlist with " << added_segments << " new segments, last segment id: " << last_added_sequence << "\n";
+//  }
+//}
+
+std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_next_segment() {
+  hls::Segment segment;
   SegmentData current_segment_data;
+  uint32_t segment_index;
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
-    current_segment_data = segment_data[segment];
+    segment_index = current_segment_index;
+    if (media_playlist.has_segment(segment_index)) {
+      segment = media_playlist.get_segment(segment_index);
+      ++current_segment_index;
+      current_segment_data = segment_data[segment];
+    } else if (media_playlist.live){
+      // TODO: Implement playlist reload and stall the response
+    } else {
+      // We are all done
+      std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+      promise.set_value(nullptr);
+      return promise.get_future();
+    }
   }
   switch(segment_data[segment].state) {
   case SegmentState::UNKNOWN: {
     // TODO: May have to remove a segment from segment_data so this one gets processed
     std::cout << "Have to download segment " << segment.get_url() << "\n";
-    auto it = std::find(segments.begin(), segments.end(), segment);
-    if (it == segments.end()) {
-      std::cerr << "Unable to find segment in our list\n";
-      return std::future<std::unique_ptr<hls::ActiveSegment>>();
-    } else {
-      uint32_t index = it - segments.begin();
-      if (index != download_segment_index) {
-        {
-          std::lock_guard<std::mutex> lock(private_data_mutex);
-          download_segment_index = index;
-        }
-        std::lock_guard<std::mutex> lock(download_mutex);
-        download_cv.notify_one();
+    if (segment_index != download_segment_index) {
+      {
+        std::lock_guard<std::mutex> lock(private_data_mutex);
+        download_segment_index = segment_index;
       }
+      std::lock_guard<std::mutex> lock(download_mutex);
+      download_cv.notify_one();
     }
   } case SegmentState::DOWNLOADING:
   case SegmentState::DOWNLOADED:
@@ -181,7 +212,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ac
 
 bool ActiveSegmentController::has_next_download_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
-  return download_segment_index >= 0 && download_segment_index < segments.size();
+  return media_playlist.has_segment(download_segment_index);
 }
 
 bool ActiveSegmentController::has_next_demux_segment() {
