@@ -43,9 +43,9 @@ class ActiveSegmentController {
 public:
   ActiveSegmentController(std::unique_ptr<Downloader> downloader);
   ~ActiveSegmentController();
-  void add_segment(hls::Segment segment);
-  void add_segments(std::vector<hls::Segment> segments);
-  std::future<std::unique_ptr<hls::ActiveSegment>> get_active_segment(hls::Segment segment);
+  void set_media_playlist(hls::MediaPlaylist media_playlist);
+  std::future<std::unique_ptr<hls::ActiveSegment>> get_next_segment();
+  void set_current_segment(hls::Segment segment);
 private:
   bool has_next_demux_segment();
   bool has_next_download_segment();
@@ -61,8 +61,11 @@ private:
 
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
+  // Where the download is pointing
   uint32_t download_segment_index;
-  std::vector<hls::Segment> segments;
+  // Where next segment is pointing
+  uint32_t current_segment_index;
+  hls::MediaPlaylist media_playlist;
 
   std::vector<hls::Segment> last_downloaded_segments;
 

@@ -8,6 +8,8 @@
 #include "active_segment_controller.h"
 #include "../hls/decrypter.h"
 
+// TODO: This class should also reload the playlist in the background
+
 void ActiveSegmentController::download_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(download_mutex);
@@ -187,24 +189,15 @@ bool ActiveSegmentController::has_next_demux_segment() {
   return !last_downloaded_segments.empty();
 }
 
-void ActiveSegmentController::add_segment(hls::Segment segment) {
-  {
-    std::lock_guard<std::mutex> lock(private_data_mutex);
-    segments.push_back(segment);
-  }
-  std::lock_guard<std::mutex> lock(download_mutex);
-  download_cv.notify_one();
+void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playlist) {
+  this->media_playlist = media_playlist;
+  // TODO: Update current_segment_index to correspond to
+  // where the current segment is in the new playlist
+  // TODO: May have to reload the playlist before making it active
 }
 
-void ActiveSegmentController::add_segments(std::vector<hls::Segment> segments) {
-  {
-    std::lock_guard<std::mutex> lock(private_data_mutex);
-    for(auto it = segments.begin(); it != segments.end(); ++it) {
-        this->segments.push_back(*it);
-    }
-  }
-  std::lock_guard<std::mutex> lock(download_mutex);
-  download_cv.notify_one();
+void ActiveSegmentController::set_current_segment(hls::Segment segment) {
+  // TODO: This would update the current segment index
 }
 
 ActiveSegmentController::ActiveSegmentController(std::unique_ptr<Downloader> downloader) :

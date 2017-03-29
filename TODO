@@ -1,8 +1,9 @@
 TODO:
 1. Live streams
 2. Variant stream switching
+3. Seek
 
-3. GetTime - Can just demux the mpeg ts, don't need to look into the elementary streams
+
 
 For some reason demuxing the mpeg stream causes stuttering when the
 segment changes, due to synchronization issues between the video and the audio
