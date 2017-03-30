@@ -135,14 +135,14 @@ TEST(HlsTest, LiveMediaPlaylist) {
 TEST(HlsTest, HasNextSegmentFirst) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/live/media.m3u8");
-  EXPECT_TRUE(media_playlist.has_segment(-1));
+  EXPECT_TRUE(media_playlist.has_segment(0));
 }
 
 TEST(HlsTest, HasNextSegment) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/live/media.m3u8");
   EXPECT_TRUE(media_playlist.has_segment(2));
-  EXPECT_FALSE(media_playlist.has_segment(6));
+  EXPECT_FALSE(media_playlist.has_segment(7));
 }
 
 TEST(HlsTest, GetNextSegment) {

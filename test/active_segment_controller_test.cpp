@@ -20,14 +20,12 @@ TEST(ActiveSegmentController, DownloadSegment) {
   hls::FileMediaPlaylist mp;
   mp.open("test/hls/gear1/prog_index.m3u8");
   active_segment_controller.set_media_playlist(mp);
-  hls::Segment segment2;
-  segment2.set_url("test/hls/encrypted_segment.ts");
   std::future<std::unique_ptr<hls::ActiveSegment>> future = active_segment_controller.get_next_segment();
   std::unique_ptr<hls::ActiveSegment> active_segment = future.get();
   ASSERT_TRUE(active_segment);
   std::cout << "Segment2\n";
   auto future2 = active_segment_controller.get_next_segment();
   future2.wait();
-  ASSERT_EQ(SegmentState::DEMUXED, active_segment_controller.segment_data[segment2].state);
+  ASSERT_TRUE(future2.get());
   ASSERT_EQ(2, active_segment_controller.download_segment_index);
 }

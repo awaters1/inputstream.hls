@@ -60,7 +60,7 @@ TEST_F(SessionTest, ReadStreamEnd) {
   EXPECT_TRUE(memcmp(file_contents1.c_str(), buf, file_contents1.length()) == 0);
   size_t left_over = amount_read - file_contents1.length();
   EXPECT_TRUE(memcmp(file_contents2.c_str(), buf + file_contents1.length(), left_over) == 0);
-  EXPECT_EQ(50000, amount_read);
+  EXPECT_EQ(1256780, amount_read);
 }
 
 class EncryptedSessionTest : public ::testing::Test {

@@ -155,6 +155,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
   uint32_t segment_index;
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
+    std::cout << "Looking to get segment " << current_segment_index << "\n";
     segment_index = current_segment_index;
     if (media_playlist.has_segment(segment_index)) {
       segment = media_playlist.get_segment(segment_index);
@@ -164,6 +165,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
       // TODO: Implement playlist reload and stall the response
     } else {
       // We are all done
+      std::cout << "Playlist is finished\n";
       std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
       promise.set_value(nullptr);
       return promise.get_future();
@@ -173,7 +175,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
   case SegmentState::UNKNOWN: {
     // TODO: May have to remove a segment from segment_data so this one gets processed
     std::cout << "Have to download segment " << segment.get_url() << "\n";
-    if (segment_index != download_segment_index) {
+    {
       {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         download_segment_index = segment_index;
@@ -212,7 +214,9 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
 
 bool ActiveSegmentController::has_next_download_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
-  return media_playlist.has_segment(download_segment_index);
+  bool has_segment = media_playlist.has_segment(download_segment_index);
+  std::cout << "Checking if we have segment " << download_segment_index << ": " << has_segment << "\n";
+  return has_segment;
 }
 
 bool ActiveSegmentController::has_next_demux_segment() {
@@ -225,6 +229,10 @@ void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playli
   // TODO: Update current_segment_index to correspond to
   // where the current segment is in the new playlist
   // TODO: May have to reload the playlist before making it active
+  {
+    std::lock_guard<std::mutex> lock(download_mutex);
+    download_cv.notify_all();
+  }
 }
 
 void ActiveSegmentController::set_current_segment(hls::Segment segment) {
@@ -233,6 +241,7 @@ void ActiveSegmentController::set_current_segment(hls::Segment segment) {
 
 ActiveSegmentController::ActiveSegmentController(std::unique_ptr<Downloader> downloader) :
 download_segment_index(0),
+current_segment_index(0),
 max_segment_data(10),
 downloader(std::move(downloader)),
 quit_processing(false) {

@@ -161,16 +161,8 @@ hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
   return segments.at(segment_index);
 }
 
-bool hls::MediaPlaylist::has_segment(uint32_t active_segment_sequence) {
-  if (active_segment_sequence == uint32_t(-1)) {
-      return !segments.empty();
-  }
-  for(auto it = segments.begin(); it != segments.end(); ++it) {
-      if (active_segment_sequence == it->media_sequence) {
-          return ++it != segments.end();
-      }
-  }
-  return !segments.empty();
+bool hls::MediaPlaylist::has_segment(uint32_t segment_index) {
+  return segment_index >= 0 && segment_index < segments.size();
 }
 
 hls::MediaPlaylist::MediaPlaylist()
