@@ -86,5 +86,9 @@ private:
   std::thread reload_thread;
   std::atomic_bool reload_playlist_flag;
 
+  // get_next_segment waiting
+  std::condition_variable next_segment_cv;
+  std::mutex next_segment_mutex;
+
   std::atomic_bool quit_processing;
 };

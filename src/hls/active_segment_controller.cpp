@@ -8,8 +8,6 @@
 #include "active_segment_controller.h"
 #include "../hls/decrypter.h"
 
-// TODO: This class should also reload the playlist in the background
-
 void ActiveSegmentController::download_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(download_mutex);
@@ -116,6 +114,7 @@ void ActiveSegmentController::demux_next_segment() {
     }
 
     if (erased) {
+      std::cout << "Erased the segment data for " << segment.get_url() << "\n";
       std::lock_guard<std::mutex> lock(download_mutex);
       download_cv.notify_one();
     }
@@ -130,7 +129,6 @@ void ActiveSegmentController::reload_playlist() {
     std::unique_lock<std::mutex> lock(reload_mutex);
     std::cout << "Reload for conditional variable\n";
     reload_cv.wait(lock, [this] {
-      // TODO: Also have a timer that triggers this
       return (reload_playlist_flag || quit_processing);
     });
 
@@ -143,7 +141,7 @@ void ActiveSegmentController::reload_playlist() {
 
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
-      // TODO: Not sure if we need to have this locked for the whole process
+      // Not sure if we need to have this locked for the whole process
       std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
       if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
          std::string playlist_contents = downloader->download(media_playlist.get_url());
@@ -161,6 +159,11 @@ void ActiveSegmentController::reload_playlist() {
       std::lock_guard<std::mutex> download_lock(download_mutex);
       download_cv.notify_one();
     }
+    // Trigger get_next_segment
+    {
+      std::unique_lock<std::mutex> lock(next_segment_mutex);
+      next_segment_cv.notify_one();
+    }
   }
 }
 
@@ -168,61 +171,86 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
   hls::Segment segment;
   SegmentData current_segment_data;
   uint32_t segment_index;
+  bool has_segment = false;
+  bool live = false;
+  int tries = 0;
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     std::cout << "Looking to get segment " << current_segment_index << "\n";
     segment_index = current_segment_index;
-    if (media_playlist.has_segment(segment_index)) {
-      segment = media_playlist.get_segment(segment_index);
-      ++current_segment_index;
-      current_segment_data = segment_data[segment];
-    } else if (media_playlist.live){
-      // TODO: Implement playlist reload and stall the response
+    has_segment = media_playlist.has_segment(segment_index);
+    live = media_playlist.live;
+  }
+  while(!has_segment) {
+    // TODO: Make a constant for 10
+    if (live && tries < 10) {
+      // Have to stall until we have the segment and then check for it again
+      // If we do not have segment then wait for a little bit before continuing to
+      // get it again
+      {
+        std::lock_guard<std::mutex> lock(reload_mutex);
+        reload_playlist_flag = true;
+        reload_cv.notify_one();
+      }
+      {
+        std::unique_lock<std::mutex> lock(next_segment_mutex);
+        next_segment_cv.wait(lock);
+        lock.unlock();
+      }
+      {
+        std::lock_guard<std::mutex> lock(private_data_mutex);
+        has_segment = media_playlist.has_segment(segment_index);
+      }
+      if (!has_segment) {
+        uint32_t reload_delay = 1000;
+        std::cout << "Unable to load the next segment, " << reload_delay << " waiting to reload\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(reload_delay));
+      }
     } else {
       // We are all done
-      std::cout << "Playlist is finished\n";
+      std::cout << "Playlist is finished we reached " << tries << " tries\n";
       std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
       promise.set_value(nullptr);
       return promise.get_future();
     }
   }
-  switch(segment_data[segment].state) {
-  case SegmentState::UNKNOWN: {
-    // TODO: May have to remove a segment from segment_data so this one gets processed
-    std::cout << "Have to download segment " << segment.get_url() << "\n";
-    {
-      {
-        std::lock_guard<std::mutex> lock(private_data_mutex);
-        download_segment_index = segment_index;
+  bool trigger_download = false;
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    if (has_segment) {
+      segment = media_playlist.get_segment(segment_index);
+      ++current_segment_index;
+      current_segment_data = segment_data[segment];
+    }
+    switch(segment_data[segment].state) {
+      case SegmentState::UNKNOWN: {
+        // TODO: May have to remove a segment from segment_data so this one gets processed
+        std::cout << "Have to download segment " << segment.get_url() << "\n";
+        trigger_download = true;
+      } case SegmentState::DOWNLOADING:
+      case SegmentState::DOWNLOADED:
+      case SegmentState::DEMUXING: {
+        std::cout << "Have to wait for segment " << segment.get_url() << "\n";
+        std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+        auto future = promise.get_future();
+        segment_promises[segment] = std::move(promise);
+        return future;
+      } case SegmentState::DEMUXED: {
+        std::cout << "Segment is ready " << segment.get_url() << "\n";
+        std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+        segment_data.erase(segment);
+        trigger_download = true;
+        promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
+        return promise.get_future();
       }
-      std::lock_guard<std::mutex> lock(download_mutex);
-      download_cv.notify_one();
     }
-  } case SegmentState::DOWNLOADING:
-  case SegmentState::DOWNLOADED:
-  case SegmentState::DEMUXING: {
-    std::cout << "Have to wait for segment " << segment.get_url() << "\n";
-    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
-    auto future = promise.get_future();
-    {
-      std::lock_guard<std::mutex> lock(private_data_mutex);
-      segment_promises[segment] = std::move(promise);
-    }
-    return future;
-  } case SegmentState::DEMUXED: {
-    std::cout << "Segment is ready " << segment.get_url() << "\n";
-    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
-    {
-      std::lock_guard<std::mutex> lock(private_data_mutex);
-      segment_data.erase(segment);
-    }
-    {
-      std::lock_guard<std::mutex> lock(download_mutex);
-      download_cv.notify_one();
-    }
-    promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
-    return promise.get_future();
   }
+  if (trigger_download) {
+    std::cout << "Get next segment triggering download\n";
+    {
+      std::lock_guard<std::mutex> lock(download_mutex);
+      download_cv.notify_one();
+    }
   }
   return std::future<std::unique_ptr<hls::ActiveSegment>>();
 }
@@ -243,10 +271,12 @@ void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playli
   this->media_playlist = media_playlist;
   // TODO: Update current_segment_index to correspond to
   // where the current segment is in the new playlist
-  // TODO: May have to reload the playlist before making it active
+  // TODO: Clear out segment data/promises
+  // basically have to restart the pipeline
   {
-    std::lock_guard<std::mutex> lock(download_mutex);
-    download_cv.notify_all();
+    std::lock_guard<std::mutex> lock(reload_mutex);
+    reload_playlist_flag = true;
+    reload_cv.notify_one();
   }
 }
 
@@ -262,6 +292,7 @@ downloader(std::move(downloader)),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   demux_thread = std::thread(&ActiveSegmentController::demux_next_segment, this);
+  reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);
 }
 
 ActiveSegmentController::~ActiveSegmentController() {
@@ -275,7 +306,12 @@ ActiveSegmentController::~ActiveSegmentController() {
     std::lock_guard<std::mutex> lock(demux_mutex);
     demux_cv.notify_all();
   }
+  {
+    std::lock_guard<std::mutex> lock(reload_mutex);
+    reload_cv.notify_all();
+  }
   download_thread.join();
   demux_thread.join();
+  reload_thread.join();
 }
 

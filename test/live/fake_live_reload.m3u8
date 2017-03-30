@@ -1,0 +1,7 @@
+#EXTM3U
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:2
+#EXTINF:10, no desc
+fileSequence2.ts
+#EXTINF:10, no desc
+fileSequence3.ts
