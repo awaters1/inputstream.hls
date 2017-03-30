@@ -33,6 +33,8 @@ namespace hls {
     void switch_streams();
     bool load_segments();
 
+    uint32_t stall_counter;
+
     std::unique_ptr<ActiveSegment> active_segment;
     ActiveSegmentController active_segment_controller;
 

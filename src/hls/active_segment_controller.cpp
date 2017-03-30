@@ -282,6 +282,7 @@ void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playli
 
 void ActiveSegmentController::set_current_segment(hls::Segment segment) {
   // TODO: This would update the current segment index
+  // TODO: Would also have to flush segment data?
 }
 
 ActiveSegmentController::ActiveSegmentController(std::unique_ptr<Downloader> downloader) :

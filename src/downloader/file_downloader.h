@@ -11,4 +11,10 @@
 
 class FileDownloader : public Downloader {
   std::string download(std::string location, uint32_t byte_offset, uint32_t byte_length);
+  double get_current_bandwidth() {
+    return 100000000;
+  };
+  double get_average_bandwidth() {
+    return 100000000;
+  }
 };

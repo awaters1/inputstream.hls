@@ -48,6 +48,7 @@ public:
   void set_media_playlist(hls::MediaPlaylist media_playlist);
   std::future<std::unique_ptr<hls::ActiveSegment>> get_next_segment();
   void set_current_segment(hls::Segment segment);
+  double get_average_bandwidth();
 private:
   bool has_next_demux_segment();
   bool has_next_download_segment();

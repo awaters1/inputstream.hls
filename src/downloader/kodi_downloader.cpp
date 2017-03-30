@@ -10,6 +10,29 @@
 #include "../globals.h"
 #include "kodi_downloader.h"
 
+KodiDownloader::KodiDownloader() :
+  number_of_measurements(0),
+  current_measurement_index(0) {
+  for(uint32_t i = 0; i < BANDWIDTH_BINS; ++i) {
+    bandwidth_measurements[i] = 0;
+  }
+}
+
+double KodiDownloader::get_current_bandwidth() {
+  return bandwidth_measurements[current_measurement_index];
+}
+
+double KodiDownloader::get_average_bandwidth() {
+  double sum = 0;
+  for(int i = current_measurement_index; i < current_measurement_index + BANDWIDTH_BINS; ++i) {
+    sum += bandwidth_measurements[i % BANDWIDTH_BINS];
+  }
+  if (number_of_measurements > 0) {
+    return sum / (double) number_of_measurements;
+  }
+  return sum;
+}
+
 std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length) {
   // open the file
   void* file = xbmc->CURLCreate(url.c_str());
@@ -46,17 +69,27 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
   double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
   //Calculate the new downloadspeed to 1MB
   static const size_t ref_packet = 1024 * 1024;
-  if (nbReadOverall >= ref_packet)
-    download_speed = current_download_speed_;
-  else {
+  double bandwidth_measurement;
+  if (nbReadOverall >= ref_packet) {
+    bandwidth_measurement = current_download_speed_;
+  } else {
     double ratio = (double)nbReadOverall / ref_packet;
-    download_speed = (download_speed * (1.0 - ratio)) + current_download_speed_*ratio;
+    bandwidth_measurement = (get_current_bandwidth() * (1.0 - ratio)) + current_download_speed_*ratio;
   }
-  download_speed *= 8;
+  if (current_measurement_index >= BANDWIDTH_BINS) {
+    current_measurement_index = 0;
+  }
+  bandwidth_measurements[current_measurement_index++] = bandwidth_measurement;
+  if (number_of_measurements < BANDWIDTH_BINS) {
+    ++number_of_measurements;
+  }
 
   xbmc->CloseFile(file);
 
-  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url.c_str(), download_speed);
+  xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, download speed: %0.4lf, average: %0.4lf",
+      url.c_str(), get_current_bandwidth(), get_average_bandwidth());
 
   return ret;
 }
+
+

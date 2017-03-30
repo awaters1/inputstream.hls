@@ -21,7 +21,10 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 }
 
 
-// TODO: This only checks for going to a high quality stream, not dropping to lower quality streams
+// TODO: Switch streams up and down based on
+// 1. current bandwidth
+// 2. If we able to keep our buffer full in active_segment_controller
+// 3. If we stalled at all in get next segment
 void hls::Session::switch_streams() {
   uint32_t bandwith_of_current_stream = active_playlist.bandwidth;
   MediaPlaylist &next_active_playlist = active_playlist;
@@ -56,46 +59,15 @@ bool hls::Session::load_segments() {
   timespec res, t1, t2;
   clock_getres(CLOCK_REALTIME, &res);
   clock_gettime(CLOCK_REALTIME, &t1);
-  /*
-  uint32_t tries = 0;
-  while(!next_segment_future.valid() && tries < 10) {
-    std::cout << "Invalid next segment future, attempting to get synchronously\n";
-    create_next_segment_future();
-    if (!next_segment_future.valid() && active_playlist.live) {
-      // Try to reload playlist
-      float target_duration = active_playlist.get_segment_target_duration();
-      uint32_t reload_delay = (uint32_t) target_duration * 0.5 * 1000;
-      std::cout << "Unable to load the next segment, " << reload_delay << " waiting to reload\n";
-      std::this_thread::sleep_for(std::chrono::milliseconds(reload_delay));
-    } else {
-      break;
-    }
-    ++tries;
-  }
-  */
-  // TODO: When to reload playlist
-  /*
-   *  switch_streams();
-  if (!active_playlist.has_next_segment(active_segment_sequence)) {
-    // Try to reload the playlist before bailing
-    reload_media_playlist(active_playlist);
-    if (!active_playlist.has_next_segment(active_segment_sequence)) {
-      std::cerr << "Unable to get the next segment " << active_segment_sequence << std::endl;
-      next_segment_future = std::future<ActiveSegment*>();
-      return;
-    }
-  }
-  Segment segment = active_playlist.get_next_segment(active_segment_sequence);
-  active_segment_sequence = segment.media_sequence;
-  std::cout << "Loading segment " << segment.media_sequence << "\n";
-  // TODO: Update the segments in the controller
-  // TODO: Request the segments from the controller
-   */
-  /// TODO: Doesn't work on the last segment
+
+  switch_streams();
   auto future = active_segment_controller.get_next_segment();
   if (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-      // TODO: We can also use this to lower the quality
+      // We can also use this to lower the quality perhaps
+    ++stall_counter;
     std::cout << "Next segment isn't ready, we will likely stall\n";
+  } else {
+    stall_counter = 0;
   }
   active_segment = future.get();
   clock_gettime(CLOCK_REALTIME, &t2);
@@ -141,6 +113,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     download_speed(0),
     active_segment_controller(std::unique_ptr<Downloader>(downloader)),
     active_segment_content_offset(0),
+    stall_counter(0),
     media_playlists(master_playlist.get_media_playlist()){
   active_playlist = media_playlists.at(0);
   total_time = active_playlist.get_total_duration();
