@@ -128,7 +128,8 @@ void ActiveSegmentController::reload_playlist() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(reload_mutex);
     std::cout << "Reload for conditional variable\n";
-    reload_cv.wait(lock, [this] {
+    std::chrono::microseconds timeout(static_cast<uint32_t>(media_playlist.get_segment_target_duration() * 0.5));
+    reload_cv.wait_for(lock, timeout,[this] {
       return (reload_playlist_flag || quit_processing);
     });
 
@@ -182,8 +183,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
     live = media_playlist.live;
   }
   while(!has_segment) {
-    // TODO: Make a constant for 10
-    if (live && tries < 10) {
+    if (live && tries < NUM_RELOAD_TRIES) {
       // Have to stall until we have the segment and then check for it again
       // If we do not have segment then wait for a little bit before continuing to
       // get it again

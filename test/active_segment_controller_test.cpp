@@ -47,6 +47,11 @@ TEST(ActiveSegmentController, ReloadPlaylist) {
   ActiveSegmentController active_segment_controller(
         std::unique_ptr<Downloader>(new FileDownloader));
   active_segment_controller.set_media_playlist(media_playlist);
-  auto future = active_segment_controller.get_next_segment();
-
+  active_segment_controller.get_next_segment().get();
+  std::cout << "Added in new playlist\n";
+  copy_file("test/live/fake_live_reload.m3u8", "test/live/temp_playlist.m3u8");
+  active_segment_controller.get_next_segment().get();
+  // Gets segment 3 which causes a reload
+  active_segment_controller.get_next_segment().get();
+  EXPECT_EQ(4, active_segment_controller.media_playlist.get_number_of_segments());
 }

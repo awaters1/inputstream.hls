@@ -13,6 +13,8 @@
 #include "active_segment.h"
 #include "../downloader/downloader.h"
 
+static const int NUM_RELOAD_TRIES = 10;
+
 enum class SegmentState {
 	UNKNOWN,
 	DOWNLOADING,
@@ -66,6 +68,7 @@ private:
   uint32_t download_segment_index;
   // Where next segment is pointing
   uint32_t current_segment_index;
+  FRIEND_TEST(ActiveSegmentController, ReloadPlaylist);
   hls::MediaPlaylist media_playlist;
 
   std::vector<hls::Segment> last_downloaded_segments;
