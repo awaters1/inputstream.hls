@@ -75,6 +75,8 @@ namespace hls
     bool has_segment(uint32_t segment_index);
     Segment get_segment(uint32_t segment_index);
     uint32_t get_total_duration();
+    bool load_contents(std::string playlist_contents);
+    uint32_t merge(MediaPlaylist other_playlist);
   protected:
     bool write_data(std::string line);
   private:

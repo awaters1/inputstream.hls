@@ -149,6 +149,36 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   return true;
 }
 
+uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
+  uint32_t last_media_sequence;
+  if (segments.size() > 0) {
+   last_media_sequence = segments.back().media_sequence;
+  } else {
+   last_media_sequence = -1;
+  }
+  uint32_t added_segments = 0;
+  uint32_t last_added_sequence = 0;
+  for(std::vector<Segment>::iterator it = other_playlist.segments.begin(); it != other_playlist.segments.end(); ++it) {
+     if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
+         segments.push_back(*it);
+         ++added_segments;
+         last_added_sequence = it->media_sequence;
+     }
+  }
+  return added_segments;
+}
+
+bool hls::MediaPlaylist::load_contents(std::string playlist_contents) {
+  std::istringstream content_stream(playlist_contents);
+  std::string line;
+  while(std::getline(content_stream, line)) {
+      if (!write_data(line)) {
+          return false;
+      }
+  }
+  return true;
+}
+
 uint32_t hls::MediaPlaylist::get_total_duration() {
   uint32_t total_time = 0;
   for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {

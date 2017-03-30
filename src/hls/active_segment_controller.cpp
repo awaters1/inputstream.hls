@@ -125,29 +125,44 @@ void ActiveSegmentController::demux_next_segment() {
   }
 }
 
-//void ActiveSegmentController::reload_media_playlist() {
-//  std::cout << "Reloading playlist bandwidth: " << media_playlist.bandwidth << "\n";
-//  if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
-//     MediaPlaylist new_media_playlist = download_playlist(media_playlist.get_url());
-//     std::vector<Segment> new_segments = new_media_playlist.get_segments();
-//     uint32_t last_media_sequence;
-//     if (media_playlist.get_number_of_segments() > 0) {
-//       last_media_sequence = media_playlist.get_segments().back().media_sequence;
-//     } else {
-//       last_media_sequence = -1;
-//     }
-//     uint32_t added_segments = 0;
-//     uint32_t last_added_sequence = 0;
-//     for(std::vector<Segment>::iterator it = new_segments.begin(); it != new_segments.end(); ++it) {
-//         if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
-//             media_playlist.add_segment(*it);
-//             ++added_segments;
-//             last_added_sequence = it->media_sequence;
-//         }
-//     }
-//     std::cout << "Reloaded playlist with " << added_segments << " new segments, last segment id: " << last_added_sequence << "\n";
-//  }
-//}
+void ActiveSegmentController::reload_playlist() {
+  while(!quit_processing) {
+    std::unique_lock<std::mutex> lock(reload_mutex);
+    std::cout << "Reload for conditional variable\n";
+    reload_cv.wait(lock, [this] {
+      // TODO: Also have a timer that triggers this
+      return (reload_playlist_flag || quit_processing);
+    });
+
+    if (quit_processing) {
+      std::cout << "Exiting reload thread\n";
+      return;
+    }
+
+    reload_playlist_flag = false;
+
+    {
+      std::lock_guard<std::mutex> lock(private_data_mutex);
+      // TODO: Not sure if we need to have this locked for the whole process
+      std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
+      if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
+         std::string playlist_contents = downloader->download(media_playlist.get_url());
+         hls::MediaPlaylist new_media_playlist;
+         new_media_playlist.load_contents(playlist_contents);
+         uint32_t added_segments = media_playlist.merge(new_media_playlist);
+         std::cout << "Reloaded playlist with " << added_segments << " new segments\n";
+      }
+    }
+
+    lock.unlock();
+    std::cout << "Finished playlist reload\n";
+    // Trigger a download
+    {
+      std::lock_guard<std::mutex> download_lock(download_mutex);
+      download_cv.notify_one();
+    }
+  }
+}
 
 std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_next_segment() {
   hls::Segment segment;

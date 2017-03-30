@@ -51,6 +51,7 @@ private:
   bool has_next_download_segment();
   void download_next_segment();
   void demux_next_segment();
+  void reload_playlist();
 private:
   std::unique_ptr<Downloader> downloader;
   int max_segment_data;
@@ -78,6 +79,12 @@ private:
   std::condition_variable demux_cv;
   std::mutex demux_mutex;
   std::thread demux_thread;
+
+  // Reload playlist thread
+  std::condition_variable reload_cv;
+  std::mutex reload_mutex;
+  std::thread reload_thread;
+  std::atomic_bool reload_playlist_flag;
 
   std::atomic_bool quit_processing;
 };
