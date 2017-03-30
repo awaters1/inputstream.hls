@@ -23,12 +23,10 @@ namespace hls {
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
     uint32_t get_total_time() { return total_time; };
-    bool is_live() { return active_playlist.live; };
+    bool is_live() { return active_segment_controller.is_live(); };
     int read_stream(uint8_t *buf, size_t size);
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
-
-    double download_speed;
   private:
     void switch_streams();
     bool load_segments();
@@ -36,15 +34,10 @@ namespace hls {
     uint32_t stall_counter;
 
     std::unique_ptr<ActiveSegment> active_segment;
+    uint32_t active_segment_content_offset;
     ActiveSegmentController active_segment_controller;
 
-    MediaPlaylist active_playlist;
-    uint32_t active_segment_sequence;
     MasterPlaylist master_playlist;
-
-    std::vector<MediaPlaylist> media_playlists;
     uint32_t total_time;
-    uint64_t start_pts;
-    uint32_t active_segment_content_offset;
   };
 }

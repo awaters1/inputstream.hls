@@ -15,7 +15,7 @@ class SessionTest : public ::testing::Test {
 protected:
   virtual void SetUp() {
     FileMasterPlaylist master_playlist = FileMasterPlaylist();
-    master_playlist.open("test/hls/bipbopall.m3u8");
+    master_playlist.open("test/hls/bipbopall_session.m3u8");
     session = new Session(master_playlist, new FileDownloader());
   }
 

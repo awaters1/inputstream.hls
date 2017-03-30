@@ -268,16 +268,19 @@ bool ActiveSegmentController::has_next_demux_segment() {
 }
 
 void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playlist) {
+  // Only update the playlist if they are different
   this->media_playlist = media_playlist;
   // TODO: Update current_segment_index to correspond to
   // where the current segment is in the new playlist
   // TODO: Clear out segment data/promises
   // basically have to restart the pipeline
+  /*
   {
     std::lock_guard<std::mutex> lock(reload_mutex);
     reload_playlist_flag = true;
     reload_cv.notify_one();
   }
+  */
 }
 
 void ActiveSegmentController::set_current_segment(hls::Segment segment) {
