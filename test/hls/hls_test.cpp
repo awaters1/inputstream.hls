@@ -151,4 +151,16 @@ TEST(HlsTest, GetNextSegment) {
   Segment segment = media_playlist.get_segment(6);
   EXPECT_EQ(segment.media_sequence, 6);
 }
+
+TEST(HlsTest, MergeMediaPlaylist) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/live/media.m3u8");
+  EXPECT_EQ(7, media_playlist.get_number_of_segments());
+  EXPECT_EQ(6, media_playlist.get_segment(6).media_sequence);
+  FileMediaPlaylist updated_media_playlist = FileMediaPlaylist();
+  updated_media_playlist.open("test/live/updated_media.m3u8");
+  media_playlist.merge(updated_media_playlist);
+  EXPECT_EQ(11, media_playlist.get_number_of_segments());
+  EXPECT_EQ(10, media_playlist.get_segment(10).media_sequence);
+}
 }
