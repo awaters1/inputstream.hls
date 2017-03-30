@@ -163,7 +163,7 @@ void ActiveSegmentController::reload_playlist() {
     // Trigger get_next_segment
     {
       std::unique_lock<std::mutex> lock(next_segment_mutex);
-      next_segment_cv.notify_one();
+      next_segment_cv.notify_all();
     }
   }
 }
@@ -269,18 +269,20 @@ bool ActiveSegmentController::has_next_demux_segment() {
 
 void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playlist) {
   // Only update the playlist if they are different
-  this->media_playlist = media_playlist;
-  // TODO: Update current_segment_index to correspond to
-  // where the current segment is in the new playlist
-  // TODO: Clear out segment data/promises
-  // basically have to restart the pipeline
-  /*
-  {
-    std::lock_guard<std::mutex> lock(reload_mutex);
-    reload_playlist_flag = true;
-    reload_cv.notify_one();
+  if (media_playlist != this->media_playlist) {
+    hls::Segment current_segment = this->media_playlist.get_segment(current_segment_index);
+    // TODO: Update current_segment_index to correspond to
+    // where the current segment is in the new playlist
+    // but we don't know where that is until the reload is done
+    // TODO: Clear out segment data/promises
+    // basically have to restart the pipeline
+    this->media_playlist = media_playlist;
+    {
+      std::lock_guard<std::mutex> lock(reload_mutex);
+      reload_playlist_flag = true;
+      reload_cv.notify_one();
+    }
   }
-  */
 }
 
 void ActiveSegmentController::set_current_segment(hls::Segment segment) {
