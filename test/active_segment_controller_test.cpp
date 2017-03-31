@@ -19,14 +19,12 @@ void copy_file(std::string source, std::string destination) {
 }
 
 TEST(ActiveSegmentController, CreateController) {
-  ActiveSegmentController active_segment_controller(
-      std::unique_ptr<Downloader>(new FileDownloader));
+  ActiveSegmentController active_segment_controller(new FileDownloader);
   EXPECT_TRUE(true);
 }
 
 TEST(ActiveSegmentController, DownloadSegment) {
-  ActiveSegmentController active_segment_controller(
-        std::unique_ptr<Downloader>(new FileDownloader));
+  ActiveSegmentController active_segment_controller(new FileDownloader);
   hls::FileMediaPlaylist mp;
   mp.open("test/hls/gear1/prog_index.m3u8");
   active_segment_controller.set_media_playlist(mp);
@@ -44,8 +42,7 @@ TEST(ActiveSegmentController, ReloadPlaylist) {
   copy_file("test/live/fake_live.m3u8", "test/live/temp_playlist.m3u8");
   hls::FileMediaPlaylist media_playlist = hls::FileMediaPlaylist();
   media_playlist.open("test/live/temp_playlist.m3u8");
-  ActiveSegmentController active_segment_controller(
-        std::unique_ptr<Downloader>(new FileDownloader));
+  ActiveSegmentController active_segment_controller(new FileDownloader);
   active_segment_controller.set_media_playlist(media_playlist);
   active_segment_controller.get_next_segment().get();
   std::cout << "Added in new playlist\n";

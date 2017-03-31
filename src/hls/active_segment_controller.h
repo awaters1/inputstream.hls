@@ -43,11 +43,14 @@ struct SegmentHasher {
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(std::unique_ptr<Downloader> downloader);
+  ActiveSegmentController(Downloader *downloader);
   ~ActiveSegmentController();
+  void set_media_playlist(hls::MediaPlaylist media_playlist, hls::Segment active_segment);
   void set_media_playlist(hls::MediaPlaylist media_playlist);
   std::future<std::unique_ptr<hls::ActiveSegment>> get_next_segment();
   void set_current_segment(hls::Segment segment);
+  hls::Segment get_current_segment();
+  hls::MediaPlaylist get_current_playlist() { return media_playlist; };
   bool is_live() { return media_playlist.live; };
   double get_average_bandwidth() { return downloader->get_average_bandwidth(); };
   double get_current_bandwidth() { return downloader->get_current_bandwidth(); };
@@ -60,7 +63,8 @@ private:
   void demux_next_segment();
   void reload_playlist();
 private:
-  std::unique_ptr<Downloader> downloader;
+  // This pointer is managed by the session
+  Downloader *downloader;
   int max_segment_data;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   std::unordered_map<hls::Segment, SegmentData, SegmentHasher> segment_data;
@@ -70,9 +74,11 @@ private:
   std::mutex private_data_mutex;
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   // Where the download is pointing
-  uint32_t download_segment_index;
+  int32_t download_segment_index;
   // Where next segment is pointing
-  uint32_t current_segment_index;
+  int32_t current_segment_index;
+  // Segment we started at, may be empty
+  hls::Segment start_segment;
   FRIEND_TEST(ActiveSegmentController, ReloadPlaylist);
   hls::MediaPlaylist media_playlist;
 

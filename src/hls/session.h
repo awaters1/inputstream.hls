@@ -23,7 +23,7 @@ namespace hls {
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
     uint32_t get_total_time() { return total_time; };
-    bool is_live() { return active_segment_controller.is_live(); };
+    bool is_live() { return active_segment_controller->is_live(); };
     int read_stream(uint8_t *buf, size_t size);
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
@@ -33,9 +33,16 @@ namespace hls {
 
     uint32_t stall_counter;
 
+    // Downloader has to be deleted last
+    std::unique_ptr<Downloader> downloader;
+
     std::unique_ptr<ActiveSegment> active_segment;
     uint32_t active_segment_content_offset;
-    ActiveSegmentController active_segment_controller;
+
+    std::unique_ptr<ActiveSegmentController> active_segment_controller;
+    // For when we want to switch streams
+    std::unique_ptr<ActiveSegmentController> future_segment_controller;
+
 
     MasterPlaylist master_playlist;
     uint32_t total_time;

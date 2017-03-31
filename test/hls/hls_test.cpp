@@ -163,4 +163,16 @@ TEST(HlsTest, MergeMediaPlaylist) {
   EXPECT_EQ(11, media_playlist.get_number_of_segments());
   EXPECT_EQ(10, media_playlist.get_segment(10).media_sequence);
 }
+
+TEST(HlsTest, GetSegmentIndex) {
+  FileMediaPlaylist media_playlist = FileMediaPlaylist();
+  media_playlist.open("test/hls/gear1/prog_index.m3u8");
+  hls::Segment segment;
+  segment.set_url("test/hls/gear1/fileSequence1.ts");
+  int32_t index = media_playlist.get_segment_index(segment);
+  EXPECT_EQ(1, index);
+  segment.set_url("bad.ts");
+  index = media_playlist.get_segment_index(segment);
+  EXPECT_EQ(-1, index);
+}
 }

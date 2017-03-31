@@ -128,28 +128,56 @@ void ActiveSegmentController::reload_playlist() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(reload_mutex);
     std::cout << "Reload for conditional variable\n";
-    std::chrono::seconds timeout(static_cast<uint32_t>(media_playlist.get_segment_target_duration() * 0.5));
+    float segment_duration;
+    {
+      std::lock_guard<std::mutex> lock(private_data_mutex);
+      if (media_playlist.valid) {
+        segment_duration = media_playlist.get_segment_target_duration();
+      } else {
+        segment_duration = 20;
+      }
+    }
+    std::chrono::seconds timeout(static_cast<uint32_t>(segment_duration * 0.5));
     reload_cv.wait_for(lock, timeout,[this] {
-      return (reload_playlist_flag || quit_processing);
+      return ((reload_playlist_flag) || quit_processing);
     });
 
     if (quit_processing) {
       std::cout << "Exiting reload thread\n";
       return;
     }
-
     reload_playlist_flag = false;
 
+    if (!media_playlist.valid) {
+      continue;
+    }
+
+    bool trigger_next_segment = false;
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
       // Not sure if we need to have this locked for the whole process
       if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
-        std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
+         std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
          std::string playlist_contents = downloader->download(media_playlist.get_url());
          hls::MediaPlaylist new_media_playlist;
          new_media_playlist.load_contents(playlist_contents);
          uint32_t added_segments = media_playlist.merge(new_media_playlist);
          std::cout << "Reloaded playlist with " << added_segments << " new segments\n";
+      }
+      if (media_playlist.get_number_of_segments() > 0) {
+         if (current_segment_index == -1) {
+           int32_t segment_index;
+           if (start_segment.valid) {
+             // Find this segment in our segments
+             segment_index = media_playlist.get_segment_index(start_segment);
+           } else {
+             // Just start at the beginning
+             segment_index = 0;
+           }
+           current_segment_index = segment_index;
+           download_segment_index = segment_index;
+         }
+         trigger_next_segment = true;
       }
     }
 
@@ -161,26 +189,49 @@ void ActiveSegmentController::reload_playlist() {
       download_cv.notify_one();
     }
     // Trigger get_next_segment
-    {
-      std::unique_lock<std::mutex> lock(next_segment_mutex);
-      next_segment_cv.notify_all();
+    if (trigger_next_segment) {
+      {
+        std::unique_lock<std::mutex> lock(next_segment_mutex);
+        next_segment_cv.notify_all();
+      }
     }
   }
 }
 
 std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_next_segment() {
+  // TODO: Handle when current_segment_index is -1 (not initiliazed)
   hls::Segment segment;
   SegmentData current_segment_data;
-  uint32_t segment_index;
+  int32_t segment_index;
   bool has_segment = false;
   bool live = false;
   int tries = 0;
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    segment_index = current_segment_index;
+  }
+  if (segment_index == -1) {
+    std::cout << "Invalid segment, waiting for a playlist reload\n";
+    {
+      // Wait up to 1 minute for a reload to get us our segment
+      std::unique_lock<std::mutex> lock(next_segment_mutex);
+      next_segment_cv.wait_for(lock, std::chrono::minutes(1));
+      lock.unlock();
+    }
+  }
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     std::cout << "Looking to get segment " << current_segment_index << "\n";
     segment_index = current_segment_index;
     has_segment = media_playlist.has_segment(segment_index);
     live = media_playlist.live;
+  }
+  if (segment_index == -1) {
+    std::cout << "Unable to switch to stream\n";
+    // Fail, we couldn't switch to this stream
+    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+    promise.set_value(nullptr);
+    return promise.get_future();
   }
   while(!has_segment) {
     if (live && tries < NUM_RELOAD_TRIES) {
@@ -213,6 +264,13 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
       promise.set_value(nullptr);
       return promise.get_future();
     }
+  }
+  if (!has_segment) {
+    std::cout << "Failed to get segment " << segment_index << "\n";
+    // Fail, we couldn't load the segment
+    std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
+    promise.set_value(nullptr);
+    return promise.get_future();
   }
   bool trigger_download = false;
   {
@@ -257,7 +315,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
 
 bool ActiveSegmentController::has_next_download_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
-  bool has_segment = media_playlist.has_segment(download_segment_index);
+  bool has_segment = download_segment_index >= 0 && media_playlist.has_segment(download_segment_index);
   std::cout << "Checking if we have segment " << download_segment_index << ": " << has_segment << "\n";
   return has_segment;
 }
@@ -268,43 +326,41 @@ bool ActiveSegmentController::has_next_demux_segment() {
 }
 
 void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist) {
-  // TODO: Should put this in another thread to prevent hanging the main thread?
-  // Only update the playlist if they are different
-  if (new_media_playlist != media_playlist) {
-    {
-      std::lock_guard<std::mutex> lock(private_data_mutex);
-      // TODO: What about the case when the playlist is waiting on a reload to get the segment?
-      // we should be able to get the most recent valid segment
-      if (media_playlist.has_segment(current_segment_index)) {
-        // TODO: Update current_segment_index to correspond to
-        // where the current segment is in the new playlist
-        // but we don't know where that is until the reload is done
-        // TODO: Clear out segment data/promises
-        // basically have to restart the pipeline
-        // TODO: Do we clear out the pipeline/buffered segments?
-        // TODO: Maybe just drop the download and demux threads and restart them?
-        hls::Segment current_segment = this->media_playlist.get_segment(current_segment_index);
-      }
-    }
+  set_media_playlist(new_media_playlist, hls::Segment());
+}
+
+void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist,
+    hls::Segment active_segment) {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    start_segment = active_segment;
     media_playlist = new_media_playlist;
-    {
-      std::lock_guard<std::mutex> lock(reload_mutex);
-      reload_playlist_flag = true;
-      reload_cv.notify_one();
-    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(reload_mutex);
+    reload_playlist_flag = true;
+    reload_cv.notify_one();
   }
 }
 
+// Used for seeking in a stream
 void ActiveSegmentController::set_current_segment(hls::Segment segment) {
   // TODO: This would update the current segment index
-  // TODO: Would also have to flush segment data?
+  // Would also have to flush segment data?
 }
 
-ActiveSegmentController::ActiveSegmentController(std::unique_ptr<Downloader> downloader) :
-download_segment_index(0),
-current_segment_index(0),
-max_segment_data(10),
-downloader(std::move(downloader)),
+hls::Segment ActiveSegmentController::get_current_segment() {
+  if (media_playlist.has_segment(current_segment_index)) {
+    return media_playlist.get_segment(current_segment_index);
+  }
+  return hls::Segment();
+}
+
+ActiveSegmentController::ActiveSegmentController(Downloader *downloader) :
+download_segment_index(-1),
+current_segment_index(-1),
+max_segment_data(15),
+downloader(downloader),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   demux_thread = std::thread(&ActiveSegmentController::demux_next_segment, this);

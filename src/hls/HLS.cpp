@@ -20,7 +20,8 @@ aes_uri(""),
 aes_iv(""),
 encrypted(false),
 byte_length(0),
-byte_offset(0)
+byte_offset(0),
+valid(false)
 {
 
 }
@@ -50,6 +51,7 @@ bool hls::MasterPlaylist::write_data(std::string line) {
   if (line.find("#EXT-X-STREAM-INF") == 0) {
       in_stream = true;
       MediaPlaylist stream;
+      stream.valid = true;
       stream.program_id = get_attribute_value(line, "PROGRAM-ID");
       stream.bandwidth = get_number_attribute_value(line, "BANDWIDTH");
       media_playlist.push_back(stream);
@@ -130,6 +132,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       in_segment = true;
       std::vector<std::string> attributes = get_attributes(line);
       Segment segment;
+      segment.valid = true;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
       if (aes_iv.empty()) {
@@ -147,6 +150,14 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       live = false;
   }
   return true;
+}
+
+int32_t hls::MediaPlaylist::get_segment_index(hls::Segment segment) {
+  auto it = std::find(segments.begin(), segments.end(), segment);
+  if (it == segments.end()) {
+    return -1;
+  }
+  return segments.end() - it;
 }
 
 uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
@@ -203,7 +214,8 @@ hls::MediaPlaylist::MediaPlaylist()
   in_segment(false),
   encrypted(false),
   live(true),
-  bandwidth(0)
+  bandwidth(0),
+  valid(false)
 {
 
 }
@@ -306,6 +318,6 @@ bool hls::FileMediaPlaylist::open(const char *file_path) {
   if (!open_playlist_file(file_path, *this)){
       return false;
   }
-
+  valid = true;
   return true;
 }

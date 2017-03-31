@@ -27,15 +27,15 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 // 3. If we stalled at all in get next segment
 void hls::Session::switch_streams() {
   // Bits per second
-  uint32_t bandwith_of_current_stream = active_segment_controller.get_bandwidth_of_current_playlist();
-  double average_bandwidth = active_segment_controller.get_average_bandwidth();
+  uint32_t bandwith_of_current_stream = active_segment_controller->get_bandwidth_of_current_playlist();
+  double average_bandwidth = active_segment_controller->get_average_bandwidth();
   bool switch_up = false;;
-  if (stall_counter <= 2 && active_segment_controller.get_percentage_buffer_full() >= 0.10) {
+  if (stall_counter <= 2 && active_segment_controller->get_percentage_buffer_full() >= 0.10) {
     switch_up = true;
   }
   std::cout << "Switch Stream stalls: " << stall_counter << " buffer: " <<
-      active_segment_controller.get_percentage_buffer_full() << " bandwidth: " <<
-      active_segment_controller.get_average_bandwidth() << "\n";
+      active_segment_controller->get_percentage_buffer_full() << " bandwidth: " <<
+      active_segment_controller->get_average_bandwidth() << "\n";
   std::vector<MediaPlaylist> media_playlists = master_playlist.get_media_playlist();
   std::vector<MediaPlaylist>::iterator next_active_playlist = media_playlists.begin();
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
@@ -51,11 +51,15 @@ void hls::Session::switch_streams() {
     }
   }
 
-  if (next_active_playlist != media_playlists.end()) {
+  if (next_active_playlist != media_playlists.end() &&
+      *next_active_playlist != active_segment_controller->get_current_playlist()) {
     std::cout << "Switching to playlist " << next_active_playlist->get_url() << "\n";
     MediaPlaylist active_playlist = *next_active_playlist;
     total_time = active_playlist.get_total_duration();
-    active_segment_controller.set_media_playlist(active_playlist);
+    future_segment_controller = std::unique_ptr<ActiveSegmentController>(
+        new ActiveSegmentController(downloader.get()));
+    future_segment_controller->set_media_playlist(active_playlist,
+        active_segment_controller->get_current_segment());
   }
 }
 
@@ -65,7 +69,13 @@ bool hls::Session::load_segments() {
   clock_gettime(CLOCK_REALTIME, &t1);
 
   switch_streams();
-  auto future = active_segment_controller.get_next_segment();
+
+  if (future_segment_controller) {
+    // TODO: Should only switch if future segment_controller is ready?
+    active_segment_controller.swap(future_segment_controller);
+    delete future_segment_controller.release();
+  }
+  auto future = active_segment_controller->get_next_segment();
   if (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
       // We can also use this to lower the quality perhaps
     ++stall_counter;
@@ -112,7 +122,9 @@ int hls::Session::read_stream(uint8_t *buf, size_t size) {
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     master_playlist(master_playlist),
     total_time(0),
-    active_segment_controller(std::unique_ptr<Downloader>(downloader)),
+    active_segment_controller(new ActiveSegmentController(downloader)),
+    future_segment_controller(nullptr),
+    downloader(downloader),
     active_segment_content_offset(0),
     stall_counter(0) {
   switch_streams();
