@@ -168,10 +168,10 @@ TEST(HlsTest, GetSegmentIndex) {
   FileMediaPlaylist media_playlist = FileMediaPlaylist();
   media_playlist.open("test/hls/gear1/prog_index.m3u8");
   hls::Segment segment;
-  segment.set_url("test/hls/gear1/fileSequence1.ts");
+  segment.media_sequence = 1;
   int32_t index = media_playlist.get_segment_index(segment);
   EXPECT_EQ(1, index);
-  segment.set_url("bad.ts");
+  segment.media_sequence = 1000;
   index = media_playlist.get_segment_index(segment);
   EXPECT_EQ(-1, index);
 }
