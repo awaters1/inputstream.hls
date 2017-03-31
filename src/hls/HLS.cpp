@@ -153,11 +153,14 @@ bool hls::MediaPlaylist::write_data(std::string line) {
 }
 
 int32_t hls::MediaPlaylist::get_segment_index(hls::Segment segment) {
-  auto it = std::find(segments.begin(), segments.end(), segment);
+  auto it = std::find_if(segments.begin(), segments.end(),
+      [segment](const hls::Segment other) -> bool {
+    return segment.media_sequence == other.media_sequence;
+  });
   if (it == segments.end()) {
     return -1;
   }
-  return segments.end() - it;
+  return it - segments.begin();
 }
 
 uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {

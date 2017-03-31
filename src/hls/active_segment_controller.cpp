@@ -174,6 +174,7 @@ void ActiveSegmentController::reload_playlist() {
              // Just start at the beginning
              segment_index = 0;
            }
+           std::cout << "Starting with segment " << segment_index << "\n";
            current_segment_index = segment_index;
            download_segment_index = segment_index;
          }
