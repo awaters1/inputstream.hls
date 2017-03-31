@@ -128,7 +128,7 @@ void ActiveSegmentController::reload_playlist() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(reload_mutex);
     std::cout << "Reload for conditional variable\n";
-    std::chrono::microseconds timeout(static_cast<uint32_t>(media_playlist.get_segment_target_duration() * 0.5));
+    std::chrono::seconds timeout(static_cast<uint32_t>(media_playlist.get_segment_target_duration() * 0.5));
     reload_cv.wait_for(lock, timeout,[this] {
       return (reload_playlist_flag || quit_processing);
     });
@@ -143,8 +143,8 @@ void ActiveSegmentController::reload_playlist() {
     {
       std::lock_guard<std::mutex> lock(private_data_mutex);
       // Not sure if we need to have this locked for the whole process
-      std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
       if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
+        std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
          std::string playlist_contents = downloader->download(media_playlist.get_url());
          hls::MediaPlaylist new_media_playlist;
          new_media_playlist.load_contents(playlist_contents);
@@ -267,16 +267,24 @@ bool ActiveSegmentController::has_next_demux_segment() {
   return !last_downloaded_segments.empty();
 }
 
-void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist media_playlist) {
+void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist) {
   // Only update the playlist if they are different
-  if (media_playlist != this->media_playlist) {
-    hls::Segment current_segment = this->media_playlist.get_segment(current_segment_index);
-    // TODO: Update current_segment_index to correspond to
-    // where the current segment is in the new playlist
-    // but we don't know where that is until the reload is done
-    // TODO: Clear out segment data/promises
-    // basically have to restart the pipeline
-    this->media_playlist = media_playlist;
+  if (new_media_playlist != media_playlist) {
+    {
+      std::lock_guard<std::mutex> lock(private_data_mutex);
+      // TODO: What about the case when the playlist is waiting on a reload to get the segment?
+      // we should be able to get the most recent valid segment
+      if (media_playlist.has_segment(current_segment_index)) {
+        // TODO: Update current_segment_index to correspond to
+        // where the current segment is in the new playlist
+        // but we don't know where that is until the reload is done
+        // TODO: Clear out segment data/promises
+        // basically have to restart the pipeline
+        // TODO: Do we clear out the pipeline/buffered segments?
+        hls::Segment current_segment = this->media_playlist.get_segment(current_segment_index);
+      }
+    }
+    media_playlist = new_media_playlist;
     {
       std::lock_guard<std::mutex> lock(reload_mutex);
       reload_playlist_flag = true;

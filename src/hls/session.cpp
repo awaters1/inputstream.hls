@@ -33,22 +33,26 @@ void hls::Session::switch_streams() {
   if (stall_counter <= 2 && active_segment_controller.get_percentage_buffer_full() >= 0.10) {
     switch_up = true;
   }
+  std::cout << "Switch Stream stalls: " << stall_counter << " buffer: " <<
+      active_segment_controller.get_percentage_buffer_full() << " bandwidth: " <<
+      active_segment_controller.get_average_bandwidth() << "\n";
   std::vector<MediaPlaylist> media_playlists = master_playlist.get_media_playlist();
   std::vector<MediaPlaylist>::iterator next_active_playlist = media_playlists.begin();
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
     if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
-       std::cout << "(Up) Variant stream bandwidth: " << it->bandwidth << "\n";
+       std::cout << "(Up) Variant stream bandwidth: " << it->bandwidth << " url: " << it->get_url() << "\n";
     } else if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
       // Switch down
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
-       std::cout << "(Down) Variant stream bandwidth: " << it->bandwidth << "\n";
+       std::cout << "(Down) Variant stream bandwidth: " << it->bandwidth  << " url: " << it->get_url() << "\n";
     }
   }
 
   if (next_active_playlist != media_playlists.end()) {
+    std::cout << "Switching to playlist " << next_active_playlist->get_url() << "\n";
     MediaPlaylist active_playlist = *next_active_playlist;
     total_time = active_playlist.get_total_duration();
     active_segment_controller.set_media_playlist(active_playlist);

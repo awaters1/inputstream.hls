@@ -66,7 +66,8 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
     return "";
   }
 
-  double current_download_speed_ = xbmc->GetFileDownloadSpeed(file);
+  // Convert to bits/second
+  double current_download_speed_ = xbmc->GetFileDownloadSpeed(file) * 8;
   //Calculate the new downloadspeed to 1MB
   static const size_t ref_packet = 1024 * 1024;
   double bandwidth_measurement;
