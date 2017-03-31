@@ -268,6 +268,7 @@ bool ActiveSegmentController::has_next_demux_segment() {
 }
 
 void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist) {
+  // TODO: Should put this in another thread to prevent hanging the main thread?
   // Only update the playlist if they are different
   if (new_media_playlist != media_playlist) {
     {
@@ -281,6 +282,7 @@ void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_pl
         // TODO: Clear out segment data/promises
         // basically have to restart the pipeline
         // TODO: Do we clear out the pipeline/buffered segments?
+        // TODO: Maybe just drop the download and demux threads and restart them?
         hls::Segment current_segment = this->media_playlist.get_segment(current_segment_index);
       }
     }
