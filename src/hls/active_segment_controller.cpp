@@ -55,10 +55,6 @@ void ActiveSegmentController::download_next_segment() {
   }
 }
 
-bool packet_sorter(TSDemux::STREAM_PKT *pkt1, TSDemux::STREAM_PKT *pkt2) {
-  return pkt1->dts < pkt2->dts;
-}
-
 void ActiveSegmentController::demux_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(demux_mutex);

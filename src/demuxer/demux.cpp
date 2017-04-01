@@ -20,6 +20,8 @@
  *
  */
 
+#include <algorithm>
+
 #include <p8-platform/os.h>
 #include <xbmc_codec_types.h>
 
@@ -191,6 +193,11 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
+
+bool packet_sorter(DemuxPacket *pkt1, DemuxPacket *pkt2) {
+  return pkt1->dts < pkt2->dts;
+}
+
 void* Demux::Process(bool add_in_stream_change)
 {
   if (!m_AVContext)
@@ -246,7 +253,7 @@ void* Demux::Process(bool add_in_stream_change)
     else
       m_AVContext->GoNext();
   }
-
+  std::sort(m_demuxPacketBuffer.begin(), m_demuxPacketBuffer.end(), packet_sorter);
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
   return NULL;
 }
