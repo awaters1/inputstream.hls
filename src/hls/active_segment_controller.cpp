@@ -13,7 +13,7 @@ void ActiveSegmentController::download_next_segment() {
     std::unique_lock<std::mutex> lock(download_mutex);
     std::cout << "Download waiting for conditional variable\n";
     download_cv.wait(lock, [this] {
-      return (segment_data.size() < max_segment_data && has_next_download_segment())
+      return (has_next_download_segment() && segment_data.size() < max_segment_data)
           || quit_processing;
     });
 
@@ -68,60 +68,62 @@ void ActiveSegmentController::demux_next_segment() {
       return;
     }
 
-    hls::Segment segment;
-    SegmentData current_segment_data;
-    {
-      std::lock_guard<std::mutex> lock(private_data_mutex);
-      segment = last_downloaded_segments.front();
-      last_downloaded_segments.erase(last_downloaded_segments.begin());
-      current_segment_data = segment_data[segment];
-    }
-    // Trigger a download when we remove one
-    {
-      std::lock_guard<std::mutex> lock(download_mutex);
-      download_cv.notify_one();
-    }
-
-    std::cout << "Starting decrypt and demux of " << segment.media_sequence << " url: " << segment.get_url() << "\n";
-    std::string content = current_segment_data.content;
-    if (segment.encrypted) {
-      std::cout << "Decrypting segment\n";
-      auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
-      std::string aes_key;
-      if (aes_key_it == aes_uri_to_key.end()) {
-          std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
-          aes_key = downloader->download(segment.aes_uri);
-          aes_uri_to_key.insert({segment.aes_uri, aes_key});
-      } else {
-          aes_key = aes_key_it->second;
-      }
-      content = decrypt(aes_key, segment.aes_iv, content);
-    }
-    Demux *demux = new Demux(content);
-    demux->Process(true /*segment.media_sequence == 0*/);
-    hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux), content);
-    bool erased = false;
-    {
+    // Demux everything that is downloaded
+    while(has_next_demux_segment()) {
+      hls::Segment segment;
+      SegmentData current_segment_data;
+      {
         std::lock_guard<std::mutex> lock(private_data_mutex);
-        segment_data[segment].state = SegmentState::DEMUXED;
-        segment_data[segment].active_segment = active_segment;
-        auto it = segment_promises.find(segment);
-        if (it != segment_promises.end()) {
-          auto promise = std::move(it->second);
-          promise.set_value(std::unique_ptr<hls::ActiveSegment>(active_segment));
-          segment_promises.erase(segment);
-          erased = true;
+        segment = last_downloaded_segments.front();
+        last_downloaded_segments.erase(last_downloaded_segments.begin());
+        current_segment_data = segment_data[segment];
+      }
+
+      std::cout << "Starting decrypt and demux of " << segment.media_sequence << " url: " << segment.get_url() << "\n";
+      std::string content = current_segment_data.content;
+      if (segment.encrypted) {
+        std::cout << "Decrypting segment\n";
+        auto aes_key_it = aes_uri_to_key.find(segment.aes_uri);
+        std::string aes_key;
+        if (aes_key_it == aes_uri_to_key.end()) {
+            std::cout << "Getting AES Key from " << segment.aes_uri << "\n";
+            aes_key = downloader->download(segment.aes_uri);
+            aes_uri_to_key.insert({segment.aes_uri, aes_key});
+        } else {
+            aes_key = aes_key_it->second;
         }
-    }
+        content = decrypt(aes_key, segment.aes_iv, content);
+      }
+      Demux *demux = new Demux(content);
+      demux->Process(true /*segment.media_sequence == 0*/);
+      hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux), content);
+      bool erased = false;
+      {
+          std::lock_guard<std::mutex> lock(private_data_mutex);
+          segment_data[segment].state = SegmentState::DEMUXED;
+          segment_data[segment].active_segment = active_segment;
+          auto it = segment_promises.find(segment);
+          if (it != segment_promises.end()) {
+            std::cout << "Erased segment " << segment.media_sequence << " from segment data\n";
+            it->second.set_value(std::unique_ptr<hls::ActiveSegment>(active_segment));
+            segment_promises.erase(segment);
+            auto segment_data_it = segment_data.find(segment);
+            if (segment_data_it != segment_data.end()) {
+              segment_data.erase(segment_data_it);
+            }
+            erased = true;
+          }
+      }
+      print_segment_data();
 
-    if (erased) {
-      std::cout << "Erased the segment data for " << segment.get_url() << "\n";
-      std::lock_guard<std::mutex> lock(download_mutex);
-      download_cv.notify_one();
+      if (erased) {
+        std::cout << "Erased the segment data for " << segment.get_url() << "\n";
+        std::lock_guard<std::mutex> lock(download_mutex);
+        download_cv.notify_one();
+      }
+      std::cout << "Finished decrypt and demux of " << segment.media_sequence << "\n";
     }
-
     lock.unlock();
-    std::cout << "Finished decrypt and demux of " << segment.media_sequence << "\n";
   }
 }
 
@@ -200,6 +202,30 @@ void ActiveSegmentController::reload_playlist() {
   }
 }
 
+void ActiveSegmentController::print_segment_data() {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    for(auto it = segment_data.begin(); it != segment_data.end(); ++it) {
+      std::string enum_desc;
+      switch(it->second.state) {
+      case SegmentState::DEMUXED:
+        enum_desc = "demuxed"; break;
+      case SegmentState::DEMUXING:
+        enum_desc = "demuxing"; break;
+      case SegmentState::DOWNLOADED:
+        enum_desc = "downloaded"; break;
+      case SegmentState::DOWNLOADING:
+        enum_desc = "downloading"; break;
+      case SegmentState::UNKNOWN:
+        enum_desc = "unknown"; break;
+      default:
+        enum_desc = "invalid";
+      }
+      std::cout << "Segment: " << it->first.media_sequence << " State: " << enum_desc << "\n";
+    }
+  }
+}
+
 std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_next_segment() {
   hls::Segment segment;
   SegmentData current_segment_data;
@@ -207,9 +233,10 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
   bool has_segment = false;
   bool live = false;
   int tries = 0;
+  print_segment_data();
   {
-    std::lock_guard<std::mutex> lock(private_data_mutex);
-    segment_index = current_segment_index;
+     std::lock_guard<std::mutex> lock(private_data_mutex);
+     segment_index = current_segment_index;
   }
   if (segment_index == -1) {
     std::cout << "Invalid segment, waiting for a playlist reload\n";
@@ -319,7 +346,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
 bool ActiveSegmentController::has_next_download_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
   bool has_segment = download_segment_index >= 0 && media_playlist.has_segment(download_segment_index);
-  std::cout << "Checking if we have segment " << download_segment_index << ": " << has_segment << "\n";
+  std::cout << "Checking if we have segment " << download_segment_index << ": " << has_segment << " segment_data: " << segment_data.size() << "\n";
   return has_segment;
 }
 
@@ -362,7 +389,7 @@ hls::Segment ActiveSegmentController::get_current_segment() {
 ActiveSegmentController::ActiveSegmentController(Downloader *downloader) :
 download_segment_index(-1),
 current_segment_index(-1),
-max_segment_data(15),
+max_segment_data(2),
 downloader(downloader),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);

@@ -19,7 +19,7 @@
  *  http://www.gnu.org/copyleft/gpl.html
  *
  */
-
+#include <iostream>
 #include <algorithm>
 
 #include <p8-platform/os.h>
@@ -257,6 +257,8 @@ void* Demux::Process(bool add_in_stream_change)
       m_AVContext->GoNext();
   }
   std::sort(m_demuxPacketBuffer.begin(), m_demuxPacketBuffer.end(), packet_sorter);
+  std::cout << "Start PTS: " << m_demuxPacketBuffer.front()->demux_packet->pts << " DTS: " << m_demuxPacketBuffer.front()->demux_packet->dts << "\n";
+  std::cout << "End PTS: " << (*(m_demuxPacketBuffer.end() - 2))->demux_packet->pts << " DTS: " << (*(m_demuxPacketBuffer.end() - 2))->demux_packet->dts << "\n";
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
   return NULL;
 }

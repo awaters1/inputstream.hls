@@ -1,6 +1,4 @@
 TODO:
-1. Live streams
-2. Variant stream switching
 3. Seek
 
 Using ReadStream prevents us from doing adapting switching
@@ -11,6 +9,9 @@ CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42604.346033, a
 -> ESPN hls files do not have a PCR
 
 Handle download stalls in the download thread
+
+Bugs:
+1. Doesn't work well when our segment_data buffer is small (2)
 
 
 

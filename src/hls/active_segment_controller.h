@@ -62,6 +62,7 @@ private:
   void download_next_segment();
   void demux_next_segment();
   void reload_playlist();
+  void print_segment_data();
 private:
   // This pointer is managed by the session
   Downloader *downloader;
