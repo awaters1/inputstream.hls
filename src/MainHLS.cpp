@@ -36,6 +36,7 @@
 #include "hls/session.h"
 #include "hls/HLS.h"
 #include "kodi_hls.h"
+#include "demux_container.h"
 
 
 /*******************************************************
@@ -292,9 +293,10 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    DemuxPacket *packet = hls_session->get_current_pkt();
+    DemuxContainer *demux_container = hls_session->get_current_pkt();
+    DemuxPacket *packet = demux_container->demux_packet;
     std::cout.precision(17);
-    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << "\n";
+    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << " PCR: " << demux_container->pcr << "\n";
     hls_session->read_next_pkt();
     return packet;
   }

@@ -14,7 +14,7 @@
 
 #include "session.h"
 
-DemuxPacket* hls::ActiveSegment::get_next_pkt() {
+DemuxContainer* hls::ActiveSegment::get_next_pkt() {
   return demux->Read();
 }
 
@@ -25,7 +25,7 @@ uint64_t hls::Session::get_current_time() {
   return 0;
 }
 
-DemuxPacket* hls::Session::get_current_pkt() {
+DemuxContainer* hls::Session::get_current_pkt() {
   if (!current_pkt) {
     read_next_pkt();
   }

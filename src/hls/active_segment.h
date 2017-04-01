@@ -6,6 +6,7 @@
 
 #include "HLS.h"
 #include "../demuxer/demux.h"
+#include "../demux_container.h"
 
 namespace hls {
   class ActiveSegment {
@@ -19,7 +20,7 @@ namespace hls {
     ActiveSegment & operator= (const ActiveSegment & other) = delete;
 
     std::string get_url() { return segment.get_url(); }
-    DemuxPacket* get_next_pkt();
+    DemuxContainer* get_next_pkt();
     // TODO: Doesn't return PTS of main segment
     int64_t get_current_time() { return demux->GetPlayingTime(); };
     uint32_t get_byte_length() { return segment.byte_length; };

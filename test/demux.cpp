@@ -82,7 +82,7 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
-DemuxPacket* Demux::Read()
+DemuxContainer* Demux::Read()
 {
   return nullptr;
 }
@@ -139,7 +139,7 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
   return nullptr;
 }
 
-void Demux::push_stream_data(DemuxPacket* dxp)
+void Demux::push_stream_data(DemuxContainer* dxp)
 {
 
 }

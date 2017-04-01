@@ -439,6 +439,14 @@ int AVContext::ProcessTSPacket()
     {
       is_discontinuity = (av_rb8(this->av_buf + 5) & 0x80) != 0;
     }
+    bool has_pcr = (av_rb8(this->av_buf + 5) & 0x10) != 0;
+    if (has_pcr && pid == pcr_pid) {
+      uint64_t pcr_base = (av_rb32(this->av_buf + 6) << 1) +
+          (av_rb8(this->av_buf + 10) >> 7);
+      uint64_t pcr_extension = av_rb16(this->av_buf + 10) & 0x1f;
+      pcr = pcr_base * 300 + pcr_extension;
+      DBG(DEMUX_DBG_WARN, "PCR %u discountinuity: %d\n", this->pcr, is_discontinuity);
+    }
   }
   if (has_payload)
   {
@@ -749,6 +757,10 @@ int AVContext::parse_ts_psi()
       // clear old pes
       clear_pes(this->packet->channel);
 
+      // Parse PCR PID
+      this->pcr_pid = (size_t)(av_rb16(psi + 5) & 0x0fff);
+      DBG(DEMUX_DBG_DEBUG, "%s: PCR PID %.4x\n", __FUNCTION__, this->pcr_pid);
+
       // parse new version of PMT
       psi += 7;
 
@@ -983,6 +995,11 @@ int AVContext::parse_ts_pes()
     this->packet->packet_table.Reset();
     // Header len is at least 6 bytes. So getting 6 bytes first
     this->packet->packet_table.len = 6;
+  }
+
+  if (this->packet->stream->c_pcr != pcr) {
+    this->packet->stream->p_pcr = this->packet->stream->c_pcr;
+    this->packet->stream->c_pcr = pcr;
   }
 
   // Position in the payload buffer. Start at 0

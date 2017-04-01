@@ -98,7 +98,7 @@ void ActiveSegmentController::demux_next_segment() {
       content = decrypt(aes_key, segment.aes_iv, content);
     }
     Demux *demux = new Demux(content);
-    demux->Process(segment.media_sequence == 0);
+    demux->Process(true /*segment.media_sequence == 0*/);
     hls::ActiveSegment *active_segment = new hls::ActiveSegment(segment, std::unique_ptr<Demux>(demux), content);
     bool erased = false;
     {
@@ -201,7 +201,6 @@ void ActiveSegmentController::reload_playlist() {
 }
 
 std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_next_segment() {
-  // TODO: Handle when current_segment_index is -1 (not initiliazed)
   hls::Segment segment;
   SegmentData current_segment_data;
   int32_t segment_index;
@@ -296,7 +295,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
         segment_promises[segment] = std::move(promise);
         return future;
       } case SegmentState::DEMUXED: {
-        std::cout << "Segment is ready " << segment.get_url() << "\n";
+        std::cout << "Segment is ready " << segment.get_url() << " Key: " << segment.aes_uri << " iv:" << segment.aes_iv <<"\n";
         std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
         segment_data.erase(segment);
         trigger_download = true;

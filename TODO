@@ -3,6 +3,14 @@ TODO:
 2. Variant stream switching
 3. Seek
 
+Using ReadStream prevents us from doing adapting switching
+Using DemuxRead introduces micro stutters from something
+-> May be due to break in PTS between segments, one segment had 6810370222.2222223 the
+next had 6810412955.5555553, a difference of around 42000, and the kodi log had
+CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42604.346033, adjusted:42604.346033
+
+Handle download stalls in the download thread
+
 
 
 For some reason demuxing the mpeg stream causes stuttering when the

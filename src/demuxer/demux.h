@@ -31,6 +31,7 @@
 #include <set>
 
 #include "kodi_inputstream_types.h"
+#include "../demux_container.h"
 
 #define AV_BUFFER_SIZE          131072
 
@@ -48,14 +49,14 @@ public:
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
-  DemuxPacket* Read();
+  DemuxContainer* Read();
   bool SeekTime(double time, bool backwards, double* startpts);
 
   int GetPlayingTime();
 
 private:
   uint16_t m_channel;
-  std::vector<DemuxPacket*> m_demuxPacketBuffer;
+  std::vector<DemuxContainer*> m_demuxPacketBuffer;
   P8PLATFORM::CMutex m_mutex;
   INPUTSTREAM_IDS m_streamIds;
   INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
@@ -68,7 +69,7 @@ private:
   bool update_pvr_stream(uint16_t pid);
   void push_stream_change();
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
-  void push_stream_data(DemuxPacket* dxp);
+  void push_stream_data(DemuxContainer* dxp);
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer

@@ -82,6 +82,7 @@ namespace TSDemux
     const unsigned char*  data;
     uint64_t              dts;
     uint64_t              pts;
+    uint64_t              pcr;
     uint64_t              duration;
     bool                  streamChange;
   };
@@ -103,6 +104,9 @@ namespace TSDemux
     uint64_t c_pts;               ///< current MPEG stream PTS (presentation time for audio and video)
     uint64_t p_dts;               ///< previous MPEG stream DTS (decode time for video)
     uint64_t p_pts;               ///< previous MPEG stream PTS (presentation time for audio and video)
+
+    uint64_t p_pcr;
+    uint64_t c_pcr;
 
     bool has_stream_info;         ///< true if stream info is completed else it requires parsing of iframe
 
