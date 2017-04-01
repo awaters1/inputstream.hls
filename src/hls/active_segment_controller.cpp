@@ -162,7 +162,7 @@ void ActiveSegmentController::reload_playlist() {
       std::lock_guard<std::mutex> lock(private_data_mutex);
       // Not sure if we need to have this locked for the whole process
       if (media_playlist.live || media_playlist.get_number_of_segments() == 0) {
-         std::cout << "Reloading playlist bandwidth: " << media_playlist.get_url() << "\n";
+         std::cout << "Reloading playlist bandwidth: " << media_playlist.bandwidth << "\n";
          std::string playlist_contents = downloader->download(media_playlist.get_url());
          hls::MediaPlaylist new_media_playlist;
          new_media_playlist.load_contents(playlist_contents);
@@ -289,12 +289,12 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
     switch(segment_data[segment].state) {
       case SegmentState::UNKNOWN: {
         // TODO: May have to remove a segment from segment_data so this one gets processed
-        std::cout << "Have to download segment " << segment.get_url() << "\n";
+        std::cout << "Have to download segment " << segment.media_sequence << " " << segment.get_url() << "\n";
         trigger_download = true;
       } case SegmentState::DOWNLOADING:
       case SegmentState::DOWNLOADED:
       case SegmentState::DEMUXING: {
-        std::cout << "Have to wait for segment " << segment.get_url() << "\n";
+        std::cout << "Have to wait for segment " << segment.media_sequence << " "  << segment.get_url() << "\n";
         std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
         auto future = promise.get_future();
         segment_promises[segment] = std::move(promise);

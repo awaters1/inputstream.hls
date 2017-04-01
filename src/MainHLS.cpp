@@ -293,6 +293,7 @@ extern "C" {
       return NULL;
 
     DemuxPacket *packet = hls_session->get_current_pkt();
+    std::cout.precision(17);
     std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << "\n";
     hls_session->read_next_pkt();
     return packet;
