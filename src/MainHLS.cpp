@@ -296,7 +296,7 @@ extern "C" {
     DemuxContainer *demux_container = hls_session->get_current_pkt();
     DemuxPacket *packet = demux_container->demux_packet;
     std::cout.precision(17);
-    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << " PCR: " << demux_container->pcr << "\n";
+    // std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << " PCR: " << demux_container->pcr << "\n";
     hls_session->read_next_pkt();
     return packet;
   }

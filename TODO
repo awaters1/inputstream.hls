@@ -8,6 +8,7 @@ Using DemuxRead introduces micro stutters from something
 -> May be due to break in PTS between segments, one segment had 6810370222.2222223 the
 next had 6810412955.5555553, a difference of around 42000, and the kodi log had
 CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42604.346033, adjusted:42604.346033
+-> ESPN hls files do not have a PCR
 
 Handle download stalls in the download thread
 

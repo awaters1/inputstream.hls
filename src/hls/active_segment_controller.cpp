@@ -46,7 +46,7 @@ void ActiveSegmentController::download_next_segment() {
         segment_data[segment].content = contents;
     }
     lock.unlock();
-    std::cout << "Finished download\n";
+    std::cout << "Finished download of " << segment.media_sequence << "\n";
     {
       std::lock_guard<std::mutex> demux_lock(demux_mutex);
       last_downloaded_segments.push_back(segment);
@@ -82,7 +82,7 @@ void ActiveSegmentController::demux_next_segment() {
       download_cv.notify_one();
     }
 
-    std::cout << "Starting decrypt and demux of " << segment.get_url() << "\n";
+    std::cout << "Starting decrypt and demux of " << segment.media_sequence << " url: " << segment.get_url() << "\n";
     std::string content = current_segment_data.content;
     if (segment.encrypted) {
       std::cout << "Decrypting segment\n";
@@ -121,7 +121,7 @@ void ActiveSegmentController::demux_next_segment() {
     }
 
     lock.unlock();
-    std::cout << "Finished decrypt and demux\n";
+    std::cout << "Finished decrypt and demux of " << segment.media_sequence << "\n";
   }
 }
 
@@ -274,6 +274,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
     return promise.get_future();
   }
   bool trigger_download = false;
+  std::future<std::unique_ptr<hls::ActiveSegment> > ret;
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     if (has_segment) {
@@ -291,16 +292,17 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
       case SegmentState::DEMUXING: {
         std::cout << "Have to wait for segment " << segment.media_sequence << " "  << segment.get_url() << "\n";
         std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
-        auto future = promise.get_future();
+        ret = promise.get_future();
         segment_promises[segment] = std::move(promise);
-        return future;
+        break;
       } case SegmentState::DEMUXED: {
         std::cout << "Segment is ready " << segment.get_url() << " Key: " << segment.aes_uri << " iv:" << segment.aes_iv <<"\n";
         std::promise<std::unique_ptr<hls::ActiveSegment>> promise;
         segment_data.erase(segment);
         trigger_download = true;
         promise.set_value(std::unique_ptr<hls::ActiveSegment>(current_segment_data.active_segment));
-        return promise.get_future();
+        ret = promise.get_future();
+        break;
       }
     }
   }
@@ -311,7 +313,7 @@ std::future<std::unique_ptr<hls::ActiveSegment>> ActiveSegmentController::get_ne
       download_cv.notify_one();
     }
   }
-  return std::future<std::unique_ptr<hls::ActiveSegment>>();
+  return ret;
 }
 
 bool ActiveSegmentController::has_next_download_segment() {
