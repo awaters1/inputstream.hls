@@ -203,14 +203,22 @@ extern "C" {
   struct INPUTSTREAM_IDS GetStreamIds()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
-    return INPUTSTREAM_IDS();
+    INPUTSTREAM_IDS iids;
+
+    if(hls_session)
+    {
+        return hls_session->get_streams();
+    } else
+        iids.m_streamCount = 0;
+
+    return iids;
   }
 
   struct INPUTSTREAM_CAPABILITIES GetCapabilities()
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     INPUTSTREAM_CAPABILITIES caps;
-    caps.m_supportsIDemux = false;
+    caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
     caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
@@ -220,11 +228,25 @@ extern "C" {
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
-    return INPUTSTREAM_INFO();
+    static struct INPUTSTREAM_INFO dummy_info = {
+      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
+      0, 0, 0, 0, 0.0f,
+      0, 0, 0, 0, 0 };
+
+    xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
+
+    if(hls_session) {
+      INPUTSTREAM_INFO stream_info = hls_session->get_stream(streamid);
+      memcpy(&dummy_info, &stream_info, sizeof(INPUTSTREAM_INFO));
+      return dummy_info;
+    }
+    return dummy_info;
   }
 
   void EnableStream(int streamid, bool enable)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
+    // TODO: Unsure if I need to support EnableStream
   }
 
   // Doesn't cause any skpping, so it is something related
@@ -232,7 +254,8 @@ extern "C" {
   int ReadStream(unsigned char* buf, unsigned int size)
   {
     if (hls_session) {
-      return hls_session->read_stream(buf, size);
+      hls_session->read_stream(buf, size);
+      return size;
     }
     return -1;
   }
@@ -266,7 +289,13 @@ extern "C" {
 
   DemuxPacket* __cdecl DemuxRead(void)
   {
-    return nullptr;
+    if (!hls_session)
+      return NULL;
+
+    DemuxPacket *packet = hls_session->get_current_pkt();
+    std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << "\n";
+    hls_session->read_next_pkt();
+    return packet;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)

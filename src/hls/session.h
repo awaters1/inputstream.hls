@@ -25,6 +25,13 @@ namespace hls {
     uint32_t get_total_time() { return total_time; };
     bool is_live() { return active_segment_controller->is_live(); };
     int read_stream(uint8_t *buf, size_t size);
+
+    INPUTSTREAM_IDS get_streams();
+    INPUTSTREAM_INFO get_stream(uint32_t stream_id);
+
+    DemuxPacket* get_current_pkt();
+    void read_next_pkt();
+    uint64_t get_current_time();
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
   private:
@@ -42,6 +49,8 @@ namespace hls {
     std::unique_ptr<ActiveSegmentController> active_segment_controller;
     // For when we want to switch streams
     std::unique_ptr<ActiveSegmentController> future_segment_controller;
+
+    DemuxPacket* current_pkt;
 
 
     MasterPlaylist master_playlist;

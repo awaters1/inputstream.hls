@@ -14,6 +14,35 @@
 
 #include "session.h"
 
+DemuxPacket* hls::ActiveSegment::get_next_pkt() {
+  return demux->Read();
+}
+
+uint64_t hls::Session::get_current_time() {
+  if (current_pkt) {
+    return active_segment->get_current_time();
+  }
+  return 0;
+}
+
+DemuxPacket* hls::Session::get_current_pkt() {
+  if (!current_pkt) {
+    read_next_pkt();
+  }
+  return current_pkt;
+}
+
+void hls::Session::read_next_pkt() {
+  if (active_segment) {
+    current_pkt = active_segment->get_next_pkt();
+    if (!current_pkt && load_segments()) {
+      current_pkt = active_segment->get_next_pkt();
+    }
+  } else {
+    current_pkt = nullptr;
+  }
+}
+
 hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   FileMediaPlaylist media_playlist;
   media_playlist.open(url.c_str());
@@ -133,12 +162,35 @@ int hls::Session::read_stream(uint8_t *buf, size_t size) {
   return size - data_to_read;
 }
 
+
+
+
+
+INPUTSTREAM_IDS hls::Session::get_streams() {
+  // Load the first segment of the active playlactive_segmentist to obtain the streams
+  // from the mpeg2ts
+  if (!active_segment) {
+    load_segments();
+  }
+  return active_segment->get_input_stream_ids();
+}
+
+INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
+  for(size_t i = 0; i < get_streams().m_streamCount; ++i) {
+    if (active_segment->get_input_stream_info()[i].m_pID == stream_id) {
+      return active_segment->get_input_stream_info()[i];
+    }
+  }
+  return INPUTSTREAM_INFO();
+}
+
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     master_playlist(master_playlist),
     total_time(0),
     active_segment_controller(nullptr),
     future_segment_controller(nullptr),
     downloader(downloader),
+    current_pkt(0),
     active_segment_content_offset(0),
     stall_counter(0) {
   switch_streams();
