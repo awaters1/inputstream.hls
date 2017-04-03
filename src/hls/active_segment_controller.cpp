@@ -227,6 +227,7 @@ ActiveSegmentController::ActiveSegmentController(Downloader *downloader) :
 download_segment_index(-1),
 max_segment_data(2),
 downloader(downloader),
+demux(std::unique_ptr<Demux>(new Demux())),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   demux_thread = std::thread(&ActiveSegmentController::demux_next_segment, this);
