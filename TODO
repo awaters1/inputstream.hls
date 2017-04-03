@@ -2,6 +2,7 @@ TODO:
 Fix up multithreaded demux, doesn't process when the demux buffer is emptied
 Clean up thread safety issues, like when we lock data structures
 buffer gets filled too much because it isn't added until it is demuxed
+-> Some times it stalls attempting to download
 
 1. Stuttering
 -> Seems to be from creating a Demux instance for each segment, so we

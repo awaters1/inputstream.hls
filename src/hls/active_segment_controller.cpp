@@ -48,8 +48,10 @@ void ActiveSegmentController::download_next_segment() {
     }
     lock.unlock();
     {
-      std::lock_guard<std::mutex> demux_lock(demux_mutex);
-      demux_cv.notify_one();
+      std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
+      if(lock.owns_lock()) {
+        demux_cv.notify_one();
+      }
     }
     std::cout << "Finished download of " << segment.media_sequence << "\n";
   }
@@ -111,8 +113,10 @@ void ActiveSegmentController::demux_next_segment() {
     }
     lock.unlock();
     {
-      std::lock_guard<std::mutex> lock(download_mutex);
-      download_cv.notify_one();
+      std::unique_lock<std::mutex> lock(download_mutex, std::try_to_lock);
+      if(lock.owns_lock()) {
+        download_cv.notify_one();
+      }
     }
   }
 }
@@ -176,20 +180,26 @@ void ActiveSegmentController::reload_playlist() {
     // std::cout << "Finished playlist reload\n";
     // Trigger a download
     {
-      std::lock_guard<std::mutex> download_lock(download_mutex);
-      download_cv.notify_one();
+      std::unique_lock<std::mutex> lock(download_mutex, std::try_to_lock);
+      if(lock.owns_lock()) {
+        download_cv.notify_one();
+      }
     }
   }
 }
 
 DemuxContainer ActiveSegmentController::get_next_segment() {
   if (has_next_download_segment()) {
-    std::lock_guard<std::mutex> lock(download_mutex);
-    download_cv.notify_all();
+    std::unique_lock<std::mutex> lock(download_mutex, std::try_to_lock);
+    if(lock.owns_lock()) {
+      download_cv.notify_all();
+    }
   }
   if (has_demux_buffer_room()) {
-    std::lock_guard<std::mutex> lock(demux_mutex);
-    demux_cv.notify_all();
+    std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
+    if(lock.owns_lock()) {
+      demux_cv.notify_all();
+    }
   }
   return demux->Read();
 }
