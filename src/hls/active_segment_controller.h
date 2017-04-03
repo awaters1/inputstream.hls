@@ -33,6 +33,10 @@ public:
   double get_current_bandwidth() { return downloader->get_current_bandwidth(); };
   uint32_t get_bandwidth_of_current_playlist() { return media_playlist.bandwidth; };
   double get_percentage_buffer_full() { return demux->get_percentage_buffer_full(); };
+  INPUTSTREAM_IDS get_stream_ids() { return demux->GetStreamIds(); };
+  INPUTSTREAM_INFO* get_streams() { return demux->GetStreams(); };
+  // TODO: Implement
+  double get_current_time() { return -1; };
 private:
   bool has_next_demux_segment();
   bool has_next_download_segment();

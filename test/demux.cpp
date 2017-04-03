@@ -22,7 +22,7 @@
 
 #include "../src/demuxer/demux.h"
 
-Demux::Demux(std::string buffer)
+Demux::Demux()
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -40,8 +40,6 @@ Demux::Demux(std::string buffer)
   , m_curTime(0)
   , m_endTime(0)
   , m_isChangePlaced(false)
-  , m_buffer(buffer)
-  , m_buffer_pos(0)
 {
 
 }
@@ -59,9 +57,8 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return nullptr;
 }
 
-void* Demux::Process(bool add_in_stream_change)
+void Demux::Process()
 {
-  return NULL;
 }
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
@@ -82,9 +79,9 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
-DemuxContainer* Demux::Read()
+DemuxContainer Demux::Read()
 {
-  return nullptr;
+  return DemuxContainer();
 }
 
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
@@ -139,7 +136,11 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
   return nullptr;
 }
 
-void Demux::push_stream_data(DemuxContainer* dxp)
+void Demux::push_stream_data(DemuxContainer dxp)
 {
+
+}
+
+void Demux::PushData(SegmentData content) {
 
 }

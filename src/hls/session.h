@@ -36,7 +36,6 @@ namespace hls {
     virtual MediaPlaylist download_playlist(std::string url);
   private:
     void switch_streams();
-    bool load_segments();
 
     uint32_t stall_counter;
 
