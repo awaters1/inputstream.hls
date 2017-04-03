@@ -64,17 +64,14 @@ private:
 
   // Download thread
   std::condition_variable download_cv;
-  std::mutex download_mutex;
   std::thread download_thread;
 
   // Demux thread
   std::condition_variable demux_cv;
-  std::mutex demux_mutex;
   std::thread demux_thread;
 
   // Reload playlist thread
   std::condition_variable reload_cv;
-  std::mutex reload_mutex;
   std::thread reload_thread;
   std::atomic_bool reload_playlist_flag;
 
