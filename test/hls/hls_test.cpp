@@ -72,6 +72,10 @@ TEST(HlsTest, GetAttributes) {
   attributes = mp.get_attributes("#EXT-X-TARGETDURATION:10");
   ASSERT_EQ(1, attributes.size());
   EXPECT_EQ("10", attributes[0]);
+  attributes = mp.get_attributes("#EXT-X-MEDIA-SEQUENCE:23\n");
+  ASSERT_EQ(1, attributes.size());
+  EXPECT_EQ("23", attributes[0]);
+  EXPECT_EQ(23, std::stoul(attributes[0]));
 }
 
 TEST(HlsTest, MediaPlayistUrl) {

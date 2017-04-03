@@ -28,6 +28,7 @@ DemuxContainer hls::Session::get_current_pkt() {
   return current_pkt;
 }
 
+// TODO: Have to support switch_streams somehow
 void hls::Session::read_next_pkt() {
   if (active_segment_controller) {
     current_pkt = active_segment_controller->get_next_segment();

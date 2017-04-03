@@ -26,7 +26,7 @@ void ActiveSegmentController::download_next_segment() {
 
     lock.unlock();
 
-    std::cout << "Starting download of " << download_index << " at " << segment.get_url() << "\n";
+    std::cout << "Starting download of " << segment.media_sequence << " at " << segment.get_url() << "\n";
 
     std::string contents = downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length);
 
@@ -147,7 +147,7 @@ void ActiveSegmentController::reload_playlist() {
 
     lock.unlock();
     // Trigger a download
-    download_cv.notify_one();
+    // download_cv.notify_one();
   }
 }
 
@@ -159,18 +159,18 @@ DemuxContainer ActiveSegmentController::get_next_segment() {
 
 bool ActiveSegmentController::has_next_download_segment() {
   bool has_segment = download_segment_index >= 0 && media_playlist.has_segment(download_segment_index);
-  std::cout << "Checking if we have segment " << download_segment_index << ": "
-      << has_segment << " buffer: " << demux->get_percentage_buffer_full() << "\n";
+  // std::cout << "Checking if we have segment " << download_segment_index << ": "
+  //    << has_segment << " buffer: " << demux->get_percentage_buffer_full() << "\n";
   return has_segment && demux->get_percentage_buffer_full() < 1;
 }
 
 bool ActiveSegmentController::has_next_demux_segment() {
-  std::cout << "Last downloaded segments size: " << last_downloaded_segments.size() << "\n";
+  // std::cout << "Last downloaded segments size: " << last_downloaded_segments.size() << "\n";
   return !last_downloaded_segments.empty();
 }
 
 bool ActiveSegmentController::has_demux_buffer_room() {
-  std::cout << "Demux buffer room " << demux->get_percentage_packet_buffer_full() << "\n";
+  // std::cout << "Demux buffer room " << demux->get_percentage_packet_buffer_full() << "\n";
   return demux->get_percentage_packet_buffer_full() < 0.75 && demux->get_percentage_buffer_full() > 0;
 }
 
