@@ -145,10 +145,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   if (pos < m_av_pos || pos > (m_av_pos + sz))
   {
     // seek and reset buffer
-    m_buffer_pos = pos;
-    if (m_buffer_pos >= m_buffer.length()) {
-      return NULL;
-    }
+    m_segment_buffer_pos = pos;
     m_av_pos = pos;
     m_av_rbs = m_av_rbe = m_av_buf;
   }
@@ -169,12 +166,18 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
 
-  // TODO: IF we do not have enough data then we need to wait for
-  // a segment to come in
-  // TODO: Support reading across segments
   while (len >= 0)
   {
-    size_t remaining_buffer = m_buffer.length() - m_buffer_pos;
+    std::string current_data;
+    bool need_to_wait = false;
+    {
+      CLockObject lock(m_mutex);
+      while(m_segment_data.empty()) {
+        m_cv.Wait(m_mutex, 5000);
+      }
+      std::string current_data = m_segment_data.front().processed_content;
+    }
+    size_t remaining_buffer = current_data.length() - m_segment_buffer_pos;
     size_t bytes_to_read = len * sizeof(*m_av_buf);
     size_t c;
     if (bytes_to_read >= remaining_buffer) {
@@ -182,13 +185,20 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     } else {
       c = len;
     }
-    m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_buffer.c_str() + m_buffer_pos, c * sizeof(*m_av_buf));
-    m_buffer_pos += c * sizeof(*m_av_buf);
-    if (c > 0)
-    {
-      m_av_rbe += c;
-      dataread += c;
-      len -= c;
+    m_av_rbe = (unsigned char*) memcpy(m_av_rbe, current_data.c_str() + m_segment_buffer_pos, c * sizeof(*m_av_buf));
+    m_segment_buffer_pos += c * sizeof(*m_av_buf);
+
+    m_av_rbe += c;
+    dataread += c;
+    len -= c;
+
+    // We need a new segment
+    if (len > 0) {
+      {
+        CLockObject lock(m_mutex);
+        m_segment_data.erase(m_segment_data.begin());
+        m_segment_buffer_pos = 0;
+      }
     }
 
     if (dataread >= n || c <= 0)
@@ -641,11 +651,8 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
 
 void Demux::push_stream_data(DemuxContainer dxp)
 {
-  if (dxp)
-  {
-    CLockObject lock(m_mutex);
-    m_demuxPacketBuffer.push_back(dxp);
-  }
+  CLockObject lock(m_mutex);
+  m_demuxPacketBuffer.push_back(dxp);
 }
 
 void Demux::PushData(SegmentData content) {
