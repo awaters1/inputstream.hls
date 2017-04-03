@@ -39,6 +39,7 @@ public:
   double get_current_time() { return -1; };
 private:
   bool has_next_demux_segment();
+  bool has_demux_buffer_room();
   bool has_next_download_segment();
   void download_next_segment();
   void demux_next_segment();

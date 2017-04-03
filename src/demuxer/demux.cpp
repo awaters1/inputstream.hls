@@ -213,6 +213,7 @@ bool packet_sorter(DemuxContainer *pkt1, DemuxContainer *pkt2) {
 
 void Demux::Process()
 {
+  xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing", __FUNCTION__);
   if (!m_AVContext)
   {
     xbmc->Log(LOG_ERROR, LOGTAG "%s: no AVContext", __FUNCTION__);

@@ -323,7 +323,6 @@ extern "C" {
 
   int GetTotalTime()
   {
-    xbmc->Log(ADDON::LOG_INFO, "GetTotalTime");
     if (!hls_session)
       return -1;
     if (hls_session->is_live()) {

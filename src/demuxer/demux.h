@@ -40,7 +40,7 @@
 #define AV_BUFFER_SIZE          131072
 
 const int MAX_SEGMENT_DATA = 1;
-const int MAX_DEMUX_PACKETS = 4000;
+const int MAX_DEMUX_PACKETS = 1000;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -64,12 +64,14 @@ public:
   void PushData(SegmentData content);
 
   double get_percentage_buffer_full() { return m_segment_data.size() / double(MAX_SEGMENT_DATA); };
+  double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   hls::Segment get_current_segment() {
     if (!m_segment_data.empty()) {
       return m_segment_data.front().segment;
     }
     return hls::Segment();
   }
+
 
 private:
   uint16_t m_channel;

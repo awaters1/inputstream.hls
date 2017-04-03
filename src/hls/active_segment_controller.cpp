@@ -60,7 +60,7 @@ void ActiveSegmentController::demux_next_segment() {
     std::unique_lock<std::mutex> lock(demux_mutex);
     std::cout << "Demux waiting for conditional variable\n";
     demux_cv.wait(lock, [this] {
-      return (has_next_demux_segment() || quit_processing);
+      return (has_next_demux_segment() || has_demux_buffer_room() || quit_processing);
     });
 
     if (quit_processing) {
@@ -102,6 +102,12 @@ void ActiveSegmentController::demux_next_segment() {
           demux->Process();
       }
       std::cout << "Finished decrypt and demux of " << segment.media_sequence << "\n";
+    }
+    if (has_demux_buffer_room()) {
+      {
+        std::lock_guard<std::mutex> lock(private_data_mutex);
+        demux->Process();
+      }
     }
     lock.unlock();
     {
@@ -177,11 +183,14 @@ void ActiveSegmentController::reload_playlist() {
 }
 
 DemuxContainer ActiveSegmentController::get_next_segment() {
-  if (demux->get_percentage_buffer_full() < 1) {
+  if (has_next_download_segment()) {
     std::lock_guard<std::mutex> lock(download_mutex);
     download_cv.notify_all();
   }
-  // TODO: Should process in another thread
+  if (has_demux_buffer_room()) {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    demux_cv.notify_all();
+  }
   return demux->Read();
 }
 
@@ -195,7 +204,14 @@ bool ActiveSegmentController::has_next_download_segment() {
 
 bool ActiveSegmentController::has_next_demux_segment() {
   std::lock_guard<std::mutex> lock(private_data_mutex);
+  std::cout << "Last downloaded segments size: " << last_downloaded_segments.size() << "\n";
   return !last_downloaded_segments.empty();
+}
+
+bool ActiveSegmentController::has_demux_buffer_room() {
+  std::lock_guard<std::mutex> lock(private_data_mutex);
+  std::cout << "Demux buffer room " << demux->get_percentage_packet_buffer_full() << "\n";
+  return demux->get_percentage_packet_buffer_full() < 0.75 && demux->get_percentage_buffer_full() > 0;
 }
 
 void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist) {
