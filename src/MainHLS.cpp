@@ -19,6 +19,7 @@
 #include "MainHLS.h"
 
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <string.h>
 #include <sstream>
@@ -278,14 +279,17 @@ extern "C" {
 
   void DemuxReset(void)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxReset");
   }
 
   void DemuxAbort(void)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxAbort");
   }
 
   void DemuxFlush(void)
   {
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxFlush");
   }
 
   DemuxPacket* __cdecl DemuxRead(void)
@@ -293,8 +297,8 @@ extern "C" {
     if (!hls_session)
       return NULL;
 
-    DemuxContainer *demux_container = hls_session->get_current_pkt();
-    DemuxPacket *packet = demux_container->demux_packet;
+    DemuxContainer demux_container = hls_session->get_current_pkt();
+    DemuxPacket *packet = demux_container.demux_packet;
     std::cout.precision(17);
     // std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << " PCR: " << demux_container->pcr << "\n";
     hls_session->read_next_pkt();
@@ -308,7 +312,7 @@ extern "C" {
 
   void DemuxSetSpeed(int speed)
   {
-
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxSetSpeed");
   }
 
   //callback - will be called from kodi

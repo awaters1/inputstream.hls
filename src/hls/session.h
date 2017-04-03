@@ -10,7 +10,6 @@
 #include <thread>
 
 #include "HLS.h"
-#include "active_segment.h"
 #include "../downloader/downloader.h"
 #include "active_segment_controller.h"
 #include "../demux_container.h"
@@ -30,7 +29,7 @@ namespace hls {
     INPUTSTREAM_IDS get_streams();
     INPUTSTREAM_INFO get_stream(uint32_t stream_id);
 
-    DemuxContainer* get_current_pkt();
+    DemuxContainer get_current_pkt();
     void read_next_pkt();
     uint64_t get_current_time();
   protected:
@@ -44,14 +43,13 @@ namespace hls {
     // Downloader has to be deleted last
     std::unique_ptr<Downloader> downloader;
 
-    std::unique_ptr<ActiveSegment> active_segment;
     uint32_t active_segment_content_offset;
 
     std::unique_ptr<ActiveSegmentController> active_segment_controller;
     // For when we want to switch streams
     std::unique_ptr<ActiveSegmentController> future_segment_controller;
 
-    DemuxContainer* current_pkt;
+    DemuxContainer current_pkt;
 
 
     MasterPlaylist master_playlist;

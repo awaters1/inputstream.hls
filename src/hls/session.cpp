@@ -55,10 +55,6 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 // 2. If we able to keep our buffer full in active_segment_controller
 // 3. If we stalled at all in get next segment
 void hls::Session::switch_streams() {
-  // TODO: Disable stream switching
-  if (active_segment_controller) {
-    return;
-  }
   // Bits per second
   uint32_t bandwith_of_current_stream = 0;
   double average_bandwidth = downloader->get_average_bandwidth();

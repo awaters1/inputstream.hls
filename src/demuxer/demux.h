@@ -27,37 +27,55 @@
 #include <p8-platform/threads/mutex.h>
 #include <p8-platform/util/buffer.h>
 
+#include <future>
+#include <thread>
+
 #include <map>
 #include <set>
 
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
+#include "../hls/segment_data.h"
 
 #define AV_BUFFER_SIZE          131072
+
+const int MAX_SEGMENT_DATA = 10;
+const int MAX_DEMUX_PACKETS = 1000;
 
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(std::string buffer);
+  Demux();
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 
-  void* Process(bool add_in_stream_change);
+  void Process();
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
-  DemuxContainer* Read();
+  DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
 
   int GetPlayingTime();
 
+  void PushData(SegmentData content);
+
+  double get_percentage_buffer_full() { return m_segment_data.size() / double(MAX_SEGMENT_DATA); };
+  hls::Segment get_current_segment() {
+    if (!m_segment_data.empty()) {
+      return m_segment_data.front().segment;
+    }
+    return hls::Segment();
+  }
+
 private:
   uint16_t m_channel;
-  std::vector<DemuxContainer*> m_demuxPacketBuffer;
+  std::vector<DemuxContainer> m_demuxPacketBuffer; // Needs to be locked
   P8PLATFORM::CMutex m_mutex;
+  P8PLATFORM::CCondition<bool> m_cv;
   INPUTSTREAM_IDS m_streamIds;
   INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 
@@ -69,7 +87,7 @@ private:
   bool update_pvr_stream(uint16_t pid);
   void push_stream_change();
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
-  void push_stream_data(DemuxContainer* dxp);
+  void push_stream_data(DemuxContainer dxp);
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer
@@ -99,6 +117,6 @@ private:
   bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
-  std::string m_buffer;
-  uint64_t m_buffer_pos;
+  std::vector<SegmentData> m_segment_data; // Needs to be locked
+  uint64_t m_segment_buffer_pos;
 };

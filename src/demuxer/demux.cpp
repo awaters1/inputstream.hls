@@ -66,12 +66,12 @@ void DemuxLog(int level, char *msg)
       loglevel = LOG_DEBUG;
       break;
     }
-//    if (XBMC && doLog)
-//      XBMC->Log(loglevel, LOGTAG "%s", msg);
+    if (xbmc && doLog)
+      xbmc->Log(loglevel, LOGTAG "%s", msg);
   }
 }
 
-Demux::Demux(std::string buffer)
+Demux::Demux()
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -89,8 +89,8 @@ Demux::Demux(std::string buffer)
   , m_curTime(0)
   , m_endTime(0)
   , m_isChangePlaced(false)
-  , m_buffer(buffer)
-  , m_buffer_pos(0)
+  , m_segment_data(MAX_SEGMENT_DATA)
+  , m_segment_buffer_pos(0)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -168,6 +168,10 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   m_av_pos = pos;
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
+
+  // TODO: IF we do not have enough data then we need to wait for
+  // a segment to come in
+  // TODO: Support reading across segments
   while (len >= 0)
   {
     size_t remaining_buffer = m_buffer.length() - m_buffer_pos;
@@ -198,12 +202,12 @@ bool packet_sorter(DemuxContainer *pkt1, DemuxContainer *pkt2) {
   return pkt1->demux_packet->dts < pkt2->demux_packet->dts;
 }
 
-void* Demux::Process(bool add_in_stream_change)
+void Demux::Process()
 {
   if (!m_AVContext)
   {
     xbmc->Log(LOG_ERROR, LOGTAG "%s: no AVContext", __FUNCTION__);
-    return NULL;
+    return;
   }
 
   int ret = 0;
@@ -231,9 +235,9 @@ void* Demux::Process(bool add_in_stream_change)
             push_stream_change();
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
-        DemuxContainer *demux_container = new DemuxContainer;
-        demux_container->demux_packet = dxp;
-        demux_container->pcr = pkt.pcr;
+        DemuxContainer demux_container;
+        demux_container.demux_packet = dxp;
+        demux_container.pcr = pkt.pcr;
         if (dxp)
           push_stream_data(demux_container);
       }
@@ -255,12 +259,13 @@ void* Demux::Process(bool add_in_stream_change)
       m_AVContext->Shift();
     else
       m_AVContext->GoNext();
+
+    CLockObject lock(m_mutex);
+    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+      break;
+    }
   }
-  std::sort(m_demuxPacketBuffer.begin(), m_demuxPacketBuffer.end(), packet_sorter);
-  std::cout << "Start PTS: " << m_demuxPacketBuffer.front()->demux_packet->pts << " DTS: " << m_demuxPacketBuffer.front()->demux_packet->dts << "\n";
-  std::cout << "End PTS: " << (*(m_demuxPacketBuffer.end() - 2))->demux_packet->pts << " DTS: " << (*(m_demuxPacketBuffer.end() - 2))->demux_packet->dts << "\n";
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
-  return NULL;
 }
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
@@ -287,7 +292,7 @@ void Demux::Flush(void)
 {
   CLockObject lock(m_mutex);
   for(auto it = m_demuxPacketBuffer.begin(); it != m_demuxPacketBuffer.end(); ++it) {
-    ipsh->FreeDemuxPacket((*it)->demux_packet);
+    ipsh->FreeDemuxPacket(it->demux_packet);
   }
 }
 
@@ -297,14 +302,15 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
-DemuxContainer* Demux::Read()
+DemuxContainer Demux::Read()
 {
+  CLockObject lock(m_mutex);
   if (!m_demuxPacketBuffer.empty()) {
-    DemuxContainer *packet = m_demuxPacketBuffer.front();
+    DemuxContainer packet = m_demuxPacketBuffer.front();
     m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
     return packet;
   }
-  return nullptr;
+  return DemuxContainer();
 }
 
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
@@ -598,8 +604,8 @@ void Demux::push_stream_change()
     DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
     dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
 
-    DemuxContainer *demux_container = new DemuxContainer;
-    demux_container->demux_packet = dxp;
+    DemuxContainer demux_container;
+    demux_container.demux_packet = dxp;
 
     m_demuxPacketBuffer.push_back(demux_container);
     m_isChangePlaced = true;
@@ -633,11 +639,17 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
   return dxp;
 }
 
-void Demux::push_stream_data(DemuxContainer* dxp)
+void Demux::push_stream_data(DemuxContainer dxp)
 {
   if (dxp)
   {
-    bool ret = false;
+    CLockObject lock(m_mutex);
     m_demuxPacketBuffer.push_back(dxp);
   }
+}
+
+void Demux::PushData(SegmentData content) {
+  CLockObject lock(m_mutex);
+  m_segment_data.push_back(content);
+  m_cv.Signal();
 }

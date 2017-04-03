@@ -1,4 +1,9 @@
 TODO:
+1. Stuttering
+-> Seems to be from creating a Demux instance for each segment, so we
+should just use one Demux instance and continually push data into it
+
+
 3. Seek
 
 Using ReadStream prevents us from doing adapting switching
@@ -7,11 +12,11 @@ Using DemuxRead introduces micro stutters from something
 next had 6810412955.5555553, a difference of around 42000, and the kodi log had
 CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42604.346033, adjusted:42604.346033
 -> ESPN hls files do not have a PCR
+-> Look into how ffmpeg handles pts between segments
 
 Handle download stalls in the download thread
 
 Bugs:
-1. Doesn't work well when our segment_data buffer is small (2)
 
 
 
