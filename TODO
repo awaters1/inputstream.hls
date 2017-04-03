@@ -1,4 +1,6 @@
 TODO:
+Fix up multithreaded demux, doesn't process when the demux buffer is emptied
+
 1. Stuttering
 -> Seems to be from creating a Demux instance for each segment, so we
 should just use one Demux instance and continually push data into it
