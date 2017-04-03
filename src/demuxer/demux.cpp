@@ -89,7 +89,6 @@ Demux::Demux()
   , m_curTime(0)
   , m_endTime(0)
   , m_isChangePlaced(false)
-  , m_segment_data(MAX_SEGMENT_DATA)
   , m_segment_buffer_pos(0)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -175,7 +174,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       while(m_segment_data.empty()) {
         m_cv.Wait(m_mutex, 5000);
       }
-      std::string current_data = m_segment_data.front().processed_content;
+      current_data = m_segment_data.front().processed_content;
     }
     size_t remaining_buffer = current_data.length() - m_segment_buffer_pos;
     size_t bytes_to_read = len * sizeof(*m_av_buf);
@@ -224,10 +223,7 @@ void Demux::Process()
 
   while (true)
   {
-    {
-      CLockObject lock(m_mutex);
-      ret = m_AVContext->TSResync();
-    }
+    ret = m_AVContext->TSResync();
     if (ret != TSDemux::AVCONTEXT_CONTINUE)
       break;
 
@@ -271,7 +267,7 @@ void Demux::Process()
       m_AVContext->GoNext();
 
     CLockObject lock(m_mutex);
-    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS || m_segment_data.empty()) {
       break;
     }
   }
@@ -315,12 +311,12 @@ void Demux::Abort()
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
-  if (!m_demuxPacketBuffer.empty()) {
-    DemuxContainer packet = m_demuxPacketBuffer.front();
-    m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
-    return packet;
+  while(m_demuxPacketBuffer.empty()) {
+    m_cv.Wait(m_mutex, 5000);
   }
-  return DemuxContainer();
+  DemuxContainer packet = m_demuxPacketBuffer.front();
+  m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
+  return packet;
 }
 
 bool Demux::SeekTime(double time, bool backwards, double* startpts)

@@ -76,6 +76,7 @@ void ActiveSegmentController::demux_next_segment() {
         std::lock_guard<std::mutex> lock(private_data_mutex);
         current_segment_data = last_downloaded_segments.front();
         last_downloaded_segments.erase(last_downloaded_segments.begin());
+        segment = current_segment_data.segment;
       }
 
       std::cout << "Starting decrypt and demux of " << segment.media_sequence << " url: " << segment.get_url() << "\n";
@@ -98,6 +99,7 @@ void ActiveSegmentController::demux_next_segment() {
       {
           std::lock_guard<std::mutex> lock(private_data_mutex);
           demux->PushData(current_segment_data);
+          demux->Process();
       }
       std::cout << "Finished decrypt and demux of " << segment.media_sequence << "\n";
     }
@@ -179,6 +181,7 @@ DemuxContainer ActiveSegmentController::get_next_segment() {
     std::lock_guard<std::mutex> lock(download_mutex);
     download_cv.notify_all();
   }
+  // TODO: Should process in another thread
   return demux->Read();
 }
 

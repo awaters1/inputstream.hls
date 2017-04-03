@@ -39,8 +39,8 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_SEGMENT_DATA = 10;
-const int MAX_DEMUX_PACKETS = 1000;
+const int MAX_SEGMENT_DATA = 1;
+const int MAX_DEMUX_PACKETS = 4000;
 
 class Demux : public TSDemux::TSDemuxer
 {

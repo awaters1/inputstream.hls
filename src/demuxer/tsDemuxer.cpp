@@ -445,7 +445,7 @@ int AVContext::ProcessTSPacket()
           (av_rb8(this->av_buf + 10) >> 7);
       uint64_t pcr_extension = av_rb16(this->av_buf + 10) & 0x1f;
       pcr = pcr_base * 300 + pcr_extension;
-      DBG(DEMUX_DBG_WARN, "PCR %u discountinuity: %d\n", this->pcr, is_discontinuity);
+      DBG(DEMUX_DBG_DEBUG, "PCR %u discountinuity: %d\n", this->pcr, is_discontinuity);
     }
   }
   if (has_payload)
