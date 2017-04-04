@@ -71,7 +71,7 @@ public:
     }
     return hls::Segment();
   }
-  double get_pts_of_next_packet();
+  void skip_to_pts(double pts);
 
 
 private:

@@ -30,16 +30,11 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   if (active_segment_controller) {
-    // TODO: Have to make sure the PTS values or correct
     if (future_segment_controller && future_segment_controller->is_ready()) {
-      double future_pts = future_segment_controller->get_pts_of_next_packet();
-      if (future_pts >= current_pkt.demux_packet->pts) {
-        std::cout << "Switched stream at PTS " << future_pts << "\n";
-        active_segment_controller.swap(future_segment_controller);
-        delete future_segment_controller.release();
-      } else {
-        std::cout << "Future PTS: " << future_pts << " Current PTS: " << current_pkt.demux_packet->pts << "\n";
-      }
+      future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
+      std::cout << "Switched stream at PTS " << current_pkt.demux_packet->pts << "\n";
+      active_segment_controller.swap(future_segment_controller);
+      delete future_segment_controller.release();
     }
     current_pkt = active_segment_controller->get_next_segment();
     if (current_pkt.segment_changed) {

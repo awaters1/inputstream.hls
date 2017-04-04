@@ -145,6 +145,6 @@ void Demux::PushData(SegmentData content) {
 
 }
 
-double Demux::get_pts_of_next_packet() {
-  return 0;
+void Demux::skip_to_pts(double pts) {
+
 }

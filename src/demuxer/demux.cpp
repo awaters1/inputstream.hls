@@ -665,14 +665,20 @@ void Demux::PushData(SegmentData content) {
   m_cv.Signal();
 }
 
-double Demux::get_pts_of_next_packet() {
+void Demux::skip_to_pts(double pts) {
   CLockObject lock(m_mutex);
-  if (m_demuxPacketBuffer.empty()) {
-    return PTS_UNSET;
+  uint32_t offset = 0;
+  while (!m_demuxPacketBuffer.empty()) {
+    DemuxContainer container = *(m_demuxPacketBuffer.begin() + offset);
+    if (container.demux_packet->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
+      ++offset;
+      continue;
+    }
+    if (container.demux_packet->pts >= pts) {
+      break;
+    } else {
+      m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
+    }
   }
-  if (m_demuxPacketBuffer.front().demux_packet->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
-    return (*(m_demuxPacketBuffer.begin() + 1)).demux_packet->pts;
-  }
-  return m_demuxPacketBuffer.front().demux_packet->pts;
 }
 

@@ -3,6 +3,13 @@ TODO:
 2. Save previous bandwidth
 3. Stream the loading of the segments instead of downloading it fully
 
+Idea
+1. Instead of having the active segment controller be a part of the session
+have the demux be a part of the session and then the demux has an 
+active segment controller that can download the data as necessary.  This
+will also help when we have to do seeking because the demux will know
+where it has to go based on the PTS and then it can tell the controller.
+
 Issues:
 1. buffer gets filled too much because it isn't added until it is demuxed
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download

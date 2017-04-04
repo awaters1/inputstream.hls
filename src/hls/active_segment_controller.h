@@ -38,7 +38,7 @@ public:
   // TODO: Implement
   double get_current_time() { return -1; };
   bool is_ready() { return demux->get_percentage_packet_buffer_full() > 0; };
-  double get_pts_of_next_packet() { return demux->get_pts_of_next_packet(); };
+  void skip_to_pts(double pts) { demux->skip_to_pts(pts); };
 private:
   bool has_next_demux_segment();
   bool has_demux_buffer_room();
