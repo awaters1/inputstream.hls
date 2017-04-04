@@ -35,4 +35,18 @@ TEST(DecrypterTest, Decrypt2) {
   EXPECT_TRUE(decrypted_data == gold_decrypted_data);
 }
 
+TEST(DecrypterTest, DecryptPartial) {
+  std::string aes_key = load_file_contents("test/encrypted/aes_key");
+  std::string aes_iv = load_file_contents("test/encrypted/aes_iv");
+  std::string encrypted_data = load_file_contents("test/encrypted/D00000002.ts");
+  std::string gold_decrypted_data = load_file_contents("test/encrypted/D00000002-decrypted.ts");
+
+  std::string decrypted_data = decrypt(aes_key, aes_iv, encrypted_data.substr(0, 128));
+  EXPECT_TRUE(decrypted_data == gold_decrypted_data.substr(0, 128));
+
+  aes_iv = encrypted_data.substr(112, 128);
+  decrypted_data = decrypt(aes_key, aes_iv, encrypted_data.substr(128, 256));
+  EXPECT_TRUE(decrypted_data == gold_decrypted_data.substr(128, 256));
+}
+
 }
