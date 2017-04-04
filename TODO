@@ -1,69 +1,17 @@
 TODO:
-buffer gets filled too much because it isn't added until it is demuxed
--> Some times it stalls attempting to download, not sure if it is because we attempt to download
+1. Support stream switching
+
+Issues:
+1. buffer gets filled too much because it isn't added until it is demuxed
+2. Some times it stalls attempting to download, not sure if it is because we attempt to download
 the segment as soon as we see it
 
-1. Stuttering
--> Seems to be from creating a Demux instance for each segment, so we
-should just use one Demux instance and continually push data into it
+Features:
+1. Seek
+2. Rest of addon interface
+3. Memory management
 
 
-3. Seek
-
-Using ReadStream prevents us from doing adapting switching
-Using DemuxRead introduces micro stutters from something
--> May be due to break in PTS between segments, one segment had 6810370222.2222223 the
-next had 6810412955.5555553, a difference of around 42000, and the kodi log had
-CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42604.346033, adjusted:42604.346033
--> ESPN hls files do not have a PCR
--> Look into how ffmpeg handles pts between segments
-
-Handle download stalls in the download thread
-
-Bugs:
-
-
-
-For some reason demuxing the mpeg stream causes stuttering when the
-segment changes, due to synchronization issues between the video and the audio
-
-Using ReadStream doesn't cause any issues
-
-Not sure how ffmpeg can synchronize the mpeg transport stream
-
-
-
-Multi-threaded TODO
-1. Make it work with live streams, right now it doesn't add the segments
-when the playlist is reloaded
-2. Make it work with variant stream switching - which is disabled at the moment
-
-Microstuttering still happening, may be due to
-CDVDClock::ErrorAdjust - CVideoPlayerAudio::OutputPacket - error:42755.821683, adjusted:42755.821683
-May be due to video fps not being correctly reported
--It is due to not taking into account the PCR to adjust the PTS values of the stream
-
-
-Priorities:
-1. Switching between variant streams
-2. Seems to be micropauses when a segment is switched, is it due to the delay
-within load_next_segment()? -> Not sure what the exact cause is
-3. For live streams we should continually load data as it comes in instead
-of only one ahead
-4. Seek support for non-live streams
-
-
-
-1. Support rest of addon interface
-2. Don't keep around old segments?
-
-
-Issues
-1. Memory leak when running in Kodi - maybe due to kodi_hls.cpp not have dest
-2. Timestamps
-3. Commercial seemed to start randomly - maybe due to discontinuity flag
-4. Seeking
-5. Sometimes the audio makes a high pitched sound, maybe due to discountinuity tag?
 
 Missing Support
--Tons of HLS features missing
+1. Other HLS features

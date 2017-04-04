@@ -245,6 +245,7 @@ void Demux::Process()
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
+        demux_container.segment = get_current_segment();
         if (dxp)
           push_stream_data(demux_container);
       }
