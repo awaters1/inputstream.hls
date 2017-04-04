@@ -28,10 +28,23 @@ DemuxContainer hls::Session::get_current_pkt() {
   return current_pkt;
 }
 
-// TODO: Have to support switch_streams somehow
 void hls::Session::read_next_pkt() {
   if (active_segment_controller) {
+    // TODO: Have to make sure the PTS values or correct
+    if (future_segment_controller && future_segment_controller->is_ready()) {
+      double future_pts = future_segment_controller->get_pts_of_next_packet();
+      if (future_pts >= current_pkt.demux_packet->pts) {
+        std::cout << "Switched stream at PTS " << future_pts << "\n";
+        active_segment_controller.swap(future_segment_controller);
+        delete future_segment_controller.release();
+      } else {
+        std::cout << "Future PTS: " << future_pts << " Current PTS: " << current_pkt.demux_packet->pts << "\n";
+      }
+    }
     current_pkt = active_segment_controller->get_next_segment();
+    if (current_pkt.segment_changed) {
+      switch_streams();
+    }
   } else {
     current_pkt = DemuxContainer();
   }
@@ -49,6 +62,10 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 // 2. If we able to keep our buffer full in active_segment_controller
 // 3. If we stalled at all in get next segment
 void hls::Session::switch_streams() {
+  if (future_segment_controller) {
+    // Skip stream switch if we are in the middle of one
+    return;
+  }
   // Bits per second
   uint32_t bandwith_of_current_stream = 0;
   double average_bandwidth = downloader->get_average_bandwidth();
@@ -97,37 +114,6 @@ void hls::Session::switch_streams() {
     }
   }
 }
-
-int hls::Session::read_stream(uint8_t *buf, size_t size) {
-  // TODO: Should call switch_stream here
-  // TODO: Not sure if we can switch streams using ReadStream() api in kodi
-//  size_t data_to_read = size;
-//  while(data_to_read > 0 && active_segment) {
-//    if (active_segment_content_offset >= active_segment->content.length()) {
-//      load_segments();
-//      if (!active_segment) {
-//        break;
-//      }
-//      active_segment_content_offset = 0;
-//    }
-//    std::string content = active_segment->content;
-//    size_t amount_already_read = size - data_to_read;
-//    size_t amount_to_read = data_to_read;
-//    if (amount_to_read + active_segment_content_offset >= content.length()) {
-//      amount_to_read = content.length() - active_segment_content_offset;
-//    }
-//    memcpy(buf + amount_already_read,
-//        content.c_str() + active_segment_content_offset, amount_to_read);
-//    active_segment_content_offset += amount_to_read;
-//    data_to_read -= amount_to_read;
-//  }
-//  return size - data_to_read;
-  return -1;
-}
-
-
-
-
 
 INPUTSTREAM_IDS hls::Session::get_streams() {
   // Load the first segment of the active playlactive_segmentist to obtain the streams

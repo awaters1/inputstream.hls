@@ -99,11 +99,9 @@ void ActiveSegmentController::demux_next_segment() {
 void ActiveSegmentController::reload_playlist() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(private_data_mutex);
-    float segment_duration;
-    if (media_playlist.valid) {
-      segment_duration = media_playlist.get_segment_target_duration();
-    } else {
-      segment_duration = 10;
+    float segment_duration = media_playlist.get_segment_target_duration();
+    if (media_playlist.valid || segment_duration <= 0) {
+      segment_duration = 5;
     }
     std::chrono::seconds timeout(static_cast<uint32_t>(segment_duration));
     reload_cv.wait_for(lock, timeout,[this] {
@@ -147,30 +145,34 @@ void ActiveSegmentController::reload_playlist() {
 
     lock.unlock();
     // Trigger a download
-    // download_cv.notify_one();
+    download_cv.notify_one();
   }
 }
 
 DemuxContainer ActiveSegmentController::get_next_segment() {
-  download_cv.notify_all();
-  demux_cv.notify_all();
-  return demux->Read();
+  DemuxContainer next_demux = demux->Read();
+  if (next_demux.segment_changed) {
+    std::cout << "Segment changed to " << next_demux.segment.media_sequence << "\n";
+    download_cv.notify_all();
+    demux_cv.notify_all();
+  }
+  return next_demux;
 }
 
 bool ActiveSegmentController::has_next_download_segment() {
   bool has_segment = download_segment_index >= 0 && media_playlist.has_segment(download_segment_index);
-  // std::cout << "Checking if we have segment " << download_segment_index << ": "
-  //    << has_segment << " buffer: " << demux->get_percentage_buffer_full() << "\n";
+  std::cout << "Checking if we have segment " << download_segment_index << ": "
+      << has_segment << " buffer: " << demux->get_percentage_buffer_full() << "\n";
   return has_segment && demux->get_percentage_buffer_full() < 1;
 }
 
 bool ActiveSegmentController::has_next_demux_segment() {
-  // std::cout << "Last downloaded segments size: " << last_downloaded_segments.size() << "\n";
+  std::cout << "Last downloaded segments size: " << last_downloaded_segments.size() << "\n";
   return !last_downloaded_segments.empty();
 }
 
 bool ActiveSegmentController::has_demux_buffer_room() {
-  // std::cout << "Demux buffer room " << demux->get_percentage_packet_buffer_full() << "\n";
+  std::cout << "Demux buffer room " << demux->get_percentage_packet_buffer_full() << "\n";
   return demux->get_percentage_packet_buffer_full() < 0.75 && demux->get_percentage_buffer_full() > 0;
 }
 
@@ -199,7 +201,6 @@ hls::Segment ActiveSegmentController::get_current_segment() {
 
 ActiveSegmentController::ActiveSegmentController(Downloader *downloader) :
 download_segment_index(-1),
-max_segment_data(2),
 downloader(downloader),
 demux(std::unique_ptr<Demux>(new Demux())),
 quit_processing(false) {

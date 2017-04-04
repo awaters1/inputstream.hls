@@ -8,8 +8,9 @@
 
 class DemuxContainer {
 public:
-  DemuxContainer() : demux_packet(0), pcr(0) {};
+  DemuxContainer() : demux_packet(0), pcr(0), segment_changed(false) {};
   DemuxPacket *demux_packet;
   uint64_t pcr;
   hls::Segment segment;
+  bool segment_changed;
 };

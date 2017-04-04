@@ -90,6 +90,7 @@ Demux::Demux()
   , m_endTime(0)
   , m_isChangePlaced(false)
   , m_segment_buffer_pos(0)
+  , m_segment_changed(true)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -198,6 +199,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         m_segment_data.erase(m_segment_data.begin());
         m_segment_buffer_pos = 0;
       }
+      m_segment_changed = true;
     }
 
     if (dataread >= n || c <= 0)
@@ -246,6 +248,10 @@ void Demux::Process()
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
         demux_container.segment = get_current_segment();
+        demux_container.segment_changed = m_segment_changed;
+        if (m_segment_changed) {
+          m_segment_changed = false;
+        }
         if (dxp)
           push_stream_data(demux_container);
       }
@@ -658,3 +664,15 @@ void Demux::PushData(SegmentData content) {
   m_segment_data.push_back(content);
   m_cv.Signal();
 }
+
+double Demux::get_pts_of_next_packet() {
+  CLockObject lock(m_mutex);
+  if (m_demuxPacketBuffer.empty()) {
+    return PTS_UNSET;
+  }
+  if (m_demuxPacketBuffer.front().demux_packet->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
+    return (*(m_demuxPacketBuffer.begin() + 1)).demux_packet->pts;
+  }
+  return m_demuxPacketBuffer.front().demux_packet->pts;
+}
+

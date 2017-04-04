@@ -30,7 +30,7 @@ double KodiDownloader::get_average_bandwidth() {
   if (number_of_measurements > 0) {
     return sum / (double) number_of_measurements;
   }
-  return 16000000;
+  return 0;
 }
 
 std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length) {
@@ -48,7 +48,7 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
       xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangebuf);
   }
 
-  xbmc->CURLOpen(file, XFILE::READ_CHUNKED);
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
   char *buf = (char*)malloc(1024*1024);

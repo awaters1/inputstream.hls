@@ -71,6 +71,7 @@ public:
     }
     return hls::Segment();
   }
+  double get_pts_of_next_packet();
 
 
 private:
@@ -121,4 +122,5 @@ private:
 
   std::vector<SegmentData> m_segment_data; // Needs to be locked
   uint64_t m_segment_buffer_pos;
+  bool m_segment_changed;
 };

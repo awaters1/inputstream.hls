@@ -37,6 +37,8 @@ public:
   INPUTSTREAM_INFO* get_streams() { return demux->GetStreams(); };
   // TODO: Implement
   double get_current_time() { return -1; };
+  bool is_ready() { return demux->get_percentage_packet_buffer_full() > 0; };
+  double get_pts_of_next_packet() { return demux->get_pts_of_next_packet(); };
 private:
   bool has_next_demux_segment();
   bool has_demux_buffer_room();
@@ -48,7 +50,6 @@ private:
 private:
   // This pointer is managed by the session
   Downloader *downloader;
-  int max_segment_data;
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   std::mutex private_data_mutex;
