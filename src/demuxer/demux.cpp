@@ -668,7 +668,7 @@ void Demux::PushData(SegmentData content) {
 void Demux::skip_to_pts(double pts) {
   CLockObject lock(m_mutex);
   uint32_t offset = 0;
-  while (!m_demuxPacketBuffer.empty()) {
+  while (m_demuxPacketBuffer.size() > 1) {
     DemuxContainer container = *(m_demuxPacketBuffer.begin() + offset);
     if (container.demux_packet->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
       ++offset;
