@@ -327,6 +327,8 @@ DemuxContainer Demux::Read()
   return packet;
 }
 
+// TODO: This doesn't support seeking to a position
+// that we haven't seen yet
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
 {
   // Current PTS must be valid to estimate offset
