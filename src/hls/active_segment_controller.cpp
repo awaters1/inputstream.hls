@@ -103,9 +103,9 @@ void ActiveSegmentController::reload_playlist() {
     if (media_playlist.valid) {
       segment_duration = media_playlist.get_segment_target_duration();
     } else {
-      segment_duration = 20;
+      segment_duration = 10;
     }
-    std::chrono::seconds timeout(static_cast<uint32_t>(segment_duration * 0.5));
+    std::chrono::seconds timeout(static_cast<uint32_t>(segment_duration));
     reload_cv.wait_for(lock, timeout,[this] {
       return ((reload_playlist_flag) || quit_processing);
     });

@@ -30,7 +30,7 @@ double KodiDownloader::get_average_bandwidth() {
   if (number_of_measurements > 0) {
     return sum / (double) number_of_measurements;
   }
-  return sum;
+  return 16000000;
 }
 
 std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length) {

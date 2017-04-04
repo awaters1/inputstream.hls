@@ -114,9 +114,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   if (line.find("#EXT-X-TARGETDURATION") != std::string::npos) {
       segment_target_duration = std::stod(get_attributes(line)[0]);
   } else if (line.find("#EXT-X-MEDIA-SEQUENCE") != std::string::npos) {
-      std::cout << "Attributes: " << get_attributes(line)[0] << "\n";
       starting_media_sequence = std::stoul(get_attributes(line)[0]);
-      std::cout << "Media Sequence: " << starting_media_sequence << "\n";
       current_media_sequence = starting_media_sequence;
   } else if (line.find("#EXT-X-KEY") != std::string::npos) {
       encrypted = true;
