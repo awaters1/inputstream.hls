@@ -15,8 +15,8 @@
 #include "session.h"
 
 uint64_t hls::Session::get_current_time() {
-  if (active_segment_controller) {
-    return active_segment_controller->get_current_time();
+  if (active_demux) {
+    return active_demux->GetPlayingTime();
   }
   return 0;
 }
@@ -57,7 +57,7 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 // 2. If we able to keep our buffer full in active_segment_controller
 // 3. If we stalled at all in get next segment
 void hls::Session::switch_streams() {
-  if (future_segment_controller) {
+  if (future_demux) {
     // Skip stream switch if we are in the middle of one
     return;
   }
@@ -65,7 +65,7 @@ void hls::Session::switch_streams() {
   uint32_t bandwith_of_current_stream = 0;
   double average_bandwidth = downloader->get_average_bandwidth();
   bool switch_up = false;
-  if (active_segment_controller) {
+  if (active_demux) {
     if (active_segment_controller->get_percentage_buffer_full() >= 0.10) {
       switch_up = true;
     }
@@ -113,16 +113,16 @@ void hls::Session::switch_streams() {
 INPUTSTREAM_IDS hls::Session::get_streams() {
   // Load the first segment of the active playlactive_segmentist to obtain the streams
   // from the mpeg2ts
-  if (!active_segment_controller) {
+  if (!active_demux) {
     return INPUTSTREAM_IDS();
   }
-  return active_segment_controller->get_stream_ids();
+  return active_demux->GetStreamIds();
 }
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
-  for(size_t i = 0; i < active_segment_controller->get_stream_ids().m_streamCount; ++i) {
-    if (active_segment_controller->get_streams()[i].m_pID == stream_id) {
-      return active_segment_controller->get_streams()[i];
+  for(size_t i = 0; i < get_streams().m_streamCount; ++i) {
+    if (active_demux->GetStreams()[i].m_pID == stream_id) {
+      return active_demux->GetStreams()[i];
     }
   }
   return INPUTSTREAM_INFO();
@@ -130,11 +130,10 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     master_playlist(master_playlist),
-    total_time(0),
-    active_segment_controller(nullptr),
-    future_segment_controller(nullptr),
+    active_demux(nullptr),
+    future_demux(nullptr),
     downloader(downloader),
-    active_segment_content_offset(0),
+    active_playlist(master_playlist.get_media_playlist(0)),
     stall_counter(0) {
   switch_streams();
 }

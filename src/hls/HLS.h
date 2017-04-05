@@ -92,7 +92,7 @@ namespace hls
 
   class MasterPlaylist : public Playlist {
   public:
-    std::vector<MediaPlaylist> get_media_playlist() { return media_playlist; };
+    MediaPlaylist& get_media_playlist(size_t index) { return media_playlist.at(index); };
     MasterPlaylist();
     ~MasterPlaylist();
 

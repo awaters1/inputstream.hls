@@ -255,10 +255,6 @@ extern "C" {
   // to how the streams are demuxed
   int ReadStream(unsigned char* buf, unsigned int size)
   {
-    if (hls_session) {
-      hls_session->read_stream(buf, size);
-      return size;
-    }
     return -1;
   }
 

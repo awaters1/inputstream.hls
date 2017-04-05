@@ -149,16 +149,6 @@ void ActiveSegmentController::reload_playlist() {
   }
 }
 
-DemuxContainer ActiveSegmentController::get_next_segment() {
-  DemuxContainer next_demux = demux->Read();
-  if (next_demux.segment_changed) {
-    std::cout << "Segment changed to " << next_demux.segment.media_sequence << "\n";
-    download_cv.notify_all();
-    demux_cv.notify_all();
-  }
-  return next_demux;
-}
-
 bool ActiveSegmentController::has_next_download_segment() {
   bool has_segment = download_segment_index >= 0 && media_playlist.has_segment(download_segment_index);
   std::cout << "Checking if we have segment " << download_segment_index << ": "
@@ -176,33 +166,10 @@ bool ActiveSegmentController::has_demux_buffer_room() {
   return demux->get_percentage_packet_buffer_full() < 0.75 && demux->get_percentage_buffer_full() > 0;
 }
 
-void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist) {
-  set_media_playlist(new_media_playlist, hls::Segment());
-}
-
-void ActiveSegmentController::set_media_playlist(hls::MediaPlaylist new_media_playlist,
-    hls::Segment active_segment) {
-  std::lock_guard<std::mutex> lock(private_data_mutex);
-  start_segment = active_segment;
-  media_playlist = new_media_playlist;
-  reload_playlist_flag = true;
-  reload_cv.notify_one();
-}
-
-// Used for seeking in a stream
-void ActiveSegmentController::set_current_segment(hls::Segment segment) {
-  // TODO: This would update the current segment index
-  // Would also have to flush segment data?
-}
-
-hls::Segment ActiveSegmentController::get_current_segment() {
-  return demux->get_current_segment();
-}
-
-ActiveSegmentController::ActiveSegmentController(Downloader *downloader) :
+ActiveSegmentController::ActiveSegmentController(Downloader *downloader, hls::MediaPlaylist &media_playlist) :
 download_segment_index(-1),
 downloader(downloader),
-demux(std::unique_ptr<Demux>(new Demux())),
+media_playlist(media_playlist),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   demux_thread = std::thread(&ActiveSegmentController::demux_next_segment, this);
@@ -210,8 +177,10 @@ quit_processing(false) {
 }
 
 ActiveSegmentController::~ActiveSegmentController() {
-  std::cout << "Deconstructing controller\n";
-  quit_processing = true;
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    quit_processing = true;
+  }
   download_cv.notify_all();
   demux_cv.notify_all();
   reload_cv.notify_all();
