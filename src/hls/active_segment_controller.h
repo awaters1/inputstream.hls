@@ -11,8 +11,6 @@
 #include <atomic>
 
 #include "HLS.h"
-#include "../demuxer/demux.h"
-#include "../demux_container.h"
 #include "../downloader/downloader.h"
 
 static const int NUM_RELOAD_TRIES = 10;

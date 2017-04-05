@@ -11,8 +11,7 @@
 
 #include "HLS.h"
 #include "../downloader/downloader.h"
-#include "active_segment_controller.h"
-#include "../demux_container.h"
+#include "../demuxer/demux.h"
 
 namespace hls {
 

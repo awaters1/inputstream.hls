@@ -22,7 +22,7 @@
 
 #include "../src/demuxer/demux.h"
 
-Demux::Demux()
+Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -40,6 +40,8 @@ Demux::Demux()
   , m_curTime(0)
   , m_endTime(0)
   , m_isChangePlaced(false)
+  , m_playlist(media_playlist)
+  , m_active_segment_controller(downloader, media_playlist)
 {
 
 }

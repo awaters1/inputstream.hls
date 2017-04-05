@@ -71,7 +71,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux()
+Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -91,6 +91,8 @@ Demux::Demux()
   , m_isChangePlaced(false)
   , m_segment_buffer_pos(0)
   , m_segment_changed(true)
+  , m_playlist(media_playlist)
+  , m_active_segment_controller(downloader, media_playlist)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));

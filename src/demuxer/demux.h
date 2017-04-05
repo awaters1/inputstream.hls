@@ -36,6 +36,7 @@
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
+#include "../hls/active_segment_controller.h"
 
 #define AV_BUFFER_SIZE          131072
 
@@ -45,7 +46,7 @@ const int MAX_DEMUX_PACKETS = 1000;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux();
+  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -123,4 +124,7 @@ private:
   std::vector<SegmentData> m_segment_data; // Needs to be locked
   uint64_t m_segment_buffer_pos;
   bool m_segment_changed;
+
+  hls::MediaPlaylist &m_playlist;
+  ActiveSegmentController m_active_segment_controller;
 };

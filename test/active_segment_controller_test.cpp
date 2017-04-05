@@ -18,6 +18,7 @@ void copy_file(std::string source, std::string destination) {
   dst.close();
 }
 
+/*
 TEST(ActiveSegmentController, CreateController) {
   ActiveSegmentController active_segment_controller(new FileDownloader);
   EXPECT_TRUE(true);
@@ -50,3 +51,4 @@ TEST(ActiveSegmentController, ReloadPlaylist) {
   active_segment_controller.get_next_segment();
   EXPECT_EQ(4, active_segment_controller.media_playlist.get_number_of_segments());
 }
+*/
