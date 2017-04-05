@@ -10,7 +10,7 @@
 #include "downloader.h"
 
 class FileDownloader : public Downloader {
-  std::string download(std::string location, uint32_t byte_offset, uint32_t byte_length);
+  std::string download(std::string location);
   double get_current_bandwidth() {
     return 100000000;
   };

@@ -15,23 +15,25 @@
 
 static const int NUM_RELOAD_TRIES = 10;
 
+struct DataHelper {
+  std::string aes_uri;
+  std::string aes_iv;
+  bool encrypted;
+};
 
 class ActiveSegmentController {
 public:
   ActiveSegmentController(Downloader *downloader, hls::MediaPlaylist &media_playlist);
   ~ActiveSegmentController();
+
+  void trigger_download();
 private:
-  bool has_next_demux_segment();
-  bool has_demux_buffer_room();
-  bool has_next_download_segment();
   void download_next_segment();
-  void demux_next_segment();
+  void process_data(DataHelper &data_helper, std::string data);
   void reload_playlist();
-  void print_segment_data();
 private:
   Downloader *downloader;
   hls::MediaPlaylist &media_playlist;
-
 
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
@@ -42,15 +44,10 @@ private:
   // Segment we started at, may be empty
   hls::Segment start_segment;
 
-  std::vector<SegmentData> last_downloaded_segments;
 
   // Download thread
   std::condition_variable download_cv;
   std::thread download_thread;
-
-  // Demux thread
-  std::condition_variable demux_cv;
-  std::thread demux_thread;
 
   // Reload playlist thread
   std::condition_variable reload_cv;
@@ -58,4 +55,5 @@ private:
   std::atomic_bool reload_playlist_flag;
 
   std::atomic_bool quit_processing;
+  std::atomic_bool download_segment;
 };

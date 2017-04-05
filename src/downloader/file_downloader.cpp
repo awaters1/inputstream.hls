@@ -7,7 +7,7 @@
 
 #include "file_downloader.h"
 
-std::string FileDownloader::download(std::string location, uint32_t byte_offset, uint32_t byte_length) {
+std::string FileDownloader::download(std::string location) {
   std::ifstream file(location);
   std::ostringstream ostrm;
 

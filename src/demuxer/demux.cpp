@@ -210,11 +210,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-
-bool packet_sorter(DemuxContainer *pkt1, DemuxContainer *pkt2) {
-  return pkt1->demux_packet->dts < pkt2->demux_packet->dts;
-}
-
 void Demux::Process()
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing", __FUNCTION__);
