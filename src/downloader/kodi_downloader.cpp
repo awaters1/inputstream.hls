@@ -103,10 +103,10 @@ std::string KodiDownloader::download(std::string url) {
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
 
   // read the file
-  char *buf = (char*)malloc(1024*1024);
+  char *buf = (char*)malloc(16*1024);
   size_t nbRead, nbReadOverall = 0;
   std::string ret;
-  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead) {
+  while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
     nbReadOverall+= nbRead;
     ret += std::string(buf, nbRead);
   }

@@ -177,6 +177,7 @@ uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
          segments.push_back(*it);
          ++added_segments;
          last_added_sequence = it->media_sequence;
+         std::cout << "Added segment sequence " << last_added_sequence << "\n";
      }
   }
   return added_segments;
