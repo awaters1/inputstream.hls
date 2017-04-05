@@ -110,7 +110,6 @@ void hls::Session::switch_streams() {
     } else {
       active_playlist = *media_playlists.begin();
     }
-    active_playlist = media_playlists.at(4);
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
 
@@ -165,6 +164,10 @@ void hls::Session::process_demux() {
        active_demux->Process();
      }
   }
+}
+
+uint64_t hls::Session::get_total_time() {
+  return active_playlist.get_total_duration();
 }
 
 hls::Session::~Session() {

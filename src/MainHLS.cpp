@@ -329,7 +329,9 @@ extern "C" {
 
   int GetTime()
   {
-    return -1;
+    if (!hls_session)
+      return -1;
+    return hls_session->get_current_time();
   }
 
   bool CanPauseStream(void)
