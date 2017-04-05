@@ -51,10 +51,10 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
-  char *buf = (char*)malloc(1024*1024);
+  char *buf = (char*)malloc(16*1024);
   size_t nbRead, nbReadOverall = 0;
   std::string ret;
-  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead) {
+  while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
     nbReadOverall+= nbRead;
     func(std::string(buf, nbRead));
   }

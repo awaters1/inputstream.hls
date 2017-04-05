@@ -91,6 +91,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
+  , m_av_contents_pos(0)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -146,6 +147,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   {
     // seek and reset buffer
     m_av_pos = pos;
+    m_av_contents_pos = pos;
     m_av_rbs = m_av_rbe = m_av_buf;
   }
   else
@@ -165,7 +167,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
 
-  while (len >= 0)
+  while (len > 0)
   {
     size_t c = len;
     {
@@ -176,12 +178,13 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       while ((c + m_av_pos) >= m_av_contents.length()) {
         m_cv.Wait(m_mutex, 1000);
       }
-      m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_av_contents.c_str() + m_av_pos, c);
+      m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_av_contents.c_str() + m_av_contents_pos, c);
     }
 
     m_av_rbe += c;
     dataread += c;
     m_av_pos += c;
+    m_av_contents_pos += c;
     len -= c;
 
     if (dataread >= n || c <= 0)
@@ -596,6 +599,7 @@ void Demux::push_stream_change()
     DemuxContainer demux_container;
     demux_container.demux_packet = dxp;
 
+    CLockObject lock(m_mutex);
     m_demuxPacketBuffer.push_back(demux_container);
     m_isChangePlaced = true;
     xbmc->Log(LOG_DEBUG, LOGTAG "%s: done", __FUNCTION__);

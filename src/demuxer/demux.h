@@ -40,7 +40,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 200;
+const int MAX_DEMUX_PACKETS = 10;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -116,5 +116,6 @@ private:
   // TODO: We should make this a ring buffer to avoid storing too much memory
   // but we have to keep track of which segment contains which byte offsets
   // for when we seek
+  uint64_t m_av_contents_pos;
   std::string m_av_contents;
 };

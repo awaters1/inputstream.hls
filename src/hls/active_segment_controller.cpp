@@ -36,10 +36,25 @@ void ActiveSegmentController::download_next_segment() {
     data_helper.aes_uri = segment.aes_uri;
     data_helper.encrypted = segment.encrypted;
 
+    std::string full_data;
+
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
         [this, &data_helper](std::string data) -> void {
+          if (data.length() % 16 != 0) {
+            std::cerr << "Data is not divisible by 16 " << data.length() << "\n";
+          }
           this->process_data(data_helper, data);
     });
+
+    /*
+    downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
+        [&full_data](std::string data) -> void {
+          full_data += data;
+    });
+    process_data(data_helper, full_data);
+    */
+
+
 
     lock.lock();
     if (download_index == download_segment_index) {
@@ -64,9 +79,10 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     } else {
         aes_key = aes_key_it->second;
     }
+    std::string next_iv = data.substr(data.length() - 16);
     data = decrypt(aes_key, data_helper.aes_iv, data);
     // Prepare the iv for the next segment
-    data_helper.aes_iv = data.substr(data.length() - 16);
+    data_helper.aes_iv = next_iv;
   }
   // TODO: Need to get the data into the demuxer somehow and have it process the data
   demux->PushData(data);
