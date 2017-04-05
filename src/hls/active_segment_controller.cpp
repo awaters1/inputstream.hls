@@ -8,12 +8,13 @@
 
 #include "active_segment_controller.h"
 #include "../hls/decrypter.h"
+#include "../demuxer/demux.h"
 
 void ActiveSegmentController::download_next_segment() {
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(private_data_mutex);
     download_cv.wait(lock, [this] {
-      return download_segment || quit_processing;
+      return (download_segment && media_playlist.has_segment(download_segment_index)) || quit_processing;
     });
 
     download_segment = false;
@@ -68,7 +69,7 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     data_helper.aes_iv = data.substr(data.length() - 16);
   }
   // TODO: Need to get the data into the demuxer somehow and have it process the data
-  demux->PushData(current_segment_data);
+  demux->PushData(data);
 }
 
 void ActiveSegmentController::reload_playlist() {
@@ -119,8 +120,9 @@ void ActiveSegmentController::reload_playlist() {
     }
 
     lock.unlock();
-    // Trigger a download
-    download_cv.notify_one();
+    if (download_segment) {
+      download_cv.notify_all();
+    }
   }
 }
 
@@ -130,10 +132,11 @@ void ActiveSegmentController::trigger_download() {
   download_cv.notify_all();
 }
 
-ActiveSegmentController::ActiveSegmentController(Downloader *downloader, hls::MediaPlaylist &media_playlist) :
-download_segment_index(-1),
+ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist) :
+download_segment_index(0),
 downloader(downloader),
 media_playlist(media_playlist),
+demux(demux),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);

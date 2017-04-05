@@ -40,8 +40,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_SEGMENT_DATA = 1;
-const int MAX_DEMUX_PACKETS = 1000;
+const int MAX_DEMUX_PACKETS = 200;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -62,18 +61,9 @@ public:
 
   int GetPlayingTime();
 
-  void PushData(SegmentData content);
+  void PushData(std::string data);
 
-  double get_percentage_buffer_full() { return m_segment_data.size() / double(MAX_SEGMENT_DATA); };
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
-  hls::Segment get_current_segment() {
-    if (!m_segment_data.empty()) {
-      return m_segment_data.front().segment;
-    }
-    return hls::Segment();
-  }
-  void skip_to_pts(double pts);
-
 
 private:
   uint16_t m_channel;
@@ -121,10 +111,10 @@ private:
   bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
-  std::vector<SegmentData> m_segment_data; // Needs to be locked
-  uint64_t m_segment_buffer_pos;
-  bool m_segment_changed;
-
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
+  // TODO: We should make this a ring buffer to avoid storing too much memory
+  // but we have to keep track of which segment contains which byte offsets
+  // for when we seek
+  std::string m_av_contents;
 };

@@ -30,6 +30,14 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   if (active_demux) {
+    // std::cout << "Buffer: " << active_demux->get_percentage_packet_buffer_full() << "\n";
+    if (active_demux && active_demux->get_percentage_packet_buffer_full() < 0.50) {
+      std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
+      if (lock.owns_lock()) {
+        demux_flag = true;
+        demux_cv.notify_all();
+      }
+    }
     if (future_demux) {
       // future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
       std::cout << "Switched stream at PTS " << current_pkt.demux_packet->pts << "\n";
@@ -74,7 +82,7 @@ void hls::Session::switch_streams() {
         active_demux->get_percentage_packet_buffer_full() << " bandwidth: " <<
         average_bandwidth << "\n";
   }
-  std::vector<MediaPlaylist> media_playlists = master_playlist.get_media_playlists();
+  std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
   auto next_active_playlist = media_playlists.end();
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
     if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
@@ -102,6 +110,7 @@ void hls::Session::switch_streams() {
     } else {
       active_playlist = *media_playlists.begin();
     }
+    active_playlist = media_playlists.at(3);
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
 
@@ -131,11 +140,38 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     active_demux(nullptr),
     future_demux(nullptr),
     downloader(downloader),
-    active_playlist(master_playlist.get_media_playlist(0)),
+    active_playlist(this->master_playlist.get_media_playlist(0)),
+    quit_processing(false),
+    demux_flag(false),
     stall_counter(0) {
   switch_streams();
+  demux_thread = std::thread(&hls::Session::process_demux, this);
+}
+
+void hls::Session::process_demux() {
+  while(!quit_processing) {
+     std::unique_lock<std::mutex> lock(demux_mutex);
+     demux_cv.wait(lock, [this] {
+       return quit_processing || demux_flag;
+     });
+     if (quit_processing) {
+       std::cout << "Exiting download thread\n";
+       return;
+     }
+
+     demux_flag = false;
+
+     if (active_demux) {
+       active_demux->Process();
+     }
+  }
 }
 
 hls::Session::~Session() {
-
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    quit_processing = true;
+  }
+  demux_cv.notify_all();
+  demux_thread.join();
 }

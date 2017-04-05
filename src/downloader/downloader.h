@@ -9,7 +9,7 @@
 
 class Downloader {
 public:
-  virtual std::string download(std::string location);
+  virtual std::string download(std::string location) = 0;
   virtual void download(std::string location, uint32_t byte_offset, uint32_t byte_length,
       std::function<void(std::string)> func) {
     func(download(location));

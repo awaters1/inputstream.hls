@@ -21,9 +21,11 @@ struct DataHelper {
   bool encrypted;
 };
 
+class Demux;
+
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(Downloader *downloader, hls::MediaPlaylist &media_playlist);
+  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist);
   ~ActiveSegmentController();
 
   void trigger_download();
@@ -34,6 +36,7 @@ private:
 private:
   Downloader *downloader;
   hls::MediaPlaylist &media_playlist;
+  Demux *demux;
 
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 

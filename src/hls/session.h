@@ -22,7 +22,9 @@ namespace hls {
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
     uint64_t get_total_time();
-    bool is_live();
+    bool is_live() {
+      return active_playlist.live;
+    };
 
     INPUTSTREAM_IDS get_streams();
     INPUTSTREAM_INFO get_stream(uint32_t stream_id);
@@ -34,6 +36,7 @@ namespace hls {
     virtual MediaPlaylist download_playlist(std::string url);
   private:
     void switch_streams();
+    void process_demux();
 
     uint32_t stall_counter;
 
@@ -49,5 +52,12 @@ namespace hls {
     std::unique_ptr<Demux> future_demux;
 
     DemuxContainer current_pkt;
+
+    // Demux Process thread
+    std::mutex demux_mutex;
+    std::condition_variable demux_cv;
+    std::thread demux_thread;
+    std::atomic_bool demux_flag;
+    std::atomic_bool quit_processing;
   };
 }

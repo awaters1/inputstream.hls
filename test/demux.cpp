@@ -41,7 +41,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_endTime(0)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
-  , m_active_segment_controller(downloader, media_playlist)
+  , m_active_segment_controller(this, downloader, media_playlist)
 {
 
 }
@@ -143,10 +143,6 @@ void Demux::push_stream_data(DemuxContainer dxp)
 
 }
 
-void Demux::PushData(SegmentData content) {
-
-}
-
-void Demux::skip_to_pts(double pts) {
+void Demux::PushData(std::string data) {
 
 }
