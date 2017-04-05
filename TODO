@@ -1,3 +1,30 @@
+demux-rework
+1. Switching streams (goes hand in hand with seeking)
+2. m_av_contents will continue to grow
+
+
+1. Demux 
+- Has an active segment controller as a data buffer
+Seek Forward
+- Needs to know which segment contains the position, can use
+the segment duration to estimate the time and PTS, but requires
+knowing the segments
+Seek Backward
+- uses byte buffer offset
+
+May need access to the playlist in order to seek forward or backward
+to segments we may have not seen yet
+-> could just ask the active segment controller
+
+2. Active Segment Controller
+- Keeps track of the byte offset for each segment
+- Reloads the playlist
+- Downloads the segments
+
+3. Session
+- Has a demux for each playlist
+
+
 TODO:
 1. Support stream switching
 2. Save previous bandwidth

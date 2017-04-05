@@ -47,7 +47,7 @@ TEST(HlsTest, GetBaseUrl) {
 TEST(HlsTest, StreamUrl) {
   hls::FileMasterPlaylist mp = hls::FileMasterPlaylist();
   mp.open("test/hls/bipbopall.m3u8");
-  std::vector<MediaPlaylist> streams = mp.get_media_playlist();
+  std::vector<MediaPlaylist> streams = mp.get_media_playlists();
   ASSERT_EQ(4, streams.size());
   EXPECT_EQ("test/hls/gear1/prog_index.m3u8", streams[0].get_url());
   EXPECT_EQ("test/hls/gear2/prog_index.m3u8", streams[1].get_url());
@@ -94,11 +94,11 @@ TEST(HlsTest, SegmentUrl) {
 TEST(HlsTest, MasterPlaylistLoadsMediaPlaylist) {
   FileMasterPlaylist master_playlist = FileMasterPlaylist();
   master_playlist.open("test/hls/bipbopall.m3u8");
-  ASSERT_EQ(4, master_playlist.get_media_playlist().size());
-  EXPECT_EQ(2, master_playlist.get_media_playlist()[0].get_number_of_segments());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[1].get_number_of_segments());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[2].get_number_of_segments());
-  EXPECT_EQ(181, master_playlist.get_media_playlist()[3].get_number_of_segments());
+  ASSERT_EQ(4, master_playlist.get_media_playlists().size());
+  EXPECT_EQ(2, master_playlist.get_media_playlists()[0].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlists()[1].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlists()[2].get_number_of_segments());
+  EXPECT_EQ(181, master_playlist.get_media_playlists()[3].get_number_of_segments());
 }
 
 TEST(HlsTest, EncryptedMediaPlaylist) {

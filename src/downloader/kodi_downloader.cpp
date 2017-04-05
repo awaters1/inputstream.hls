@@ -33,11 +33,11 @@ double KodiDownloader::get_average_bandwidth() {
   return 0;
 }
 
-std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length) {
+void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length, std::function<void(std::string)> func) {
   // open the file
   void* file = xbmc->CURLCreate(url.c_str());
   if (!file)
-    return "";
+    func("");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
@@ -51,19 +51,19 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
   // read the file
-  char *buf = (char*)malloc(1024*1024);
+  char *buf = (char*)malloc(16*1024);
   size_t nbRead, nbReadOverall = 0;
   std::string ret;
-  while ((nbRead = xbmc->ReadFile(file, buf, 1024 * 1024)) > 0 && ~nbRead) {
+  while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
     nbReadOverall+= nbRead;
-    ret += std::string(buf, nbRead);
+    func(std::string(buf, nbRead));
   }
   free(buf);
 
   if (!nbReadOverall)
   {
     xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url.c_str());
-    return "";
+    func("");
   }
 
   // Convert to bits/second
@@ -89,8 +89,40 @@ std::string KodiDownloader::download(std::string url, uint32_t byte_offset, uint
 
   xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished, download speed: %0.4lf, average: %0.4lf",
       url.c_str(), get_current_bandwidth(), get_average_bandwidth());
+}
+
+std::string KodiDownloader::download(std::string url) {
+  // open the file
+  void* file = xbmc->CURLCreate(url.c_str());
+  if (!file)
+    return "";
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
+  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+
+  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
+
+  // read the file
+  char *buf = (char*)malloc(16*1024);
+  size_t nbRead, nbReadOverall = 0;
+  std::string ret;
+  while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
+    nbReadOverall+= nbRead;
+    ret += std::string(buf, nbRead);
+  }
+  free(buf);
+
+  if (!nbReadOverall)
+  {
+    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url.c_str());
+    return "";
+  }
+  xbmc->CloseFile(file);
 
   return ret;
 }
+
+
+
 
 

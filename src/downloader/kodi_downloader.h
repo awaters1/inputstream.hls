@@ -22,7 +22,8 @@ class KodiDownloader : public Downloader {
 public:
   // TODO: Should take in a saved bandwidth value
   KodiDownloader();
-  std::string download(std::string location, uint32_t byte_offset, uint32_t byte_length);
+  void download(std::string location, uint32_t byte_offset, uint32_t byte_length, std::function<void(std::string)> func);
+  std::string download(std::string location);
   // Bytes per second
   double get_current_bandwidth();
   double get_average_bandwidth();

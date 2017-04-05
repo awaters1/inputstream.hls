@@ -11,8 +11,7 @@
 
 #include "HLS.h"
 #include "../downloader/downloader.h"
-#include "active_segment_controller.h"
-#include "../demux_container.h"
+#include "../demuxer/demux.h"
 
 namespace hls {
 
@@ -22,9 +21,10 @@ namespace hls {
     ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
-    uint32_t get_total_time() { return total_time; };
-    bool is_live() { return active_segment_controller->is_live(); };
-    int read_stream(uint8_t *buf, size_t size);
+    uint64_t get_total_time();
+    bool is_live() {
+      return active_playlist.live;
+    };
 
     INPUTSTREAM_IDS get_streams();
     INPUTSTREAM_INFO get_stream(uint32_t stream_id);
@@ -36,22 +36,28 @@ namespace hls {
     virtual MediaPlaylist download_playlist(std::string url);
   private:
     void switch_streams();
+    void process_demux();
 
     uint32_t stall_counter;
+
+
+    MasterPlaylist master_playlist;
+    MediaPlaylist &active_playlist;
 
     // Downloader has to be deleted last
     std::unique_ptr<Downloader> downloader;
 
-    uint32_t active_segment_content_offset;
-
-    std::unique_ptr<ActiveSegmentController> active_segment_controller;
+    std::unique_ptr<Demux> active_demux;
     // For when we want to switch streams
-    std::unique_ptr<ActiveSegmentController> future_segment_controller;
+    std::unique_ptr<Demux> future_demux;
 
     DemuxContainer current_pkt;
 
-
-    MasterPlaylist master_playlist;
-    uint32_t total_time;
+    // Demux Process thread
+    std::mutex demux_mutex;
+    std::condition_variable demux_cv;
+    std::thread demux_thread;
+    std::atomic_bool demux_flag;
+    std::atomic_bool quit_processing;
   };
 }

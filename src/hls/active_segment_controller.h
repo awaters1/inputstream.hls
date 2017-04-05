@@ -11,45 +11,33 @@
 #include <atomic>
 
 #include "HLS.h"
-#include "../demuxer/demux.h"
-#include "../demux_container.h"
 #include "../downloader/downloader.h"
 
 static const int NUM_RELOAD_TRIES = 10;
 
+struct DataHelper {
+  std::string aes_uri;
+  std::string aes_iv;
+  bool encrypted;
+};
+
+class Demux;
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(Downloader *downloader);
+  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist);
   ~ActiveSegmentController();
-  void set_media_playlist(hls::MediaPlaylist media_playlist, hls::Segment active_segment);
-  void set_media_playlist(hls::MediaPlaylist media_playlist);
-  DemuxContainer get_next_segment();
-  void set_current_segment(hls::Segment segment);
-  hls::Segment get_current_segment();
-  hls::MediaPlaylist get_current_playlist() { return media_playlist; };
-  bool is_live() { return media_playlist.live; };
-  double get_average_bandwidth() { return downloader->get_average_bandwidth(); };
-  double get_current_bandwidth() { return downloader->get_current_bandwidth(); };
-  uint32_t get_bandwidth_of_current_playlist() { return media_playlist.bandwidth; };
-  double get_percentage_buffer_full() { return demux->get_percentage_buffer_full(); };
-  INPUTSTREAM_IDS get_stream_ids() { return demux->GetStreamIds(); };
-  INPUTSTREAM_INFO* get_streams() { return demux->GetStreams(); };
-  // TODO: Implement
-  double get_current_time() { return -1; };
-  bool is_ready() { return demux->get_percentage_packet_buffer_full() > 0; };
-  void skip_to_pts(double pts) { demux->skip_to_pts(pts); };
+
+  void trigger_download();
 private:
-  bool has_next_demux_segment();
-  bool has_demux_buffer_room();
-  bool has_next_download_segment();
   void download_next_segment();
-  void demux_next_segment();
+  void process_data(DataHelper &data_helper, std::string data);
   void reload_playlist();
-  void print_segment_data();
 private:
-  // This pointer is managed by the session
   Downloader *downloader;
+  hls::MediaPlaylist &media_playlist;
+  Demux *demux;
+
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   std::mutex private_data_mutex;
@@ -58,18 +46,11 @@ private:
   int32_t download_segment_index;
   // Segment we started at, may be empty
   hls::Segment start_segment;
-  FRIEND_TEST(ActiveSegmentController, ReloadPlaylist);
-  hls::MediaPlaylist media_playlist;
 
-  std::vector<SegmentData> last_downloaded_segments;
 
   // Download thread
   std::condition_variable download_cv;
   std::thread download_thread;
-
-  // Demux thread
-  std::condition_variable demux_cv;
-  std::thread demux_thread;
 
   // Reload playlist thread
   std::condition_variable reload_cv;
@@ -77,6 +58,5 @@ private:
   std::atomic_bool reload_playlist_flag;
 
   std::atomic_bool quit_processing;
-
-  std::unique_ptr<Demux> demux;
+  std::atomic_bool download_segment;
 };
