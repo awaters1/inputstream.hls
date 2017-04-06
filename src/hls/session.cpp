@@ -118,7 +118,9 @@ INPUTSTREAM_IDS hls::Session::get_streams() {
   // Load the first segment of the active playlactive_segmentist to obtain the streams
   // from the mpeg2ts
   if (!active_demux) {
-    return INPUTSTREAM_IDS();
+    INPUTSTREAM_IDS ids = INPUTSTREAM_IDS();
+    ids.m_streamCount = 0;
+    return ids;
   }
   return active_demux->GetStreamIds();
 }

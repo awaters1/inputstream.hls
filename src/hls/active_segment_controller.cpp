@@ -78,7 +78,6 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     // Prepare the iv for the next segment
     data_helper.aes_iv = next_iv;
   }
-  // TODO: Need to get the data into the demuxer somehow and have it process the data
   demux->PushData(data);
 }
 

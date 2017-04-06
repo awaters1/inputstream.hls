@@ -114,8 +114,9 @@ private:
   bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
+  // Has to be above active segment because active segment depends on it
+  RingBuffer m_av_contents;
+
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
-
-  RingBuffer m_av_contents;
 };
