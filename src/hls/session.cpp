@@ -110,7 +110,8 @@ void hls::Session::switch_streams() {
     }
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
-
+    demux_flag = true;
+    demux_cv.notify_all();
   }
 }
 
