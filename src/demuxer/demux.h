@@ -41,6 +41,8 @@
 #define AV_BUFFER_SIZE          131072
 
 const int MAX_DEMUX_PACKETS = 250;
+// 20 megabytes, about 8 segments, about 24 seconds at the highest quality
+const int MAX_AV_CONTENTS = 1024 * 1024 * 20;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -113,8 +115,10 @@ private:
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
-  // TODO: We should make this a ring buffer to avoid storing too much memory
-  // but we have to keep track of which segment contains which byte offsets
-  // for when we seek
-  std::string m_av_contents;
+  // Where are av_contents buffer starts at in absolute terms
+  size_t m_av_contents_offset;
+  size_t m_av_contents_start;
+  size_t m_av_contents_end;
+  size_t m_av_contents_size;
+  std::unique_ptr<uint8_t[]> m_av_contents;
 };

@@ -2,6 +2,8 @@ demux-rework
 1. Switching streams (goes hand in hand with seeking)
 2. m_av_contents will continue to grow
 
+1. Cache file downloads
+
 
 1. Demux 
 - Has an active segment controller as a data buffer
