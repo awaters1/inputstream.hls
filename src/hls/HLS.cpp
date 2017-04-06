@@ -10,6 +10,9 @@
 #include <climits>
 
 #include "HLS.h"
+#include "../globals.h"
+
+#define LOGTAG                  "[HLS] "
 
 hls::Segment::Segment() :
 Resource(),
@@ -29,13 +32,13 @@ valid(false)
 bool hls::MasterPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
-      std::cerr << "First line isn't #EXTM3U" << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "First line isn't #EXTM3U");
+    return false;
   }
   if (in_stream) {
       if (media_playlist.empty()) {
-          std::cerr << "In stream, but no streams found" << std::endl;
-          return false;
+        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "In stream, but no streams found");
+        return false;
       }
       MediaPlaylist stream = media_playlist.back();
       media_playlist.pop_back();
@@ -71,13 +74,13 @@ hls::MasterPlaylist::~MasterPlaylist() {
 bool hls::MediaPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
-      std::cerr << "First line isn't #EXTM3U" << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "First line isn't #EXTM3U");
+    return false;
   }
   if (in_segment) {
       if (segments.empty()) {
-          std::cerr << "In segment, but no segments found" << std::endl;
-          return false;
+        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "In segment, but no segments found");
+        return false;
       }
       Segment segment = segments.back();
       segments.pop_back();
@@ -126,7 +129,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
           }
           aes_iv = get_attribute_value(line, "IV");
       } else {
-          std::cerr << "Encryption method " << method << " not supported" << std::endl;
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Encryption method %s not supported", method.c_str());
       }
   } else if (line.find("#EXTINF") != std::string::npos) {
       in_segment = true;
@@ -177,7 +180,7 @@ uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
          segments.push_back(*it);
          ++added_segments;
          last_added_sequence = it->media_sequence;
-         std::cout << "Added segment sequence " << last_added_sequence << "\n";
+         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
      }
   }
   return added_segments;
@@ -291,8 +294,8 @@ void hls::Resource::set_url(std::string url) {
 bool open_playlist_file(const char *file_path, hls::Playlist &playlist) {
   std::ifstream playlist_file(file_path);
   if (!playlist_file.is_open()) {
-      std::cerr << "Unable to open " << file_path << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "Unable to open %s", file_path);
+    return false;
   }
   playlist.set_url(file_path);
   std::string line;

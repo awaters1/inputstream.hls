@@ -13,6 +13,9 @@
 #include "decrypter.h"
 
 #include "session.h"
+#include "../globals.h"
+
+#define LOGTAG                  "[SESSION] "
 
 uint64_t hls::Session::get_current_time() {
   if (active_demux) {
@@ -30,14 +33,13 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   if (active_demux) {
-    // std::cout << "Buffer: " << active_demux->get_percentage_packet_buffer_full() << "\n";
     if (active_demux && active_demux->get_percentage_packet_buffer_full() < 0.50) {
       demux_flag = true;
       demux_cv.notify_all();
     }
     if (future_demux) {
       // future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
-      std::cout << "Switched stream at PTS " << current_pkt.demux_packet->pts << "\n";
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at PTS %d", current_pkt.demux_packet->pts);
       active_demux.swap(future_demux);
       delete future_demux.release();
     }
@@ -75,9 +77,8 @@ void hls::Session::switch_streams() {
       switch_up = true;
     }
     bandwith_of_current_stream = active_playlist.bandwidth;
-    std::cout << "Switch Stream stalls: " << stall_counter << " buffer: " <<
-        active_demux->get_percentage_packet_buffer_full() << " bandwidth: " <<
-        average_bandwidth << "\n";
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %d",
+        stall_counter, active_demux->get_percentage_packet_buffer_full(), average_bandwidth);
   }
   std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
   auto next_active_playlist = media_playlists.end();
@@ -85,18 +86,18 @@ void hls::Session::switch_streams() {
     if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
-       std::cout << "(Up) Variant stream bandwidth: " << it->bandwidth << " url: " << it->get_url() << "\n";
+       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Up) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
     } else if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
       // Switch down
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
-       std::cout << "(Down) Variant stream bandwidth: " << it->bandwidth  << " url: " << it->get_url() << "\n";
+       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Down) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
     }
   }
 
   if (active_demux && next_active_playlist != media_playlists.end() &&
       *next_active_playlist != active_playlist) {
-    std::cout << "Switching to playlist " << next_active_playlist->get_url() << "\n";
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
     active_playlist = *next_active_playlist;
     future_demux = std::unique_ptr<Demux>(
         new Demux(downloader.get(), active_playlist));
@@ -165,7 +166,7 @@ void hls::Session::process_demux() {
      });
      lock.unlock();
      if (quit_processing) {
-       std::cout << "Exiting download thread\n";
+       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
        return;
      }
 

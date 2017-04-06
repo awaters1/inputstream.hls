@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+#define LOGTAG                  "[KODI_HLS] "
+
 #include "globals.h"
 
 #include "kodi_hls.h"
@@ -51,7 +53,7 @@ void KodiMasterPlaylist::select_media_playlist() {
     media_playlist.push_back(playlist);
   }
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
-    std::cout << "Media Playlist: bandwidth: " << it->bandwidth << " url: " << it->get_url() << "\n";
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Media Playlist: bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
   }
   // Just selects the first one for now
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {
@@ -61,5 +63,5 @@ void KodiMasterPlaylist::select_media_playlist() {
 }
 
 bool KodiMasterPlaylist::open(const char *url) {
-  download_playlist_impl(url, *this);
+  return download_playlist_impl(url, *this);
 }

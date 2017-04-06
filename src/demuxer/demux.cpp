@@ -342,7 +342,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   } else {
     // We haven't seen the position yet, so check where we should
     // go based on the playlist segments
-    std::cout << "Attempting to seek to position not yet seen\n";
+    xbmc->Log(LOG_DEBUG, LOGTAG "Attempting to seek to position not yet seen");
   }
 
   *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
