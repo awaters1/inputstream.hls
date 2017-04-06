@@ -37,6 +37,7 @@
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
 #include "../hls/active_segment_controller.h"
+#include "../ring_buffer.h"
 
 #define AV_BUFFER_SIZE          131072
 

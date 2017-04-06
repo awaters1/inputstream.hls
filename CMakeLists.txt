@@ -76,8 +76,10 @@ add_executable(inputstreamhlstest
     test/active_segment_controller_test.cpp
     test/helpers.cpp
     test/demux.cpp
+    src/ring_buffer.cpp
+    test/ring_buffer_test.cpp
     )
-target_link_libraries(inputstreamhlstest gtest_main bento4)
+target_link_libraries(inputstreamhlstest gmock_main bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
 

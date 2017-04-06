@@ -107,7 +107,6 @@ void hls::Session::switch_streams() {
     } else {
       active_playlist = *media_playlists.begin();
     }
-    active_playlist = media_playlists.at(4);
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
 
