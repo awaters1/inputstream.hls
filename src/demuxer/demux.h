@@ -116,10 +116,6 @@ private:
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
-  // Where are av_contents buffer starts at in absolute terms
-  size_t m_av_contents_offset;
-  size_t m_av_contents_start;
-  size_t m_av_contents_end;
-  size_t m_av_contents_size;
-  std::unique_ptr<uint8_t[]> m_av_contents;
+
+  RingBuffer m_av_contents;
 };

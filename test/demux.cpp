@@ -42,6 +42,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
+  , m_av_contents(10)
 {
 
 }

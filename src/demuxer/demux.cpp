@@ -91,11 +91,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
-  , m_av_contents_offset(0)
-  , m_av_contents_start(0)
-  , m_av_contents_size(0)
-  , m_av_contents_end(0)
-  , m_av_contents(new uint8_t[MAX_AV_CONTENTS])
+  , m_av_contents(MAX_AV_CONTENTS)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -174,33 +170,18 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   {
     size_t c = len;
     {
-      if ((c + m_av_pos) >= m_av_contents_offset + m_av_contents_size) {
+      if (!m_av_contents.has_data(m_av_pos, c)) {
         // TODO: This will download segments sequentially, which
         // is an issue if we seek, when we seek we should skip
         // to the next segment that has the position
         m_active_segment_controller.trigger_download();
       }
       CLockObject lock(m_mutex);
-      while ((c + m_av_pos) >= m_av_contents_offset + m_av_contents_size) {
+      while (!m_av_contents.has_data(m_av_pos, c)) {
         m_active_segment_controller.trigger_download();
         m_cv.Wait(m_mutex, 2000);
       }
-      size_t data_start = m_av_contents_start + (m_av_pos - m_av_contents_offset);
-      size_t data_end = data_start + c;
-
-      data_start = data_start % MAX_AV_CONTENTS;
-      data_end = data_end % MAX_AV_CONTENTS;
-      // Copy data
-      if (data_start < data_end) {
-        // No wrap around
-        memcpy(m_av_rbe, m_av_contents.get() + data_start, c);
-      } else {
-        // Wrap around
-        size_t first_part_size = MAX_AV_CONTENTS - data_start;
-        size_t second_part_size = c - first_part_size;
-        memcpy(m_av_rbe, m_av_contents.get() + data_start, first_part_size);
-        memcpy(m_av_rbe + first_part_size, m_av_contents.get(), second_part_size);
-      }
+      m_av_contents.read(m_av_pos, c, m_av_rbe);
     }
 
     m_av_rbe += c;
@@ -666,38 +647,6 @@ void Demux::push_stream_data(DemuxContainer dxp)
 
 void Demux::PushData(std::string data) {
   CLockObject lock(m_mutex);
-  size_t new_length =  m_av_contents_size + data.length();
-  if (new_length >= MAX_AV_CONTENTS) {
-    size_t overflow = (new_length - MAX_AV_CONTENTS);
-    if (overflow > 0) {
-      m_av_contents_offset += overflow;
-      m_av_contents_start += overflow;
-      m_av_contents_size = MAX_AV_CONTENTS;
-    }
-  }
-  m_av_contents_size += data.length();
-  if (m_av_contents_size > MAX_AV_CONTENTS) {
-    m_av_contents_size = MAX_AV_CONTENTS;
-  }
-  size_t data_start = m_av_contents_end;
-  m_av_contents_end += data.length();
-  size_t data_end = m_av_contents_end;
-
-  // Normalize
-  m_av_contents_start = (m_av_contents_start % MAX_AV_CONTENTS);
-  m_av_contents_end = (m_av_contents_end % MAX_AV_CONTENTS);
-
-  // Copy data
-  if (data_end < MAX_AV_CONTENTS) {
-    // No wrap around
-    memcpy(m_av_contents.get() + data_start, data.c_str(), data.length());
-  } else {
-    // Wrap around
-    size_t first_part_size = MAX_AV_CONTENTS - data_start;
-    size_t second_part_size = data.length() - first_part_size;
-    memcpy(m_av_contents.get() + data_start, data.c_str(), first_part_size);
-    memcpy(m_av_contents.get(), data.c_str() + first_part_size, second_part_size);
-  }
-
+  m_av_contents.put(data);
   m_cv.Signal();
 }
