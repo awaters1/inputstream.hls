@@ -134,6 +134,22 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   return INPUTSTREAM_INFO();
 }
 
+bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
+  if (active_demux) {
+    bool seeked =  active_demux->SeekTime(time, backwards, startpts);
+    if (seeked) {
+      current_pkt = DemuxContainer();
+      std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
+      if (lock.owns_lock()) {
+        demux_flag = true;
+        demux_cv.notify_all();
+      }
+    }
+    return seeked;
+  }
+  return false;
+}
+
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     master_playlist(master_playlist),
     active_demux(nullptr),

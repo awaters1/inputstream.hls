@@ -38,6 +38,10 @@ private:
   hls::MediaPlaylist &media_playlist;
   Demux *demux;
 
+  // Maps a position in the byte buffer to a media sequence of a segment
+  // the first segment is starts at byte 0
+  uint64_t current_pos;
+  std::unordered_map<uint64_t, uint64_t> pos_to_media_sequence;
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   std::mutex private_data_mutex;

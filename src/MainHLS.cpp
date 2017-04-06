@@ -223,7 +223,7 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
+    caps.m_supportsSeek = hls_session && !hls_session->is_live();
     caps.m_supportsPause = true; //caps.m_supportsSeek;
     return caps;
   }
@@ -303,7 +303,7 @@ extern "C" {
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
-    return false;
+    return hls_session->seek_time(time, backwards, startpts);
   }
 
   void DemuxSetSpeed(int speed)

@@ -26,6 +26,7 @@ void ActiveSegmentController::download_next_segment() {
 
     uint32_t download_index = download_segment_index;
     hls::Segment segment = media_playlist.get_segment(download_index);
+    pos_to_media_sequence.insert({current_pos, segment.media_sequence});
 
     lock.unlock();
 
@@ -36,27 +37,19 @@ void ActiveSegmentController::download_next_segment() {
     data_helper.aes_uri = segment.aes_uri;
     data_helper.encrypted = segment.encrypted;
 
-    std::string full_data;
+    uint64_t bytes_read = 0;
 
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [this, &data_helper](std::string data) -> void {
-          if (data.length() % 16 != 0) {
-            std::cerr << "Data is not divisible by 16 " << data.length() << "\n";
-          }
+        [this, &data_helper, &bytes_read](std::string data) -> void {
+          bytes_read += data.length();
           this->process_data(data_helper, data);
     });
 
-    /*
-    downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [&full_data](std::string data) -> void {
-          full_data += data;
-    });
-    process_data(data_helper, full_data);
-    */
-
-
-
     lock.lock();
+
+    current_pos += bytes_read;
+    pos_to_media_sequence.insert({current_pos -1, segment.media_sequence});
+
     if (download_index == download_segment_index) {
       ++download_segment_index;
     } else {
@@ -153,6 +146,7 @@ download_segment_index(0),
 downloader(downloader),
 media_playlist(media_playlist),
 demux(demux),
+current_pos(0),
 quit_processing(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);

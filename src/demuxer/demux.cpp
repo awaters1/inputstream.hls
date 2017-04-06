@@ -84,14 +84,13 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_PTS(PTS_UNSET)
   , m_dts(PTS_UNSET)
   , m_pts(PTS_UNSET)
-  , m_startpts(0)
+  , m_startpts(PTS_UNSET)
   , m_pinTime(0)
   , m_curTime(0)
   , m_endTime(0)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
-  , m_av_contents_pos(0)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -147,7 +146,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   {
     // seek and reset buffer
     m_av_pos = pos;
-    m_av_contents_pos = pos;
     m_av_rbs = m_av_rbe = m_av_buf;
   }
   else
@@ -178,13 +176,12 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       while ((c + m_av_pos) >= m_av_contents.length()) {
         m_cv.Wait(m_mutex, 1000);
       }
-      m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_av_contents.c_str() + m_av_contents_pos, c);
+      m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_av_contents.c_str() + m_av_pos, c);
     }
 
     m_av_rbe += c;
     dataread += c;
     m_av_pos += c;
-    m_av_contents_pos += c;
     len -= c;
 
     if (dataread >= n || c <= 0)
@@ -284,6 +281,7 @@ void Demux::Flush(void)
   for(auto it = m_demuxPacketBuffer.begin(); it != m_demuxPacketBuffer.end(); ++it) {
     ipsh->FreeDemuxPacket(it->demux_packet);
   }
+  m_demuxPacketBuffer.clear();
 }
 
 void Demux::Abort()
@@ -336,6 +334,10 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
     m_curTime = m_pinTime = new_time;
     m_DTS = m_PTS += new_pts - m_pts;
     m_dts = m_pts = new_pts;
+  } else {
+    // We haven't seen the position yet, so check where we should
+    // go based on the playlist segments
+    std::cout << "Attempting to seek to position not yet seen\n";
   }
 
   *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
