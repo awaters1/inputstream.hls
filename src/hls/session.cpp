@@ -32,11 +32,8 @@ void hls::Session::read_next_pkt() {
   if (active_demux) {
     // std::cout << "Buffer: " << active_demux->get_percentage_packet_buffer_full() << "\n";
     if (active_demux && active_demux->get_percentage_packet_buffer_full() < 0.50) {
-      std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
-      if (lock.owns_lock()) {
-        demux_flag = true;
-        demux_cv.notify_all();
-      }
+      demux_flag = true;
+      demux_cv.notify_all();
     }
     if (future_demux) {
       // future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
@@ -110,6 +107,7 @@ void hls::Session::switch_streams() {
     } else {
       active_playlist = *media_playlists.begin();
     }
+    active_playlist = media_playlists.at(4);
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
 
@@ -139,11 +137,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     bool seeked =  active_demux->SeekTime(time, backwards, startpts);
     if (seeked) {
       current_pkt = DemuxContainer();
-      std::unique_lock<std::mutex> lock(demux_mutex, std::try_to_lock);
-      if (lock.owns_lock()) {
-        demux_flag = true;
-        demux_cv.notify_all();
-      }
+      demux_flag = true;
+      demux_cv.notify_all();
     }
     return seeked;
   }
@@ -169,6 +164,7 @@ void hls::Session::process_demux() {
      demux_cv.wait(lock, [this] {
        return quit_processing || demux_flag;
      });
+     lock.unlock();
      if (quit_processing) {
        std::cout << "Exiting download thread\n";
        return;
@@ -176,8 +172,11 @@ void hls::Session::process_demux() {
 
      demux_flag = false;
 
-     if (active_demux) {
-       active_demux->Process();
+     while(demux_flag || active_demux->get_percentage_packet_buffer_full() < 0.5) {
+       if (active_demux) {
+         active_demux->Process();
+       }
+       demux_flag = false;
      }
   }
 }

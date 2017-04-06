@@ -182,12 +182,16 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       }
       CLockObject lock(m_mutex);
       while ((c + m_av_pos) >= m_av_contents_offset + m_av_contents_size) {
-        m_cv.Wait(m_mutex, 1000);
+        m_active_segment_controller.trigger_download();
+        m_cv.Wait(m_mutex, 2000);
       }
       size_t data_start = m_av_contents_start + (m_av_pos - m_av_contents_offset);
       size_t data_end = data_start + c;
+
+      data_start = data_start % MAX_AV_CONTENTS;
+      data_end = data_end % MAX_AV_CONTENTS;
       // Copy data
-      if (data_end < MAX_AV_CONTENTS) {
+      if (data_start < data_end) {
         // No wrap around
         memcpy(m_av_rbe, m_av_contents.get() + data_start, c);
       } else {
@@ -672,6 +676,9 @@ void Demux::PushData(std::string data) {
     }
   }
   m_av_contents_size += data.length();
+  if (m_av_contents_size > MAX_AV_CONTENTS) {
+    m_av_contents_size = MAX_AV_CONTENTS;
+  }
   size_t data_start = m_av_contents_end;
   m_av_contents_end += data.length();
   size_t data_end = m_av_contents_end;
@@ -679,7 +686,6 @@ void Demux::PushData(std::string data) {
   // Normalize
   m_av_contents_start = (m_av_contents_start % MAX_AV_CONTENTS);
   m_av_contents_end = (m_av_contents_end % MAX_AV_CONTENTS);
-  m_av_contents_size = (m_av_contents_size % MAX_AV_CONTENTS);
 
   // Copy data
   if (data_end < MAX_AV_CONTENTS) {
@@ -687,7 +693,7 @@ void Demux::PushData(std::string data) {
     memcpy(m_av_contents.get() + data_start, data.c_str(), data.length());
   } else {
     // Wrap around
-    size_t first_part_size = MAX_AV_CONTENTS - m_av_contents_start;
+    size_t first_part_size = MAX_AV_CONTENTS - data_start;
     size_t second_part_size = data.length() - first_part_size;
     memcpy(m_av_contents.get() + data_start, data.c_str(), first_part_size);
     memcpy(m_av_contents.get(), data.c_str() + first_part_size, second_part_size);
