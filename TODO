@@ -2,7 +2,7 @@ Seeking
 1. Switching streams (goes hand in hand with seeking)
 
 1. Cache file downloads
-2. Update logging to log to xbmc
+2. Fix atomic_bool and mutex locking of threads
 
 TODO:
 1. Support stream switching

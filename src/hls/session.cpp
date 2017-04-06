@@ -17,6 +17,8 @@
 
 #define LOGTAG                  "[SESSION] "
 
+const double BUFFER_LOWER_BOUND = 0.5;
+
 uint64_t hls::Session::get_current_time() {
   if (active_demux) {
     return active_demux->GetPlayingTime();
@@ -33,16 +35,17 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   if (active_demux) {
-    if (active_demux && active_demux->get_percentage_packet_buffer_full() < 0.50) {
-      demux_flag = true;
-      demux_cv.notify_all();
-    }
     if (future_demux) {
       // future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at PTS %d", current_pkt.demux_packet->pts);
       active_demux.swap(future_demux);
       delete future_demux.release();
     }
+    if (active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      demux_flag = true;
+    }
+    demux_cv.notify_all();
     current_pkt = active_demux->Read();
     if (current_pkt.segment_changed) {
       switch_streams();
@@ -110,7 +113,10 @@ void hls::Session::switch_streams() {
     }
     active_demux =
             std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
-    demux_flag = true;
+    {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      demux_flag = true;
+    }
     demux_cv.notify_all();
   }
 }
@@ -167,19 +173,16 @@ void hls::Session::process_demux() {
      demux_cv.wait(lock, [this] {
        return quit_processing || demux_flag;
      });
+     demux_flag = false;
      lock.unlock();
+
      if (quit_processing) {
-       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
+       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting demux thread");
        return;
      }
 
-     demux_flag = false;
-
-     while(demux_flag || active_demux->get_percentage_packet_buffer_full() < 0.5) {
-       if (active_demux) {
-         active_demux->Process();
-       }
-       demux_flag = false;
+     while(active_demux && active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
+       active_demux->Process();
      }
   }
 }

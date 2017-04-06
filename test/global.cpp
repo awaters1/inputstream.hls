@@ -31,7 +31,7 @@ public:
 
 };
 
-bool g_bExtraDebug = true;
+bool g_bExtraDebug = false;
 ADDON::CHelper_libXBMC_addon *xbmc = new XBMC_Proxy();
 
 DemuxPacket* IPSH_allocate_demux_packet_stub(void* HANDLE, void* CB, int iDataSize) {
