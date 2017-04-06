@@ -170,6 +170,9 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     size_t c = len;
     {
       if ((c + m_av_pos) >= m_av_contents.length()) {
+        // TODO: This will download segments sequentially, which
+        // is an issue if we seek, when we seek we should skip
+        // to the next segment that has the position
         m_active_segment_controller.trigger_download();
       }
       CLockObject lock(m_mutex);
