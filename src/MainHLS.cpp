@@ -280,7 +280,9 @@ extern "C" {
 
   void DemuxAbort(void)
   {
-    // Called when stopping ,should stop all of our threads
+    // Called when stopping, not sure if it is wise to stop
+    // all threads, perhaps just stop processing data and cancel
+    // any downloads
     xbmc->Log(ADDON::LOG_DEBUG, "DemuxAbort");
   }
 
