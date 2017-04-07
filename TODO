@@ -1,6 +1,8 @@
 Bugs
 1. Have to handle when the playlist is done, right now we hang in
 ReadAV() waiting for data.
+-> Can do for non-live streams but for live streams how do we know
+when they are done?
 
 Minor Bugs
 1. Current time is off by about a second

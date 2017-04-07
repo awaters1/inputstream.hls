@@ -28,7 +28,9 @@ public:
   ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist);
   ~ActiveSegmentController();
 
-  void trigger_download();
+  // @return true if we expect more data, false if we don't
+  // expect to download more data
+  bool trigger_download();
 private:
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
