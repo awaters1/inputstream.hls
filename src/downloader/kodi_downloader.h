@@ -14,15 +14,15 @@ static const double COEFFICIENTS[] = {
     0.5,
     0.3,
     0.1,
-    0.5,
-    0.5
+    0.05,
+    0.05
 };
 
 class KodiDownloader : public Downloader {
 public:
   // TODO: Should take in a saved bandwidth value
   KodiDownloader();
-  void download(std::string location, uint32_t byte_offset, uint32_t byte_length, std::function<void(std::string)> func);
+  void download(std::string location, uint32_t byte_offset, uint32_t byte_length, std::function<bool(std::string)> func);
   std::string download(std::string location);
   // Bytes per second
   double get_current_bandwidth();

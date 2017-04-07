@@ -41,9 +41,13 @@ void ActiveSegmentController::download_next_segment() {
     uint64_t bytes_read = 0;
 
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [this, &data_helper, &bytes_read](std::string data) -> void {
+        [this, &data_helper, &bytes_read](std::string data) -> bool {
           bytes_read += data.length();
           this->process_data(data_helper, data);
+          if (quit_processing) {
+            return false;
+          }
+          return true;
     });
 
     lock.lock();

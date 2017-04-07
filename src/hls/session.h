@@ -33,6 +33,8 @@ namespace hls {
     void read_next_pkt();
     uint64_t get_current_time();
     bool seek_time(double time, bool backwards, double *startpts);
+    void demux_abort();
+    void demux_flush();
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
   private:

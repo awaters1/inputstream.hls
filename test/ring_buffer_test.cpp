@@ -17,6 +17,14 @@ TEST(RingBuffer, PutPartial) {
   EXPECT_THAT(dest, ::testing::ElementsAreArray({ '1', '2', '3'}));
 }
 
+TEST(RingBuffer, HasData) {
+  RingBuffer buffer(5);
+  buffer.put("123");
+  buffer.put("456");
+  EXPECT_FALSE(buffer.has_data(0, 3));
+  EXPECT_FALSE(buffer.has_data(4, 3));
+}
+
 TEST(RingBuffer, GetPartial) {
   RingBuffer buffer(5);
   buffer.put("123");

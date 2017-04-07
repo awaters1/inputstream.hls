@@ -284,11 +284,17 @@ extern "C" {
     // all threads, perhaps just stop processing data and cancel
     // any downloads
     xbmc->Log(ADDON::LOG_DEBUG, "DemuxAbort");
+    if (hls_session) {
+      hls_session->demux_abort();
+    }
   }
 
   void DemuxFlush(void)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "DemuxFlush");
+    if (hls_session) {
+      hls_session->demux_flush();
+    }
   }
 
   DemuxPacket* __cdecl DemuxRead(void)

@@ -189,6 +189,24 @@ uint64_t hls::Session::get_total_time() {
   return active_playlist.get_total_duration();
 }
 
+void hls::Session::demux_abort() {
+  if (active_demux) {
+    delete active_demux.get();
+  }
+  if (future_demux) {
+    delete future_demux.get();
+  }
+}
+
+void hls::Session::demux_flush() {
+  if (active_demux) {
+    active_demux->Flush();
+  }
+  if (future_demux) {
+    future_demux->Flush();
+  }
+}
+
 hls::Session::~Session() {
   {
     std::lock_guard<std::mutex> lock(demux_mutex);

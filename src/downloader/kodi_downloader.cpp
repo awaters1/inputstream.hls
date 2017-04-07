@@ -33,7 +33,7 @@ double KodiDownloader::get_average_bandwidth() {
   return 0;
 }
 
-void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length, std::function<void(std::string)> func) {
+void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t byte_length, std::function<bool(std::string)> func) {
   // open the file
   void* file = xbmc->CURLCreate(url.c_str());
   if (!file)
@@ -55,7 +55,11 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
   std::string ret;
   while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
     nbReadOverall+= nbRead;
-    func(std::string(buf, nbRead));
+    bool cancel = func(std::string(buf, nbRead));
+    if (cancel) {
+      xbmc->Log(ADDON::LOG_DEBUG, "Download cancelled");
+      break;
+    }
   }
   free(buf);
 
