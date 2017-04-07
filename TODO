@@ -1,5 +1,5 @@
-Bugs
-1. Fix issue at the start of the stream with decoding, seems that some packets are missing
+Minor Bugs
+1. Current time is off by about a second
 
 Seeking
 1. Switching streams (goes hand in hand with seeking)

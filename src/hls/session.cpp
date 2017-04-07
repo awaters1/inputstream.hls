@@ -20,10 +20,7 @@
 const double BUFFER_LOWER_BOUND = 0.5;
 
 uint64_t hls::Session::get_current_time() {
-  if (active_demux) {
-    return active_demux->GetPlayingTime();
-  }
-  return 0;
+  return current_pkt.current_time;
 }
 
 DemuxContainer hls::Session::get_current_pkt() {

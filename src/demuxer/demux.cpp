@@ -306,9 +306,12 @@ DemuxContainer Demux::Read()
     m_cv.Wait(m_mutex, 5000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
+  double current_time_ms = (double)m_readTime / 1000.0;
+  if (current_time_ms > INT_MAX)
+    current_time_ms = INT_MAX;
+  packet.current_time = (int) current_time_ms;
   if (packet.demux_packet->iStreamId == m_mainStreamPID) {
-    // Fill duration map for main stream
-    m_readTime += packet.demux_packet->duration / (DVD_TIME_BASE / PTS_TIME_BASE);
+    m_readTime += packet.demux_packet->duration;
   }
   m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
   return packet;
