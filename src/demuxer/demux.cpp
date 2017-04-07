@@ -183,7 +183,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       CLockObject lock(m_mutex);
       while (!m_av_contents.has_data(m_av_pos, c)) {
         m_active_segment_controller.trigger_download();
-        m_cv.Wait(m_mutex, 2000);
+        m_cv.Wait(m_mutex, 500);
       }
       m_av_contents.read(m_av_pos, c, m_av_rbe);
     }
@@ -257,7 +257,7 @@ void Demux::Process()
       m_AVContext->GoNext();
 
     CLockObject lock(m_mutex);
-    m_cv.Signal();
+    m_cv.Broadcast();
     if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
       break;
     }
@@ -272,7 +272,7 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
 
   CLockObject lock(m_mutex);
   m_isChangePlaced = false;
-  m_cv.Signal();
+  m_cv.Broadcast();
 
   return m_streamIds;
 }
@@ -283,7 +283,7 @@ INPUTSTREAM_INFO* Demux::GetStreams()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
-  m_cv.Signal();
+  m_cv.Broadcast();
   return m_streams;
 }
 
@@ -306,7 +306,7 @@ DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
   while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
-    m_cv.Wait(m_mutex, 5000);
+    m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
   double current_time_ms = (double)m_readTime / 1000.0;
@@ -664,5 +664,5 @@ void Demux::push_stream_data(DemuxContainer dxp)
 void Demux::PushData(std::string data) {
   CLockObject lock(m_mutex);
   m_av_contents.put(data);
-  m_cv.Signal();
+  m_cv.Broadcast();
 }

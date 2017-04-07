@@ -31,7 +31,7 @@ TEST_F(SessionTest, TotalTime) {
 }
 
 TEST_F(SessionTest, GetStreams) {
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  session->read_next_pkt();
   EXPECT_EQ(2, session->get_streams().m_streamCount);
 }
 
