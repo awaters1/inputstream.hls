@@ -51,6 +51,7 @@ void hls::Session::read_next_pkt() {
       switch_streams();
     }
   } else {
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "No active demux, unable to get data");
     current_pkt = DemuxContainer();
   }
 }

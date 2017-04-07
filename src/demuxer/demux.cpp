@@ -269,6 +269,7 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
 
   CLockObject lock(m_mutex);
   m_isChangePlaced = false;
+  m_cv.Signal();
 
   return m_streamIds;
 }
@@ -279,6 +280,7 @@ INPUTSTREAM_INFO* Demux::GetStreams()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
+  m_cv.Signal();
   return m_streams;
 }
 
@@ -300,7 +302,7 @@ void Demux::Abort()
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
-  while(m_demuxPacketBuffer.empty()) {
+  while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
     m_cv.Wait(m_mutex, 5000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
