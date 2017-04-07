@@ -88,6 +88,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_pinTime(0)
   , m_curTime(0)
   , m_endTime(0)
+  , m_readTime(0)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
@@ -302,6 +303,10 @@ DemuxContainer Demux::Read()
     m_cv.Wait(m_mutex, 5000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
+  if (packet.demux_packet->iStreamId == m_mainStreamPID) {
+    // Fill duration map for main stream
+    m_readTime += packet.demux_packet->duration / (DVD_TIME_BASE / PTS_TIME_BASE);
+  }
   m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
   return packet;
 }
@@ -310,6 +315,8 @@ DemuxContainer Demux::Read()
 // that we haven't seen yet
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
 {
+  // TODO: time is supposed to be absolute time to seek to but it is incorrect
+  // not sure if it is due to GetCurrentTime being off
   // Current PTS must be valid to estimate offset
   if (m_startpts == PTS_UNSET)
     return false;
@@ -336,7 +343,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
     Flush();
     m_AVContext->GoPosition(new_pos);
     m_AVContext->ResetPackets();
-    m_curTime = m_pinTime = new_time;
+    m_curTime = m_pinTime = m_readTime = new_time;
     m_DTS = m_PTS += new_pts - m_pts;
     m_dts = m_pts = new_pts;
   } else {
@@ -351,7 +358,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
 int Demux::GetPlayingTime()
 {
-  double time_ms = (double)m_curTime * 1000 / PTS_TIME_BASE;
+  double time_ms = (double)m_readTime * 1000 / PTS_TIME_BASE;
   if (time_ms > INT_MAX)
     return INT_MAX;
   return (int)time_ms;
@@ -423,7 +430,7 @@ void Demux::reset_posmap()
   {
     CLockObject lock(m_mutex);
     m_posmap.clear();
-    m_pinTime = m_curTime = m_endTime = 0;
+    m_pinTime = m_curTime = m_endTime = m_readTime = 0;
   }
 }
 
