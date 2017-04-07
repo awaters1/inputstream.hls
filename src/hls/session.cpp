@@ -190,12 +190,15 @@ uint64_t hls::Session::get_total_time() {
 }
 
 void hls::Session::demux_abort() {
-  if (active_demux) {
-    delete active_demux.get();
-  }
-  if (future_demux) {
-    delete future_demux.get();
-  }
+  // TODO: Causes issues so disable for now
+  // in order to properly implement we need a lock on them
+  // in case other threads are using them
+//  if (active_demux) {
+//    delete active_demux.get();
+//  }
+//  if (future_demux) {
+//    delete future_demux.get();
+//  }
 }
 
 void hls::Session::demux_flush() {

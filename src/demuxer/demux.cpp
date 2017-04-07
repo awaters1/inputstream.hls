@@ -234,6 +234,13 @@ void Demux::Process()
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
+        double current_time_ms = (double)m_readTime / 1000.0;
+        if (current_time_ms > INT_MAX)
+          current_time_ms = INT_MAX;
+        demux_container.current_time = (int) current_time_ms;
+        if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
+          m_readTime += demux_container.demux_packet->duration;
+        }
         if (dxp)
           push_stream_data(demux_container);
       }
@@ -309,13 +316,6 @@ DemuxContainer Demux::Read()
     m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
-  double current_time_ms = (double)m_readTime / 1000.0;
-  if (current_time_ms > INT_MAX)
-    current_time_ms = INT_MAX;
-  packet.current_time = (int) current_time_ms;
-  if (packet.demux_packet->iStreamId == m_mainStreamPID) {
-    m_readTime += packet.demux_packet->duration;
-  }
   m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
   return packet;
 }
@@ -336,6 +336,10 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, (double)desired / PTS_TIME_BASE, (double)m_curTime / PTS_TIME_BASE);
 
+  if (desired >= buffered) {
+    // TODO: Seek to a segment boundary
+  }
+
   CLockObject lock(m_mutex);
   std::map<int64_t, AV_POSMAP_ITEM>::const_iterator it;
   it = m_posmap.upper_bound(desired);
@@ -352,13 +356,11 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
     Flush();
     m_AVContext->GoPosition(new_pos);
     m_AVContext->ResetPackets();
-    m_curTime = m_pinTime = m_readTime = new_time;
+    m_curTime = m_pinTime = new_time;
+    m_readTime = (double) new_time / PTS_TIME_BASE * DVD_TIME_BASE;
     m_DTS = m_PTS += new_pts - m_pts;
     m_dts = m_pts = new_pts;
-  } else {
-    // We haven't seen the position yet, so check where we should
-    // go based on the playlist segments
-    xbmc->Log(LOG_DEBUG, LOGTAG "Attempting to seek to position not yet seen");
+    m_cv.Broadcast();
   }
 
   *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
@@ -367,10 +369,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
 int Demux::GetPlayingTime()
 {
-  double time_ms = (double)m_readTime * 1000 / PTS_TIME_BASE;
-  if (time_ms > INT_MAX)
-    return INT_MAX;
-  return (int)time_ms;
+  return -1;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
@@ -621,6 +620,14 @@ void Demux::push_stream_change()
 
     DemuxContainer demux_container;
     demux_container.demux_packet = dxp;
+    double current_time_ms = (double)m_readTime / 1000.0;
+    // TODO: Duplicate in Process();
+    if (current_time_ms > INT_MAX)
+      current_time_ms = INT_MAX;
+    demux_container.current_time = (int) current_time_ms;
+    if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
+      m_readTime += demux_container.demux_packet->duration;
+    }
 
     CLockObject lock(m_mutex);
     m_demuxPacketBuffer.push_back(demux_container);
