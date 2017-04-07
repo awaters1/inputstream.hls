@@ -99,6 +99,7 @@ void ActiveSegmentController::reload_playlist() {
 
     if (quit_processing) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
+      lock.unlock();
       return;
     }
     reload_playlist_flag = false;

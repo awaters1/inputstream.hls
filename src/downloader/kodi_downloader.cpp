@@ -55,8 +55,8 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
   std::string ret;
   while ((nbRead = xbmc->ReadFile(file, buf, 16 * 1024)) > 0 && ~nbRead) {
     nbReadOverall+= nbRead;
-    bool cancel = func(std::string(buf, nbRead));
-    if (cancel) {
+    bool successfull = func(std::string(buf, nbRead));
+    if (!successfull) {
       xbmc->Log(ADDON::LOG_DEBUG, "Download cancelled");
       break;
     }
