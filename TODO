@@ -1,3 +1,7 @@
+Bugs
+1. Have to handle when the playlist is done, right now we hang in
+ReadAV() waiting for data.
+
 Minor Bugs
 1. Current time is off by about a second
 
