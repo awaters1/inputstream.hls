@@ -223,8 +223,9 @@ void Demux::Process()
         if (pkt.streamChange)
         {
           // Update stream properties. Change will be pushed once setup is completed for all streams.
-          if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
-            push_stream_change();
+          // if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
+          update_pvr_stream(pkt.pid);
+          push_stream_change();
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
         DemuxContainer demux_container;

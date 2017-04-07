@@ -1,3 +1,6 @@
+Bugs
+1. Fix issue at the start of the stream with decoding, seems that some packets are missing
+
 Seeking
 1. Switching streams (goes hand in hand with seeking)
 
