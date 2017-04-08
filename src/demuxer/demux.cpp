@@ -336,7 +336,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, (double)desired / PTS_TIME_BASE, (double)m_curTime / PTS_TIME_BASE);
 
-  if (desired >= buffered) {
+  if (desired >= m_curTime) {
     // TODO: Seek to a segment boundary
   }
 
