@@ -96,6 +96,8 @@ private:
   // Playback context
   TSDemux::AVContext* m_AVContext;
   uint16_t m_mainStreamPID;     ///< PID of main stream
+  // TODO: Need to rework these for a demux that doesn't have a continuous stream
+  // of data, we can skip around without having the starting values
   uint64_t m_DTS;               ///< absolute decode time of main stream
   uint64_t m_PTS;               ///< absolute presentation time of main stream
   uint64_t m_dts;               ///< rebased DTS for the program chain

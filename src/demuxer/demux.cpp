@@ -320,12 +320,8 @@ DemuxContainer Demux::Read()
   return packet;
 }
 
-// TODO: This doesn't support seeking to a position
-// that we haven't seen yet
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
 {
-  // TODO: time is supposed to be absolute time to seek to but it is incorrect
-  // not sure if it is due to GetCurrentTime being off
   // Current PTS must be valid to estimate offset
   if (m_startpts == PTS_UNSET)
     return false;
@@ -338,6 +334,10 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
   if (desired >= m_curTime) {
     // TODO: Seek to a segment boundary
+    // But we do not know the av_pos to set
+    // should we just reset? but then how do we seek backwards after we seek forward
+    // TODO: if our  desired time is outside of our buffer
+    // we need to clear everything out and switch segments
   }
 
   CLockObject lock(m_mutex);
