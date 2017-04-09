@@ -170,35 +170,35 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
 
-  while (len > 0)
   {
-    size_t c = len;
-    {
-      if (!m_av_contents.has_data(m_av_pos, c)) {
-        // TODO: This will download segments sequentially, which
-        // is an issue if we seek, when we seek we should skip
-        // to the next segment that has the position
-        bool expects_more_data = m_active_segment_controller.trigger_download();
-        if (!expects_more_data) {
-          return nullptr;
-        }
+    CLockObject lock(m_mutex);
+    if (!m_av_contents.has_data(m_av_pos, len)) {
+      // TODO: This will download segments sequentially, which
+      // is an issue if we seek, when we seek we should skip
+      // to the next segment that has the position
+      bool expects_more_data = m_active_segment_controller.trigger_download();
+      if (!expects_more_data) {
+        return nullptr;
       }
-      CLockObject lock(m_mutex);
-      while (!m_av_contents.has_data(m_av_pos, c)) {
-        m_active_segment_controller.trigger_download();
-        m_cv.Wait(m_mutex, 500);
-      }
-      m_av_contents.read(m_av_pos, c, m_av_rbe);
     }
-
-    m_av_rbe += c;
-    dataread += c;
-    m_av_pos += c;
-    len -= c;
-
-    if (dataread >= n || c <= 0)
-      break;
+    while (!m_av_contents.has_data(m_av_pos, len)) {
+      m_active_segment_controller.trigger_download();
+      m_cv.Wait(m_mutex, 500);
+    }
+    m_av_contents.read(m_av_pos, len, m_av_rbe);
   }
+
+  auto it = pos_to_segment.lower_bound(m_av_pos);
+  if (it != pos_to_segment.end()) {
+    current_segment = it->second;
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
+              current_segment.media_sequence, current_segment.get_url().c_str());
+  }
+
+  m_av_rbe += len;
+  dataread += len;
+  m_av_pos += len;
+
   return dataread >= n ? m_av_rbs : NULL;
 }
 
@@ -670,16 +670,21 @@ void Demux::push_stream_data(DemuxContainer dxp)
   m_demuxPacketBuffer.push_back(dxp);
 }
 
-void Demux::PushData(std::string data) {
+void Demux::PushData(std::string data, hls::Segment segment) {
   CLockObject lock(m_mutex);
   m_av_contents.put(data);
+  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
   m_cv.Broadcast();
 }
 
 void Demux::PrepareSegment(hls::Segment segment) {
-
+  CLockObject lock(m_mutex);
+  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
 }
 
 void Demux::EndSegment(hls::Segment segment) {
-
+  CLockObject lock(m_mutex);
+  // Update byte_offset_to_segment, the byte offset
+  // should be where the segment ends in RingBuffer
+  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
 }

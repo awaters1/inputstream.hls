@@ -67,4 +67,5 @@ TEST(RingBuffer, PutMoreAgain) {
   size_t amount_read = buffer.read(4, 5, dest);
   EXPECT_EQ(5, amount_read);
   EXPECT_THAT(dest, ::testing::ElementsAreArray({'5', '6', '7', '8', '9'}));
+  EXPECT_EQ(9, buffer.get_data_end_pos());
 }

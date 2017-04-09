@@ -37,6 +37,7 @@ void ActiveSegmentController::download_next_segment() {
     data_helper.aes_iv = segment.aes_iv;
     data_helper.aes_uri = segment.aes_uri;
     data_helper.encrypted = segment.encrypted;
+    data_helper.segment = segment;
 
     uint64_t bytes_read = 0;
 
@@ -84,7 +85,7 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     // Prepare the iv for the next segment
     data_helper.aes_iv = next_iv;
   }
-  demux->PushData(data);
+  demux->PushData(data, data_helper.segment);
 }
 
 void ActiveSegmentController::reload_playlist() {

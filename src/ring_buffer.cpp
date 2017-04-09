@@ -95,3 +95,7 @@ bool RingBuffer::has_data(size_t pos, size_t size) {
   return pos >= offset && (pos + size) <= (offset + get_size());
 }
 
+size_t RingBuffer::get_data_end_pos() {
+  return offset + get_size();
+}
+

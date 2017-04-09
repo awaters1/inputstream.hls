@@ -19,6 +19,7 @@ struct DataHelper {
   std::string aes_uri;
   std::string aes_iv;
   bool encrypted;
+  hls::Segment segment;
 };
 
 class Demux;

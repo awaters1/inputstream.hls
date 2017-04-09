@@ -64,7 +64,7 @@ public:
 
   int GetPlayingTime();
 
-  void PushData(std::string data);
+  void PushData(std::string data, hls::Segment segment);
   // Signals that the next data to be pushed in is from
   // this segment
   void PrepareSegment(hls::Segment segment);
@@ -126,4 +126,7 @@ private:
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
+
+  hls::Segment current_segment;
+  std::map<uint64_t, hls::Segment> pos_to_segment;
 };

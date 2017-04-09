@@ -18,6 +18,7 @@ public:
   size_t read(size_t pos, size_t size, uint8_t * const destination);
   bool has_data(size_t pos, size_t size);
   size_t get_size();
+  size_t get_data_end_pos();
 private:
   // offset from the true beginning of the data
   size_t offset;
