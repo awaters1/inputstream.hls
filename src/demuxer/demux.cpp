@@ -136,6 +136,9 @@ Demux::~Demux()
 /*
  * Implement our AV reader
  */
+// TODO: This should detect when we switch to a new segment
+// to update the discontinuity flag and other things
+// like timing
 const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 {
   // out of range
@@ -278,7 +281,6 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
-  m_isChangePlaced = false;
   m_cv.Broadcast();
 
   return m_streamIds;
@@ -621,7 +623,7 @@ void Demux::push_stream_change()
     DemuxContainer demux_container;
     demux_container.demux_packet = dxp;
     double current_time_ms = (double)m_readTime / 1000.0;
-    // TODO: Duplicate in Process();
+    // TODO: Duplicated in Process();
     if (current_time_ms > INT_MAX)
       current_time_ms = INT_MAX;
     demux_container.current_time = (int) current_time_ms;
@@ -672,4 +674,12 @@ void Demux::PushData(std::string data) {
   CLockObject lock(m_mutex);
   m_av_contents.put(data);
   m_cv.Broadcast();
+}
+
+void Demux::PrepareSegment(hls::Segment segment) {
+
+}
+
+void Demux::EndSegment(hls::Segment segment) {
+
 }

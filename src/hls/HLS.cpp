@@ -24,7 +24,8 @@ aes_iv(""),
 encrypted(false),
 byte_length(0),
 byte_offset(0),
-valid(false)
+valid(false),
+discontinuity(false)
 {
 
 }
@@ -148,9 +149,13 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       if (attributes.size() > 1) {
           segment.description = attributes[1];
       }
+      segment.discontinuity = discontinuity;
+      discontinuity = false;
       segments.push_back(segment);
   } else if (line.find("#EXT-X-ENDLIST") != std::string::npos) {
       live = false;
+  } else if (line.find("#EXT-X-DISCONTINUITY") != std::string::npos) {
+    discontinuity = true;
   }
   return true;
 }
@@ -222,7 +227,8 @@ hls::MediaPlaylist::MediaPlaylist()
   encrypted(false),
   live(true),
   bandwidth(0),
-  valid(false)
+  valid(false),
+  discontinuity(false)
 {
 
 }

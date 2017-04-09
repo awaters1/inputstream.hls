@@ -47,6 +47,7 @@ namespace hls
     std::string aes_iv;
     bool encrypted;
     bool valid;
+    bool discontinuity;
     uint32_t byte_length;
     uint32_t byte_offset;
     bool operator==(Segment segment) const {
@@ -70,6 +71,7 @@ namespace hls
     std::string aes_uri;
     std::string aes_iv;
     bool live;
+    bool discontinuity;
     void add_segment(Segment segment) { segments.push_back(segment); };
     uint32_t get_number_of_segments() { return segments.size(); };
     float get_segment_target_duration() { return segment_target_duration; };

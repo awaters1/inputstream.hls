@@ -65,6 +65,10 @@ public:
   int GetPlayingTime();
 
   void PushData(std::string data);
+  // Signals that the next data to be pushed in is from
+  // this segment
+  void PrepareSegment(hls::Segment segment);
+  void EndSegment(hls::Segment segment);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
 
