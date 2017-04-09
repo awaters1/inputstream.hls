@@ -184,14 +184,15 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       m_active_segment_controller.trigger_download();
       m_cv.Wait(m_mutex, 500);
     }
-    m_av_contents.read(m_av_pos, len, m_av_rbe);
-  }
-
-  auto it = pos_to_segment.lower_bound(m_av_pos);
-  if (it != pos_to_segment.end()) {
-    current_segment = it->second;
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
-              current_segment.media_sequence, current_segment.get_url().c_str());
+    hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
+    if (!(segment_read == current_segment)) {
+      current_segment = segment_read;
+      if (current_segment.discontinuity) {
+        m_isChangePlaced = false;
+      }
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
+                    current_segment.media_sequence, current_segment.get_url().c_str());
+    }
   }
 
   m_av_rbe += len;

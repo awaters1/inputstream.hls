@@ -16,7 +16,7 @@ public:
   void write_segment(std::string data);
   void end_segment();
   bool has_data(uint64_t pos, size_t size);
-  void read(uint64_t pos, size_t size, uint8_t * const destination);
+  hls::Segment read(uint64_t pos, size_t size, uint8_t * const destination);
 private:
   size_t get_size();
 private:
