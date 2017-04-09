@@ -5,14 +5,9 @@
 #pragma once
 
 #include "hls/HLS.h"
+#include "hls/segment_data.h"
 
 const uint32_t MAX_SEGMENTS = 10;
-
-class SegmentData {
-public:
-  hls::Segment segment;
-  std::string contents;
-};
 
 class SegmentStorage {
 public:

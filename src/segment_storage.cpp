@@ -15,11 +15,17 @@ segment_data(MAX_SEGMENTS) {
 }
 
 bool SegmentStorage::start_segment(hls::Segment segment) {
-  if (!has_room) {
+  SegmentData &current_segment_data = segment_data.at(write_segment_data_index);
+  if (current_segment_data.can_overwrite == false) {
     return false;
+  } else if (current_segment_data.segment.valid && write_segment_data_index == read_segment_data_index) {
+    // We are overwriting an existing element so incremet read pointer
+    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   }
-  segment_data.at(write_segment_data_index).segment = segment;
-  segment_data.at(write_segment_data_index).contents.clear();
+  offset += current_segment_data.contents.length();
+  current_segment_data.segment = segment;
+  current_segment_data.contents.clear();
+  current_segment_data.can_overwrite = false;
   return true;
 }
 
@@ -29,7 +35,6 @@ void SegmentStorage::write_segment(std::string data) {
 
 void SegmentStorage::end_segment() {
   write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
-  has_room = write_segment_data_index != read_segment_data_index;
 }
 
 size_t SegmentStorage::get_size() {
@@ -44,16 +49,19 @@ bool SegmentStorage::has_data(uint64_t pos, size_t size) {
   return pos >= offset && ((pos - offset) + size) <= (get_size());
 }
 
+
 void SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const destination) {
   size_t destination_offset = 0;
+  uint32_t current_read_segment_index = read_segment_data_index;
+  uint64_t next_offset = offset;
   while(size > 0) {
     size_t relative_offset;
-    if (pos >= offset) {
-      relative_offset = pos - offset;
+    if (pos >= next_offset) {
+      relative_offset = pos - next_offset;
     } else {
       relative_offset = 0; // start at beginning of segment
     }
-    SegmentData &current_segment = segment_data.at(read_segment_data_index);
+    SegmentData &current_segment = segment_data.at(current_read_segment_index);
     if (!current_segment.segment.valid) {
       break;
     }
@@ -70,14 +78,12 @@ void SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const destination
           current_segment.contents.c_str() + relative_offset, data_to_read_from_segment);
       destination_offset += data_to_read_from_segment;
       size -= data_to_read_from_segment;
-      go_to_next_segment = relative_offset + data_to_read_from_segment == current_segment.contents.length();
+      next_offset += data_to_read_from_segment;
     } else {
-       go_to_next_segment = true;
+      // We read all of the data in this segment so it is safe to overwrite
+      current_segment.can_overwrite = true;
+      next_offset += current_segment.contents.length();
     }
-    if (go_to_next_segment) {
-      read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
-      offset += current_segment.contents.length();
-      has_room = true;
-    }
+    current_read_segment_index = (current_read_segment_index + 1)% MAX_SEGMENTS;
   }
 }

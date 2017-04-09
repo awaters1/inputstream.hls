@@ -35,6 +35,7 @@ set(HLS_SOURCES
     src/demuxer/ES_Teletext.cpp
     src/demuxer/tsDemuxer.cpp
     src/ring_buffer.cpp
+    src/segment_storage.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/

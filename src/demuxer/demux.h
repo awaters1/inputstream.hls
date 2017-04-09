@@ -38,6 +38,7 @@
 #include "../hls/segment_data.h"
 #include "../hls/active_segment_controller.h"
 #include "../ring_buffer.h"
+#include "../segment_storage.h"
 
 #define AV_BUFFER_SIZE          131072
 
@@ -67,7 +68,7 @@ public:
   void PushData(std::string data, hls::Segment segment);
   // Signals that the next data to be pushed in is from
   // this segment
-  void PrepareSegment(hls::Segment segment);
+  bool PrepareSegment(hls::Segment segment);
   void EndSegment(hls::Segment segment);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
@@ -122,7 +123,7 @@ private:
   std::set<uint16_t> m_nosetup;
 
   // Has to be above active segment because active segment depends on it
-  RingBuffer m_av_contents;
+  SegmentStorage m_av_contents;
   hls::Segment current_segment;
   std::map<uint64_t, hls::Segment> pos_to_segment;
 

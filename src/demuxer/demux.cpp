@@ -92,7 +92,6 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
-  , m_av_contents(MAX_AV_CONTENTS)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -311,6 +310,8 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
+// TODO: Have to handle when we are at the end of the stream and there is no more
+// packets
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
@@ -672,19 +673,18 @@ void Demux::push_stream_data(DemuxContainer dxp)
 
 void Demux::PushData(std::string data, hls::Segment segment) {
   CLockObject lock(m_mutex);
-  m_av_contents.put(data);
-  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
+  m_av_contents.write_segment(data);
   m_cv.Broadcast();
 }
 
-void Demux::PrepareSegment(hls::Segment segment) {
+bool Demux::PrepareSegment(hls::Segment segment) {
   CLockObject lock(m_mutex);
-  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
+  return m_av_contents.start_segment(segment);
 }
 
 void Demux::EndSegment(hls::Segment segment) {
   CLockObject lock(m_mutex);
   // Update byte_offset_to_segment, the byte offset
   // should be where the segment ends in RingBuffer
-  pos_to_segment.insert({m_av_contents.get_data_end_pos(), segment});
+  m_av_contents.end_segment();
 }
