@@ -79,6 +79,8 @@ add_executable(inputstreamhlstest
     src/ring_buffer.cpp
     test/ring_buffer_test.cpp
     test/global.cpp
+    test/segment_storage_test.cpp
+    src/segment_storage.cpp
     
     src/demuxer/bitstream.cpp
     src/demuxer/debug.cpp

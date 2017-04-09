@@ -123,10 +123,9 @@ private:
 
   // Has to be above active segment because active segment depends on it
   RingBuffer m_av_contents;
+  hls::Segment current_segment;
+  std::map<uint64_t, hls::Segment> pos_to_segment;
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
-
-  hls::Segment current_segment;
-  std::map<uint64_t, hls::Segment> pos_to_segment;
 };
