@@ -38,7 +38,7 @@ void hls::Session::read_next_pkt() {
       active_demux.swap(future_demux);
       delete future_demux.release();
     }
-    if (active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
+    if (!active_demux->IsStreamDone() && active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
       std::lock_guard<std::mutex> lock(demux_mutex);
       demux_flag = true;
     }
@@ -143,6 +143,9 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   if (active_demux) {
     bool seeked =  active_demux->SeekTime(time, backwards, startpts);
     if (seeked) {
+      if (current_pkt.demux_packet) {
+        ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+      }
       current_pkt = DemuxContainer();
       demux_flag = true;
       demux_cv.notify_all();
@@ -179,7 +182,7 @@ void hls::Session::process_demux() {
        return;
      }
 
-     while(active_demux && active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
+     while(active_demux && !active_demux->IsStreamDone() && active_demux->get_percentage_packet_buffer_full() < BUFFER_LOWER_BOUND) {
        active_demux->Process();
      }
   }

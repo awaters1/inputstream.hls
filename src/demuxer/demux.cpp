@@ -336,23 +336,13 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
   Flush();
 
-  if (m_av_contents.has_segment(seek_to)) {
-    // TODO: May be a good idea to reset the whole thing here as
-    // well
-    m_av_contents.reset_segment(seek_to);
 
-    uint64_t new_pos = m_av_contents.get_segment_start_position(seek_to);
+  // Reset everything and move to position
+  m_av_contents = SegmentStorage();
+  m_active_segment_controller.set_start_segment(seek_to);
 
-    m_AVContext->GoPosition(new_pos);
-    m_AVContext->ResetPackets();
-  } else {
-    // Reset everything and move to position
-    m_av_contents = SegmentStorage();
-    m_active_segment_controller.set_start_segment(seek_to);
-
-    m_AVContext->GoPosition(0);
-    m_AVContext->ResetPackets();
-  }
+  m_AVContext->GoPosition(0);
+  m_AVContext->ResetPackets();
 
   m_cv.Broadcast();
   m_segmentReadTime = new_time * DVD_TIME_BASE;
@@ -676,4 +666,9 @@ void Demux::EndSegment(hls::Segment segment) {
   // Update byte_offset_to_segment, the byte offset
   // should be where the segment ends in RingBuffer
   m_av_contents.end_segment(segment);
+}
+
+bool Demux::IsStreamDone() {
+  CLockObject lock(m_mutex);
+  return m_isStreamDone;
 }

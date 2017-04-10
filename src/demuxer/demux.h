@@ -54,6 +54,8 @@ public:
 
   void Process();
 
+  bool IsStreamDone();
+
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
