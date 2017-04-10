@@ -5,7 +5,8 @@ ReadAV() waiting for data.
 when they are done?
 
 Misc
-1. Do we need to handle #EXT-X-DISCONTINUITY?
+1. Use the segment timing to get the timing info for non-live streams,
+also use them to seek
 
 Minor Bugs
 1. Current time is off by about a second

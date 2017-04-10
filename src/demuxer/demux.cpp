@@ -190,6 +190,8 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       if (current_segment.discontinuity) {
         m_isChangePlaced = false;
       }
+      // TODO: Should update start pts flag and current time based on the
+      // playlist time
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
                     current_segment.media_sequence, current_segment.get_url().c_str());
     }
