@@ -218,6 +218,32 @@ bool hls::MediaPlaylist::has_segment(uint32_t segment_index) {
   return segment_index >= 0 && segment_index < segments.size();
 }
 
+double hls::MediaPlaylist::get_duration_up_to_segment(hls::Segment search) {
+  double duration(0);
+  for(auto &segment : segments) {
+    if (segment == search) {
+      return duration;
+    }
+    duration += segment.duration;
+  }
+  return 0;
+}
+
+hls::Segment hls::MediaPlaylist::find_segment_at_time(double time_in_seconds) {
+  double running_total(0);
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+    if (running_total >= time_in_seconds) {
+      if (it != segments.begin()) {
+        return *(--it);
+      } else {
+        return *(segments.begin());
+      }
+    }
+    running_total += it->duration;
+  }
+  return *(--segments.end());
+}
+
 hls::MediaPlaylist::MediaPlaylist()
 : Playlist(),
   segment_target_duration(0),

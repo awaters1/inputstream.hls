@@ -17,6 +17,9 @@ public:
   void end_segment();
   bool has_data(uint64_t pos, size_t size);
   hls::Segment read(uint64_t pos, size_t size, uint8_t * const destination);
+  bool has_segment(hls::Segment segment);
+  uint64_t get_segment_start_position(hls::Segment segment);
+  void reset_segment(hls::Segment segment);
 private:
   size_t get_size();
 private:

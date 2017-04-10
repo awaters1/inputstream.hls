@@ -136,9 +136,6 @@ Demux::~Demux()
 /*
  * Implement our AV reader
  */
-// TODO: This should detect when we switch to a new segment
-// to update the discontinuity flag and other things
-// like timing
 const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 {
   // out of range
@@ -195,8 +192,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       if (current_segment.discontinuity) {
         m_isChangePlaced = false;
       }
-      // TODO: Should update start pts flag and current time based on the
-      // playlist time
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
                     current_segment.media_sequence, current_segment.get_url().c_str());
     }
@@ -343,35 +338,32 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, (double)desired / PTS_TIME_BASE, (double)m_curTime / PTS_TIME_BASE);
 
-  if (desired >= m_curTime) {
-    // TODO: Seek to a segment boundary
-    // But we do not know the av_pos to set
-    // should we just reset? but then how do we seek backwards after we seek forward
-    // TODO: if our  desired time is outside of our buffer
-    // we need to clear everything out and switch segments
-  }
-
   CLockObject lock(m_mutex);
-  std::map<int64_t, AV_POSMAP_ITEM>::const_iterator it;
-  it = m_posmap.upper_bound(desired);
-  if (backwards && it != m_posmap.begin())
-    --it;
+  hls::Segment seek_to = m_playlist.find_segment_at_time((double) desired / PTS_TIME_BASE);
+  int64_t new_time = m_playlist.get_duration_up_to_segment(seek_to);
+  xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
+  Flush();
 
-  if (it != m_posmap.end())
-  {
-    int64_t new_time = it->first;
-    uint64_t new_pos = it->second.av_pos;
-    uint64_t new_pts = it->second.av_pts;
-    xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f pts=%" PRIu64, (double)new_time / PTS_TIME_BASE, new_pts);
+  if (m_av_contents.has_segment(seek_to)) {
+    m_av_contents.reset_segment(seek_to);
 
-    Flush();
+    uint64_t new_pos = m_av_contents.get_segment_start_position(seek_to);
+
     m_AVContext->GoPosition(new_pos);
     m_AVContext->ResetPackets();
-    m_curTime = m_pinTime = new_time;
-    m_DTS = m_PTS += new_pts - m_pts;
-    m_dts = m_pts = new_pts;
-    m_cv.Broadcast();
+  } else {
+    // Reset everything and move to position
+    m_av_contents = SegmentStorage();
+    m_active_segment_controller.set_start_segment(seek_to);
+
+    m_AVContext->GoPosition(0);
+    m_AVContext->ResetPackets();
   }
+
+  m_startpts = PTS_UNSET;
+  m_cv.Broadcast();
+  m_segmentReadTime = new_time * DVD_TIME_BASE;
+  m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
 
   *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
   return true;

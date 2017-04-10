@@ -92,3 +92,32 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const des
   }
   return first_segment;
 }
+
+bool SegmentStorage::has_segment(hls::Segment segment) {
+  for(auto &data : segment_data) {
+    if (data.segment == segment) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void SegmentStorage::reset_segment(hls::Segment segment) {
+  for(auto &data : segment_data) {
+    if (data.segment == segment) {
+      data.can_overwrite = false;
+      break;
+    }
+  }
+}
+
+uint64_t SegmentStorage::get_segment_start_position(hls::Segment segment) {
+  uint64_t start_position = offset;
+  for(uint32_t start = read_segment_data_index; start < MAX_SEGMENTS + read_segment_data_index; ++start) {
+    if (segment_data.at(start % MAX_SEGMENTS).segment == segment) {
+      return start_position;
+    }
+    start_position += segment_data.at(start % MAX_SEGMENTS).contents.length();
+  }
+  return offset;
+}

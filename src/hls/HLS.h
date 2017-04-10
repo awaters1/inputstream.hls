@@ -81,6 +81,8 @@ namespace hls
     uint32_t get_total_duration();
     bool load_contents(std::string playlist_contents);
     uint32_t merge(MediaPlaylist other_playlist);
+    Segment find_segment_at_time(double time_in_seconds);
+    double get_duration_up_to_segment(Segment segment);
     bool valid;
   protected:
     bool write_data(std::string line);

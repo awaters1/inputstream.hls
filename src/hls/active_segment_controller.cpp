@@ -159,6 +159,15 @@ bool ActiveSegmentController::trigger_download() {
   return true;
 }
 
+void ActiveSegmentController::set_start_segment(hls::Segment seek_to) {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    download_segment = true;
+    download_segment_index = media_playlist.get_segment_index(seek_to);
+  }
+  download_cv.notify_all();
+}
+
 ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist) :
 download_segment_index(0),
 downloader(downloader),
