@@ -7,8 +7,9 @@
 #include "HLS.h"
 
 struct SegmentData {
+  SegmentData() : can_overwrite(true) {};
   hls::Segment segment;
-  std::string content;
-  std::string processed_content;
+  std::string contents;
+  bool can_overwrite;
 };
 

@@ -32,6 +32,7 @@ public:
   // @return true if we expect more data, false if we don't
   // expect to download more data
   bool trigger_download();
+  void set_start_segment(hls::Segment seek_to);
 private:
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);

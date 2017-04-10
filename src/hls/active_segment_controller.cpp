@@ -41,7 +41,11 @@ void ActiveSegmentController::download_next_segment() {
 
     uint64_t bytes_read = 0;
 
-    demux->PrepareSegment(segment);
+    bool continue_download = demux->PrepareSegment(segment);
+    if (!continue_download) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
+      break;
+    }
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
         [this, &data_helper, &bytes_read](std::string data) -> bool {
           bytes_read += data.length();
@@ -153,6 +157,15 @@ bool ActiveSegmentController::trigger_download() {
   }
   download_cv.notify_all();
   return true;
+}
+
+void ActiveSegmentController::set_start_segment(hls::Segment seek_to) {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    download_segment = true;
+    download_segment_index = media_playlist.get_segment_index(seek_to);
+  }
+  download_cv.notify_all();
 }
 
 ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist) :
