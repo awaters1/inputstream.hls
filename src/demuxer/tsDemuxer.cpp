@@ -50,6 +50,8 @@ AVContext::AVContext(TSDemuxer* const demux, uint64_t pos, uint16_t channel)
   , payload(NULL)
   , payload_len(0)
   , packet(NULL)
+  , pcr_pid(0)
+  , pcr(PTS_UNSET)
 {
   m_demux = demux;
   memset(av_buf, 0, sizeof(av_buf));
