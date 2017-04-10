@@ -10,13 +10,13 @@ Seeking
 1. Cache file downloads
 2. Fix atomic_bool and mutex locking of threads
 
-TODO:
+Release TODO:
 1. Support stream switching
 2. Save previous bandwidth
+-> Use 4mbits as default
+-> Bandwidth settings
 3. Support resume from for non-live streams
-
-Minor Bugs
-1. Current time is off by about a second
+4. Seek live streams
 
 Issues:
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download

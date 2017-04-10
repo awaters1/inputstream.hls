@@ -174,7 +174,9 @@ downloader(downloader),
 media_playlist(media_playlist),
 demux(demux),
 current_pos(0),
-quit_processing(false) {
+quit_processing(false),
+download_segment(false),
+reload_playlist_flag(false) {
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);
 }
