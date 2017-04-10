@@ -1,4 +1,4 @@
-
+#pragma once
 /*
 *      Copyright (C) 2016-2016 peak3d
 *      http://www.peak3d.de
@@ -17,9 +17,6 @@
 *
 */
 
-
-#pragma once
-
 #include <vector>
 
 #include <float.h>
@@ -29,12 +26,6 @@
 #include "kodi_inputstream_types.h"
 
 #include "xbmc_addon_types.h"
-#include "SSD_dll.h"
-
-
-class FragmentedSampleReader;
-class SSD_DECRYPTER;
-
 
 
 namespace XBMCFILE

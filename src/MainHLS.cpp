@@ -28,7 +28,6 @@
 #include "libXBMC_addon.h"
 #include "helpers.h"
 #include "kodi_vfs_types.h"
-#include "SSD_dll.h"
 #include "kodi.h"
 
 #include "kodi_inputstream_dll.h"

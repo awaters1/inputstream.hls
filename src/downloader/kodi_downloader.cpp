@@ -47,7 +47,7 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
       xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangebuf);
   }
 
-  xbmc->CURLOpen(file, XFILE::READ_CACHED);
+  xbmc->CURLOpen(file, XFILE::READ_TRUNCATED);
 
   // read the file
   char *buf = (char*)malloc(16*1024);
