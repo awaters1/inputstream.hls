@@ -43,8 +43,6 @@
 #define AV_BUFFER_SIZE          131072
 
 const int MAX_DEMUX_PACKETS = 250;
-// 20 megabytes, about 8 segments, about 24 seconds at the highest quality
-const int MAX_AV_CONTENTS = 1024 * 1024 * 20;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -62,8 +60,6 @@ public:
   void Abort();
   DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
-
-  int GetPlayingTime();
 
   void PushData(std::string data, hls::Segment segment);
   // Signals that the next data to be pushed in is from
@@ -126,7 +122,7 @@ private:
   // Has to be above active segment because active segment depends on it
   SegmentStorage m_av_contents;
   hls::Segment current_segment;
-  std::map<uint64_t, hls::Segment> pos_to_segment;
+  bool m_isStreamDone;
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;

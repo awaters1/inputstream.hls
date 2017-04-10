@@ -35,6 +35,19 @@ TEST_F(SessionTest, GetStreams) {
   EXPECT_EQ(2, session->get_streams().m_streamCount);
 }
 
+TEST_F(SessionTest, ReadUntilEnd) {
+  /*
+  while(true) {
+    DemuxContainer demux_container = session->get_current_pkt();
+      session->read_next_pkt();
+    if (!demux_container.demux_packet) {
+      break;
+    }
+  }
+  EXPECT_TRUE(true);
+  */
+}
+
 class EncryptedSessionTest : public ::testing::Test {
 protected:
   virtual void SetUp() {

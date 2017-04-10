@@ -90,6 +90,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_endTime(0)
   , m_readTime(0)
   , m_segmentReadTime(0)
+  , m_isStreamDone(false)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
@@ -169,17 +170,12 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
   {
     CLockObject lock(m_mutex);
-    if (!m_av_contents.has_data(m_av_pos, len)) {
-      // TODO: This will download segments sequentially, which
-      // is an issue if we seek, when we seek we should skip
-      // to the next segment that has the position
+    while (!m_av_contents.has_data(m_av_pos, len)) {
       bool expects_more_data = m_active_segment_controller.trigger_download();
       if (!expects_more_data) {
+        m_isStreamDone = true;
         return nullptr;
       }
-    }
-    while (!m_av_contents.has_data(m_av_pos, len)) {
-      m_active_segment_controller.trigger_download();
       m_cv.Wait(m_mutex, 500);
     }
     hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
@@ -313,12 +309,13 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
-// TODO: Have to handle when we are at the end of the stream and there is no more
-// packets
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
   while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
+    if (m_isStreamDone) {
+      return DemuxContainer();
+    }
     m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
@@ -328,7 +325,7 @@ DemuxContainer Demux::Read()
 
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
 {
-  // time is in MSEC not PTS_TIME_BASE. Rescale time to PTS (90Khz)
+  // time is in MSEC
   double desired = time / 1000.0;
 
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, desired, (double)m_curTime / PTS_TIME_BASE);
@@ -363,11 +360,6 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
 
   // *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
   return true;
-}
-
-int Demux::GetPlayingTime()
-{
-  return -1;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)

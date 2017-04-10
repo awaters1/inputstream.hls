@@ -182,7 +182,6 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
-
     KodiMasterPlaylist master_playlist;
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
