@@ -13,6 +13,8 @@ Seeking
 Release TODO:
 1. Support stream switching
 2. Save previous bandwidth
+-> Use 4mbits as default
+-> Bandwidth settings
 3. Support resume from for non-live streams
 4. Seek live streams
 
