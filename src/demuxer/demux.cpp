@@ -328,23 +328,20 @@ DemuxContainer Demux::Read()
 
 bool Demux::SeekTime(double time, bool backwards, double* startpts)
 {
-  // Current PTS must be valid to estimate offset
-  if (m_startpts == PTS_UNSET)
-    return false;
   // time is in MSEC not PTS_TIME_BASE. Rescale time to PTS (90Khz)
-  int64_t pts = (int64_t)(time * PTS_TIME_BASE / 1000);
-  // Compute desired time position
-  int64_t desired = pts - m_startpts;
+  double desired = time / 1000.0;
 
-  xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, (double)desired / PTS_TIME_BASE, (double)m_curTime / PTS_TIME_BASE);
+  xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, desired, (double)m_curTime / PTS_TIME_BASE);
 
   CLockObject lock(m_mutex);
-  hls::Segment seek_to = m_playlist.find_segment_at_time((double) desired / PTS_TIME_BASE);
+  hls::Segment seek_to = m_playlist.find_segment_at_time(desired);
   int64_t new_time = m_playlist.get_duration_up_to_segment(seek_to);
   xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
   Flush();
 
   if (m_av_contents.has_segment(seek_to)) {
+    // TODO: May be a good idea to reset the whole thing here as
+    // well
     m_av_contents.reset_segment(seek_to);
 
     uint64_t new_pos = m_av_contents.get_segment_start_position(seek_to);
@@ -360,12 +357,11 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
     m_AVContext->ResetPackets();
   }
 
-  m_startpts = PTS_UNSET;
   m_cv.Broadcast();
   m_segmentReadTime = new_time * DVD_TIME_BASE;
   m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
 
-  *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
+  // *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
   return true;
 }
 
@@ -387,21 +383,23 @@ bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
 
   uint64_t DTS = pkt->dts;
   uint64_t PTS = pkt->pts;
-  if (m_startpts != PTS_UNSET)
-  {
-    pkt->dts = (DTS != PTS_UNSET ? m_dts + DTS - m_DTS : PTS_UNSET); // rebase dts
-    pkt->pts = (PTS != PTS_UNSET ? m_pts + PTS - m_PTS : PTS_UNSET); // rebase pts
-  }
-  else if (DTS != PTS_UNSET && PTS != PTS_UNSET)
-  {
-    m_startpts = 0x80000000LL;
-    m_dts = pkt->dts = m_startpts; // rebase dts
-    m_pts = pkt->pts = m_startpts + PTS - DTS; // rebase pts
-    m_DTS = DTS;
-    m_PTS = PTS;
-  }
-  else
-    return false;
+
+  // Don't change the PTS values
+//  if (m_startpts != PTS_UNSET)
+//  {
+//    pkt->dts = (DTS != PTS_UNSET ? m_dts + DTS - m_DTS : PTS_UNSET); // rebase dts
+//    pkt->pts = (PTS != PTS_UNSET ? m_pts + PTS - m_PTS : PTS_UNSET); // rebase pts
+//  }
+//  else if (DTS != PTS_UNSET && PTS != PTS_UNSET)
+//  {
+//    m_startpts = 0x80000000LL;
+//    m_dts = pkt->dts = m_startpts; // rebase dts
+//    m_pts = pkt->pts = m_startpts + PTS - DTS; // rebase pts
+//    m_DTS = DTS;
+//    m_PTS = PTS;
+//  }
+//  else
+//    return false;
 
   if (pkt->duration > PTS_TIME_BASE * 2)
   {
@@ -672,7 +670,7 @@ void Demux::push_stream_data(DemuxContainer dxp)
 
 void Demux::PushData(std::string data, hls::Segment segment) {
   CLockObject lock(m_mutex);
-  m_av_contents.write_segment(data);
+  m_av_contents.write_segment(segment, data);
   m_cv.Broadcast();
 }
 
@@ -685,5 +683,5 @@ void Demux::EndSegment(hls::Segment segment) {
   CLockObject lock(m_mutex);
   // Update byte_offset_to_segment, the byte offset
   // should be where the segment ends in RingBuffer
-  m_av_contents.end_segment();
+  m_av_contents.end_segment(segment);
 }

@@ -29,12 +29,16 @@ bool SegmentStorage::start_segment(hls::Segment segment) {
   return true;
 }
 
-void SegmentStorage::write_segment(std::string data) {
-  segment_data.at(write_segment_data_index).contents += data;
+void SegmentStorage::write_segment(hls::Segment segment, std::string data) {
+  if (segment_data.at(write_segment_data_index).segment == segment) {
+    segment_data.at(write_segment_data_index).contents += data;
+  }
 }
 
-void SegmentStorage::end_segment() {
-  write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
+void SegmentStorage::end_segment(hls::Segment segment) {
+  if (segment_data.at(write_segment_data_index).segment == segment) {
+    write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
+  }
 }
 
 size_t SegmentStorage::get_size() {

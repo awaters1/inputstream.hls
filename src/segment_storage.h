@@ -13,8 +13,8 @@ class SegmentStorage {
 public:
   SegmentStorage();
   bool start_segment(hls::Segment segment);
-  void write_segment(std::string data);
-  void end_segment();
+  void write_segment(hls::Segment segment, std::string data);
+  void end_segment(hls::Segment segment);
   bool has_data(uint64_t pos, size_t size);
   hls::Segment read(uint64_t pos, size_t size, uint8_t * const destination);
   bool has_segment(hls::Segment segment);
