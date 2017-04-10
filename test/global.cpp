@@ -36,12 +36,18 @@ ADDON::CHelper_libXBMC_addon *xbmc = new XBMC_Proxy();
 
 DemuxPacket* IPSH_allocate_demux_packet_stub(void* HANDLE, void* CB, int iDataSize) {
   DemuxPacket *pkt = new DemuxPacket;
-  pkt->pData = new unsigned char[iDataSize];
+  if (iDataSize) {
+    pkt->pData = new unsigned char[iDataSize];
+  } else {
+    pkt->pData = 0;
+  }
   return pkt;
 }
 
 void IPSH_free_demux_packet_stub(void* HANDLE, void* CB, DemuxPacket* pPacket) {
-  delete [] pPacket->pData;
+  if (pPacket->pData) {
+    delete [] pPacket->pData;
+  }
   delete pPacket;
 }
 

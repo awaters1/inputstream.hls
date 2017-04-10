@@ -217,4 +217,7 @@ hls::Session::~Session() {
   }
   demux_cv.notify_all();
   demux_thread.join();
+  if (current_pkt.demux_packet) {
+    ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+  }
 }
