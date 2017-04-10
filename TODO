@@ -1,19 +1,12 @@
 Bugs
 1. Have to handle when the playlist is done, right now we hang in
-ReadAV() waiting for data.
+ReadAV() waiting for data. -> same thing happens with seeking
 -> Can do for non-live streams but for live streams how do we know
 when they are done?
 
-Misc
-1. Use the segment timing to get the timing info for non-live streams,
-also use them to seek
-
-Minor Bugs
-1. Current time is off by about a second
 
 Seeking
 1. Switching streams (goes hand in hand with seeking)
-
 1. Cache file downloads
 2. Fix atomic_bool and mutex locking of threads
 
@@ -22,6 +15,8 @@ TODO:
 2. Save previous bandwidth
 3. Support resume from for non-live streams
 
+Minor Bugs
+1. Current time is off by about a second
 
 Issues:
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download
