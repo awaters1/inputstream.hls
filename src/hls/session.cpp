@@ -101,7 +101,7 @@ void hls::Session::switch_streams() {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
     active_playlist = *next_active_playlist;
     future_demux = std::unique_ptr<Demux>(
-        new Demux(downloader.get(), active_playlist));
+        new Demux(downloader.get(), active_playlist, active_demux->GetCurrentSegment().media_sequence));
     // TODO: Need to seek the future_demux as well
   } else if (!active_demux) {
     if (next_active_playlist != media_playlists.end()) {
@@ -110,7 +110,7 @@ void hls::Session::switch_streams() {
       active_playlist = *media_playlists.begin();
     }
     active_demux =
-            std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist));
+            std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist, 0));
     {
       std::lock_guard<std::mutex> lock(demux_mutex);
       demux_flag = true;

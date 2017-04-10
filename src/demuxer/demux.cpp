@@ -71,7 +71,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
+Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -92,8 +92,9 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_segmentReadTime(0)
   , m_isStreamDone(false)
   , m_isChangePlaced(false)
+  , m_segmentChanged(false)
   , m_playlist(media_playlist)
-  , m_active_segment_controller(this, downloader, media_playlist)
+  , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -163,7 +164,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   memmove(m_av_buf, m_av_rbs, dataread);
   m_av_rbs = m_av_buf;
   m_av_rbe = m_av_rbs + dataread;
-  // TODO: Need to handle m_av_pos is < m_av_contents_offset
   m_av_pos = pos;
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
@@ -180,6 +180,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     }
     hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
     if (!(segment_read == current_segment)) {
+      m_segmentChanged = true;
       m_readTime = m_segmentReadTime;
       current_segment = segment_read;
       if (current_segment.valid) {
@@ -235,6 +236,10 @@ void Demux::Process()
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
+        demux_container.segment_changed = m_segmentChanged;
+        if (m_segmentChanged) {
+          m_segmentChanged = false;
+        }
         double current_time_ms = (double)m_readTime / 1000.0;
         if (current_time_ms > INT_MAX)
           current_time_ms = INT_MAX;
@@ -671,4 +676,8 @@ void Demux::EndSegment(hls::Segment segment) {
 bool Demux::IsStreamDone() {
   CLockObject lock(m_mutex);
   return m_isStreamDone;
+}
+
+hls::Segment Demux::GetCurrentSegment() {
+  return current_segment;
 }

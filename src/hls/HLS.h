@@ -90,8 +90,8 @@ namespace hls
     void add_segment(Segment segment) { segments.push_back(segment); };
     uint32_t get_number_of_segments() { return segments.size(); };
     float get_segment_target_duration() { return segment_target_duration; };
-    int32_t get_segment_index(Segment segment);
-    bool has_segment(uint32_t segment_index);
+    int32_t get_segment_index(uint32_t media_sequence);
+    bool has_segment(int32_t segment_index);
     Segment get_segment(uint32_t segment_index);
     uint32_t get_total_duration();
     bool load_contents(std::string playlist_contents);

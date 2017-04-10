@@ -160,10 +160,10 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   return true;
 }
 
-int32_t hls::MediaPlaylist::get_segment_index(hls::Segment segment) {
+int32_t hls::MediaPlaylist::get_segment_index(uint32_t media_sequence) {
   auto it = std::find_if(segments.begin(), segments.end(),
-      [segment](const hls::Segment other) -> bool {
-    return segment.media_sequence == other.media_sequence;
+      [media_sequence](const hls::Segment other) -> bool {
+    return media_sequence == other.media_sequence;
   });
   if (it == segments.end()) {
     return -1;
@@ -214,7 +214,7 @@ hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
   return segments.at(segment_index);
 }
 
-bool hls::MediaPlaylist::has_segment(uint32_t segment_index) {
+bool hls::MediaPlaylist::has_segment(int32_t segment_index) {
   return segment_index >= 0 && segment_index < segments.size();
 }
 

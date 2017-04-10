@@ -47,7 +47,7 @@ const int MAX_DEMUX_PACKETS = 250;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist);
+  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -62,6 +62,7 @@ public:
   void Abort();
   DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
+  hls::Segment GetCurrentSegment();
 
   void PushData(std::string data, hls::Segment segment);
   // Signals that the next data to be pushed in is from
@@ -125,6 +126,7 @@ private:
   SegmentStorage m_av_contents;
   hls::Segment current_segment;
   bool m_isStreamDone;
+  bool m_segmentChanged;
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;

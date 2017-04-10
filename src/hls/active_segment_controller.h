@@ -38,7 +38,7 @@ class Demux;
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist);
+  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
   ~ActiveSegmentController();
 
   // @return true if we expect more data, false if we don't
@@ -64,8 +64,7 @@ private:
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   // Where the download is pointing
   int32_t download_segment_index;
-  // Segment we started at, may be empty
-  hls::Segment start_segment;
+  uint32_t media_sequence;
 
 
   // Download thread

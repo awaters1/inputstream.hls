@@ -126,14 +126,7 @@ void ActiveSegmentController::reload_playlist() {
     }
     if (media_playlist.get_number_of_segments() > 0) {
        if (download_segment_index == -1) {
-         int32_t segment_index;
-         if (start_segment.valid) {
-           // Find this segment in our segments
-           segment_index = media_playlist.get_segment_index(start_segment);
-         } else {
-           // Just start at the beginning
-           segment_index = 0;
-         }
+         int32_t segment_index = media_playlist.get_segment_index(media_sequence);
          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting with segment %d", segment_index);
          download_segment_index = segment_index;
        }
@@ -151,7 +144,7 @@ bool ActiveSegmentController::trigger_download() {
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     download_segment = true;
-    if (!media_playlist.live && !media_playlist.has_segment(download_segment_index)) {
+    if (download_segment_index != -1 && !media_playlist.live && !media_playlist.has_segment(download_segment_index)) {
       return false;
     }
   }
@@ -163,20 +156,26 @@ void ActiveSegmentController::set_start_segment(hls::Segment seek_to) {
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     download_segment = true;
-    download_segment_index = media_playlist.get_segment_index(seek_to);
+    download_segment_index = media_playlist.get_segment_index(seek_to.media_sequence);
   }
   download_cv.notify_all();
 }
 
-ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist) :
-download_segment_index(0),
+ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence) :
+download_segment_index(-1),
 downloader(downloader),
 media_playlist(media_playlist),
 demux(demux),
 current_pos(0),
 quit_processing(false),
 download_segment(false),
-reload_playlist_flag(false) {
+reload_playlist_flag(false),
+media_sequence(media_sequence){
+  if (media_playlist.get_number_of_segments() > 0 && download_segment_index == -1) {
+   int32_t segment_index = media_playlist.get_segment_index(media_sequence);
+   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting with segment %d", segment_index);
+   download_segment_index = segment_index;
+  }
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);
 }
