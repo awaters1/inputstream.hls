@@ -111,7 +111,8 @@ private:
   int64_t m_pinTime;            ///< pinned relative position (90Khz)
   int64_t m_curTime;            ///< current relative position (90Khz)
   int64_t m_endTime;            ///< last relative marked position (90Khz))
-  int64_t m_readTime;           ///< current relative position based on packets read (90Khz)
+  int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
+  int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   typedef struct
   {
     uint64_t av_pts;

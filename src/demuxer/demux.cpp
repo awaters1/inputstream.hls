@@ -89,6 +89,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_curTime(0)
   , m_endTime(0)
   , m_readTime(0)
+  , m_segmentReadTime(0)
   , m_isChangePlaced(false)
   , m_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist)
@@ -186,7 +187,11 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     }
     hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
     if (!(segment_read == current_segment)) {
+      m_readTime = m_segmentReadTime;
       current_segment = segment_read;
+      if (current_segment.valid) {
+        m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
+      }
       if (current_segment.discontinuity) {
         m_isChangePlaced = false;
       }
@@ -363,7 +368,6 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
     m_AVContext->GoPosition(new_pos);
     m_AVContext->ResetPackets();
     m_curTime = m_pinTime = new_time;
-    m_readTime = (double) new_time / PTS_TIME_BASE * DVD_TIME_BASE;
     m_DTS = m_PTS += new_pts - m_pts;
     m_dts = m_pts = new_pts;
     m_cv.Broadcast();
