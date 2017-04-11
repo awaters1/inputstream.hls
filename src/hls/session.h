@@ -50,8 +50,7 @@ namespace hls {
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
   private:
-    void switch_streams();
-    void process_demux();
+    void switch_streams(uint32_t media_sequence);
 
     uint32_t stall_counter;
 
@@ -65,14 +64,8 @@ namespace hls {
     std::unique_ptr<Demux> active_demux;
     // For when we want to switch streams
     std::unique_ptr<Demux> future_demux;
+    bool switch_demux;
 
     DemuxContainer current_pkt;
-
-    // Demux Process thread
-    std::mutex demux_mutex;
-    std::condition_variable demux_cv;
-    std::thread demux_thread;
-    std::atomic_bool demux_flag;
-    std::atomic_bool quit_processing;
   };
 }

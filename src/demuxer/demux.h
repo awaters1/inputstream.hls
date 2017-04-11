@@ -42,7 +42,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 250;
+const int MAX_DEMUX_PACKETS = 500;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -52,9 +52,7 @@ public:
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 
-  void Process();
 
-  bool IsStreamDone();
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
@@ -62,8 +60,8 @@ public:
   void Abort();
   DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
-  hls::Segment GetCurrentSegment();
 
+  // Data Managmente
   void PushData(std::string data, hls::Segment segment);
   // Signals that the next data to be pushed in is from
   // this segment
@@ -71,7 +69,8 @@ public:
   void EndSegment(hls::Segment segment);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
-
+private:
+  bool Process();
 private:
   uint16_t m_channel;
   std::vector<DemuxContainer> m_demuxPacketBuffer; // Needs to be locked
@@ -89,6 +88,8 @@ private:
   void push_stream_change();
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
   void push_stream_data(DemuxContainer dxp);
+  void process_demux_thread();
+  bool should_process_demux();
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer
@@ -130,4 +131,11 @@ private:
 
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
+
+  // Demux Process thread
+  std::mutex demux_mutex;
+  std::condition_variable demux_cv;
+  std::thread demux_thread;
+  std::atomic_bool demux_flag;
+  std::atomic_bool quit_processing;
 };

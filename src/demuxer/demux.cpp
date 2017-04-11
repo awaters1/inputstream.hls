@@ -40,6 +40,7 @@
 #define LOGTAG                  "[DEMUX] "
 #define POSMAP_PTS_INTERVAL     (PTS_TIME_BASE * 2)       // 2 secs
 #define READAV_TIMEOUT          10000                     // 10 secs
+const double BUFFER_LOWER_BOUND = 0.75;
 
 using namespace ADDON;
 using namespace P8PLATFORM;
@@ -94,6 +95,8 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , m_isChangePlaced(false)
   , m_segmentChanged(false)
   , m_playlist(media_playlist)
+  , demux_flag(true)
+  , quit_processing(false)
   , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -111,6 +114,8 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
 
     m_AVContext = new TSDemux::AVContext(this, m_av_pos, m_channel);
 
+    demux_thread = std::thread(&Demux::process_demux_thread, this);
+    demux_cv.notify_one();
   }
   else
   {
@@ -120,6 +125,15 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
 
 Demux::~Demux()
 {
+  // TODO: May want to think about cancelling any waiting
+  // signals
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    quit_processing = true;
+  }
+  demux_cv.notify_all();
+  demux_thread.join();
+
   Abort();
 
   // Free AV context
@@ -201,13 +215,13 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-void Demux::Process()
+bool Demux::Process()
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing", __FUNCTION__);
   if (!m_AVContext)
   {
     xbmc->Log(LOG_ERROR, LOGTAG "%s: no AVContext", __FUNCTION__);
-    return;
+    return false;
   }
 
   int ret = 0;
@@ -237,6 +251,7 @@ void Demux::Process()
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
         demux_container.segment_changed = m_segmentChanged;
+        demux_container.segment = current_segment;
         if (m_segmentChanged) {
           m_segmentChanged = false;
         }
@@ -272,10 +287,12 @@ void Demux::Process()
     CLockObject lock(m_mutex);
     m_cv.Broadcast();
     if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+      ret = 0;
       break;
     }
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
+  return ret >= 0 ? true : false;
 }
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
@@ -317,6 +334,11 @@ void Demux::Abort()
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    demux_flag = true;
+  }
+  demux_cv.notify_all();
   while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
     if (m_isStreamDone) {
       return DemuxContainer();
@@ -673,11 +695,28 @@ void Demux::EndSegment(hls::Segment segment) {
   m_av_contents.end_segment(segment);
 }
 
-bool Demux::IsStreamDone() {
+bool Demux::should_process_demux() {
   CLockObject lock(m_mutex);
-  return m_isStreamDone;
+  return !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
 }
 
-hls::Segment Demux::GetCurrentSegment() {
-  return current_segment;
+void Demux::process_demux_thread() {
+  while(!quit_processing) {
+   std::unique_lock<std::mutex> lock(demux_mutex);
+   demux_cv.wait(lock, [this] {
+     return quit_processing || demux_flag;
+   });
+   demux_flag = false;
+   lock.unlock();
+
+   if (quit_processing) {
+     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting demux thread");
+     return;
+   }
+
+   while(should_process_demux() && Process()) {
+     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demux Thread Size: %d", m_demuxPacketBuffer.size());
+   }
+  }
 }
+

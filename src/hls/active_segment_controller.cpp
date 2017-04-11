@@ -178,6 +178,11 @@ media_sequence(media_sequence){
   }
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    reload_playlist_flag = true;
+  }
+  reload_cv.notify_all();
 }
 
 ActiveSegmentController::~ActiveSegmentController() {
