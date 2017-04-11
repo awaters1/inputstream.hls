@@ -33,7 +33,12 @@ DemuxContainer hls::Session::get_current_pkt() {
 void hls::Session::read_next_pkt() {
   if (active_demux) {
     if (future_demux) {
-      // future_segment_controller->skip_to_pts(current_pkt.demux_packet->pts);
+      // TODO: this isn't thread safe due to the process_demux thread
+      // could just stop the thread and recreate it
+      // TODO: Could also keep both active and just switch the
+      // pointer back and forth and when one is done
+      // processing just delete the unused one
+
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at PTS %d", current_pkt.demux_packet->pts);
       active_demux.swap(future_demux);
       delete future_demux.release();
