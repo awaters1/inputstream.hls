@@ -129,6 +129,7 @@ private:
   bool m_isStreamDone;
   bool m_segmentChanged;
 
+  Downloader *downloader;
   hls::MediaPlaylist &m_playlist;
   ActiveSegmentController m_active_segment_controller;
 

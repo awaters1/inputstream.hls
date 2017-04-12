@@ -97,6 +97,7 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , m_playlist(media_playlist)
   , demux_flag(true)
   , quit_processing(false)
+  , downloader(downloader)
   , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -361,19 +362,20 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   hls::Segment seek_to = m_playlist.find_segment_at_time(desired);
   int64_t new_time = m_playlist.get_duration_up_to_segment(seek_to);
   xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
+  // TODO: We need to also stop processing any data in the external thread
   Flush();
 
 
   // Reset everything and move to position
+  m_segmentReadTime = m_readTime = new_time * DVD_TIME_BASE;
+  m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
   m_av_contents = SegmentStorage();
-  m_active_segment_controller.set_start_segment(seek_to);
+  m_active_segment_controller = std::move(ActiveSegmentController(this, downloader, m_playlist, seek_to.media_sequence));
 
   m_AVContext->GoPosition(0);
   m_AVContext->ResetPackets();
 
   m_cv.Broadcast();
-  m_segmentReadTime = new_time * DVD_TIME_BASE;
-  m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
 
   // *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
   return true;

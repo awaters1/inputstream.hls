@@ -27,7 +27,6 @@ void ActiveSegmentController::download_next_segment() {
 
     uint32_t download_index = download_segment_index;
     hls::Segment segment = media_playlist.get_segment(download_index);
-    pos_to_media_sequence.insert({current_pos, segment.media_sequence});
 
     lock.unlock();
 
@@ -58,9 +57,6 @@ void ActiveSegmentController::download_next_segment() {
     demux->EndSegment(segment);
 
     lock.lock();
-
-    current_pos += bytes_read;
-    pos_to_media_sequence.insert({current_pos -1, segment.media_sequence});
 
     if (download_index == download_segment_index) {
       ++download_segment_index;
@@ -152,21 +148,11 @@ bool ActiveSegmentController::trigger_download() {
   return true;
 }
 
-void ActiveSegmentController::set_start_segment(hls::Segment seek_to) {
-  {
-    std::lock_guard<std::mutex> lock(private_data_mutex);
-    download_segment = true;
-    download_segment_index = media_playlist.get_segment_index(seek_to.media_sequence);
-  }
-  download_cv.notify_all();
-}
-
 ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence) :
 download_segment_index(-1),
 downloader(downloader),
 media_playlist(media_playlist),
 demux(demux),
-current_pos(0),
 quit_processing(false),
 download_segment(false),
 reload_playlist_flag(false),
