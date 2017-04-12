@@ -244,6 +244,7 @@ hls::Segment hls::MediaPlaylist::find_segment_at_time(double time_in_seconds) {
     }
     running_total += it->duration;
   }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment at %f", time_in_seconds);
   return *(--segments.end());
 }
 

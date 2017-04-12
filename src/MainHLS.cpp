@@ -221,7 +221,7 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = hls_session && !hls_session->is_live();
+    caps.m_supportsSeek = true;
     caps.m_supportsPause = true; //caps.m_supportsSeek;
     return caps;
   }
@@ -326,9 +326,9 @@ extern "C" {
   {
     if (!hls_session)
       return -1;
-    if (hls_session->is_live()) {
-      return -1;
-    }
+//    if (hls_session->is_live()) {
+//      return -1;
+//    }
     return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
@@ -346,9 +346,7 @@ extern "C" {
 
   bool CanSeekStream(void)
   {
-    // TODO: Support can seek stream
-    return false;
-    // return session && !session->IsLive();
+    return true;
   }
 
   bool PosTime(int)
