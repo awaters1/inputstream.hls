@@ -128,10 +128,11 @@ private:
   hls::Segment current_segment;
   bool m_isStreamDone;
   bool m_segmentChanged;
+  bool m_demuxActive;
 
   Downloader *downloader;
   hls::MediaPlaylist &m_playlist;
-  ActiveSegmentController m_active_segment_controller;
+  std::unique_ptr<ActiveSegmentController> m_active_segment_controller;
 
   // Demux Process thread
   std::mutex demux_mutex;

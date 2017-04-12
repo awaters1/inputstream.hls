@@ -98,7 +98,9 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , demux_flag(true)
   , quit_processing(false)
   , downloader(downloader)
-  , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
+  , m_demuxActive(true)
+  , m_active_segment_controller(
+      std::make_unique<ActiveSegmentController>(this, downloader, media_playlist, media_sequence))
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -186,7 +188,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   {
     CLockObject lock(m_mutex);
     while (!m_av_contents.has_data(m_av_pos, len)) {
-      bool expects_more_data = m_active_segment_controller.trigger_download();
+      bool expects_more_data = m_active_segment_controller->trigger_download();
       if (!expects_more_data) {
         m_isStreamDone = true;
         return nullptr;
@@ -287,7 +289,7 @@ bool Demux::Process()
 
     CLockObject lock(m_mutex);
     m_cv.Broadcast();
-    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS || !m_demuxActive) {
       ret = 0;
       break;
     }
@@ -320,6 +322,7 @@ INPUTSTREAM_INFO* Demux::GetStreams()
 void Demux::Flush(void)
 {
   CLockObject lock(m_mutex);
+  m_demuxActive = false;
   for(auto it = m_demuxPacketBuffer.begin(); it != m_demuxPacketBuffer.end(); ++it) {
     ipsh->FreeDemuxPacket(it->demux_packet);
   }
@@ -362,18 +365,23 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   hls::Segment seek_to = m_playlist.find_segment_at_time(desired);
   int64_t new_time = m_playlist.get_duration_up_to_segment(seek_to);
   xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
-  // TODO: We need to also stop processing any data in the external thread
+  lock.Unlock();
+
   Flush();
+  m_active_segment_controller =
+        std::make_unique<ActiveSegmentController>(this, downloader, m_playlist, seek_to.media_sequence);
+  lock.Lock();
 
 
   // Reset everything and move to position
   m_segmentReadTime = m_readTime = new_time * DVD_TIME_BASE;
   m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
   m_av_contents = SegmentStorage();
-  m_active_segment_controller = std::move(ActiveSegmentController(this, downloader, m_playlist, seek_to.media_sequence));
 
   m_AVContext->GoPosition(0);
   m_AVContext->ResetPackets();
+
+  m_demuxActive = true;
 
   m_cv.Broadcast();
 
@@ -641,9 +649,11 @@ void Demux::push_stream_change()
     }
 
     CLockObject lock(m_mutex);
-    m_demuxPacketBuffer.push_back(demux_container);
-    m_isChangePlaced = true;
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s: done", __FUNCTION__);
+    if (m_demuxActive) {
+      m_demuxPacketBuffer.push_back(demux_container);
+      m_isChangePlaced = true;
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s: done", __FUNCTION__);
+    }
   }
 }
 
@@ -676,7 +686,9 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
 void Demux::push_stream_data(DemuxContainer dxp)
 {
   CLockObject lock(m_mutex);
-  m_demuxPacketBuffer.push_back(dxp);
+  if (m_demuxActive) {
+    m_demuxPacketBuffer.push_back(dxp);
+  }
 }
 
 void Demux::PushData(std::string data, hls::Segment segment) {
@@ -699,7 +711,7 @@ void Demux::EndSegment(hls::Segment segment) {
 
 bool Demux::should_process_demux() {
   CLockObject lock(m_mutex);
-  return !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
+  return m_demuxActive && !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
 }
 
 void Demux::process_demux_thread() {
