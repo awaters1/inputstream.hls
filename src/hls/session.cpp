@@ -101,8 +101,10 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
       *next_active_playlist != active_playlist) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
     active_playlist = *next_active_playlist;
+    hls::Segment seek_to = active_playlist.get_segment(active_playlist.get_segment_index(media_sequence));
+    int64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
     future_demux = std::unique_ptr<Demux>(
-        new Demux(downloader.get(), active_playlist, media_sequence));
+        new Demux(downloader.get(), active_playlist, media_sequence, new_time));
   } else if (!active_demux) {
     if (next_active_playlist != media_playlists.end()) {
       active_playlist = *next_active_playlist;
@@ -110,7 +112,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
       active_playlist = *media_playlists.begin();
     }
     active_demux =
-            std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist, 0));
+            std::unique_ptr<Demux>(new Demux(downloader.get(), active_playlist, 0, 0));
   }
 }
 
@@ -136,14 +138,28 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   if (active_demux) {
-    bool seeked =  active_demux->SeekTime(time, backwards, startpts);
-    if (seeked) {
-      if (current_pkt.demux_packet) {
-        ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-      }
-      current_pkt = DemuxContainer();
+    // time is in MSEC
+    double desired = time / 1000.0;
+
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
+    hls::Segment seek_to = active_playlist.find_segment_at_time(desired);
+    int64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
+
+    active_demux = std::unique_ptr<Demux>(
+            new Demux(downloader.get(), active_playlist, seek_to.media_sequence, new_time));
+
+    if (current_pkt.demux_packet) {
+      ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+      current_pkt = active_demux->Read();
     }
-    return seeked;
+
+    // Cancel any stream switches
+    switch_demux = false;
+    if (future_demux) {
+      delete future_demux.release();
+    }
+    return true;
   }
   return false;
 }

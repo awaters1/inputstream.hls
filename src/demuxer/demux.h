@@ -47,7 +47,7 @@ const int MAX_DEMUX_PACKETS = 500;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence, int64_t start_time);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -108,9 +108,7 @@ private:
   uint64_t m_dts;               ///< rebased DTS for the program chain
   uint64_t m_pts;               ///< rebased PTS for the program chain
   uint64_t m_startpts;          ///< start PTS for the program chain
-  int64_t m_pinTime;            ///< pinned relative position (90Khz)
   int64_t m_curTime;            ///< current relative position (90Khz)
-  int64_t m_endTime;            ///< last relative marked position (90Khz))
   int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   typedef struct
@@ -128,11 +126,8 @@ private:
   hls::Segment current_segment;
   bool m_isStreamDone;
   bool m_segmentChanged;
-  bool m_demuxActive;
 
-  Downloader *downloader;
-  hls::MediaPlaylist &m_playlist;
-  std::unique_ptr<ActiveSegmentController> m_active_segment_controller;
+  ActiveSegmentController m_active_segment_controller;
 
   // Demux Process thread
   std::mutex demux_mutex;
