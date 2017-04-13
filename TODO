@@ -6,6 +6,7 @@ when they are done?
 2. GetTotalTime doesn't seem to work anymore due to loading the playlist async for 
 non-live streams
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
+like when downloading
 5. Stream switching causes a segment pause in 30 for 30, but worked okay in live stream
 6. Sometimes live streams get stuck in commercials
 7. Seeking doesn't work in the live stream - may be due to the start PTS value, not sure how kodi
