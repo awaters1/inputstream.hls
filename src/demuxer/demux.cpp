@@ -130,6 +130,10 @@ Demux::~Demux()
   }
   demux_cv.notify_all();
   demux_thread.join();
+  {
+    CLockObject lock(m_mutex);
+    m_cv.Broadcast();
+  }
 
   Abort();
 
@@ -183,7 +187,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     CLockObject lock(m_mutex);
     while (!m_av_contents.has_data(m_av_pos, len)) {
       bool expects_more_data = m_active_segment_controller.trigger_download();
-      if (!expects_more_data) {
+      if (!expects_more_data || quit_processing) {
         m_isStreamDone = true;
         return nullptr;
       }
@@ -285,6 +289,9 @@ bool Demux::Process()
     m_cv.Broadcast();
     if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
       ret = 0;
+      break;
+    }
+    if (quit_processing) {
       break;
     }
   }
@@ -641,7 +648,7 @@ void Demux::EndSegment(hls::Segment segment) {
 
 bool Demux::should_process_demux() {
   CLockObject lock(m_mutex);
-  return !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
+  return !quit_processing && !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
 }
 
 void Demux::process_demux_thread() {
