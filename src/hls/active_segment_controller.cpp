@@ -171,8 +171,10 @@ media_sequence(media_sequence){
   {
     std::lock_guard<std::mutex> lock(private_data_mutex);
     reload_playlist_flag = true;
+    download_segment = true;
   }
   reload_cv.notify_all();
+  download_cv.notify_all();
 }
 
 ActiveSegmentController::~ActiveSegmentController() {

@@ -172,6 +172,7 @@ int32_t hls::MediaPlaylist::get_segment_index(uint32_t media_sequence) {
 }
 
 uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
+  live = other_playlist.live;
   uint32_t last_media_sequence;
   if (segments.size() > 0) {
    last_media_sequence = segments.back().media_sequence;
