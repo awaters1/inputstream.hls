@@ -123,6 +123,10 @@ void ActiveSegmentController::reload_playlist() {
     if (media_playlist.get_number_of_segments() > 0) {
        if (download_segment_index == -1) {
          int32_t segment_index = media_playlist.get_segment_index(media_sequence);
+         if (segment_index == -1) {
+             xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment %d starting at beginning", media_sequence);
+             segment_index = 0;
+         }
          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting with segment %d", segment_index);
          download_segment_index = segment_index;
        }
