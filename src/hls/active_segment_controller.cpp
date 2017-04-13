@@ -43,7 +43,7 @@ void ActiveSegmentController::download_next_segment() {
     bool continue_download = demux->PrepareSegment(segment);
     if (!continue_download) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
-      break;
+      continue;
     }
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
         [this, &data_helper, &bytes_read](std::string data) -> bool {

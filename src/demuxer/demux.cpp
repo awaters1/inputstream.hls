@@ -368,8 +368,7 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   lock.Unlock();
 
   Flush();
-  m_active_segment_controller =
-        std::make_unique<ActiveSegmentController>(this, downloader, m_playlist, seek_to.media_sequence);
+  delete m_active_segment_controller.release();
   lock.Lock();
 
 
@@ -377,6 +376,8 @@ bool Demux::SeekTime(double time, bool backwards, double* startpts)
   m_segmentReadTime = m_readTime = new_time * DVD_TIME_BASE;
   m_curTime = m_pinTime = new_time * PTS_TIME_BASE;
   m_av_contents = SegmentStorage();
+  m_active_segment_controller =
+          std::make_unique<ActiveSegmentController>(this, downloader, m_playlist, seek_to.media_sequence);
 
   m_AVContext->GoPosition(0);
   m_AVContext->ResetPackets();
