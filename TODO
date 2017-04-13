@@ -1,3 +1,6 @@
+TODO: When seeking we should just destroy our demuxer
+and create a whole new one
+
 Bugs
 1. Have to handle when the playlist is done, right now we hang in
 ReadAV() waiting for data. -> same thing happens with seeking
