@@ -20,7 +20,12 @@
 
 
 uint64_t hls::Session::get_current_time() {
-  return current_pkt.current_time;
+  uint64_t current_time = current_pkt.current_time;
+  if (current_time == 0) {
+    return last_current_time;
+  }
+  last_current_time = current_time;
+  return current_time;
 }
 
 DemuxContainer hls::Session::get_current_pkt() {
@@ -193,12 +198,19 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     switch_demux(false),
     m_startpts(DVD_NOPTS_VALUE),
     m_startdts(DVD_NOPTS_VALUE),
+    last_total_time(0),
+    last_current_time(0),
     stall_counter(0) {
   switch_streams(0);
 }
 
 uint64_t hls::Session::get_total_time() {
-  return active_playlist.get_total_duration();
+  uint64_t current_total_time = active_playlist.get_total_duration();
+  if (current_total_time == 0) {
+    return last_total_time;
+  }
+  last_total_time = current_total_time;
+  return current_total_time;
 }
 
 void hls::Session::demux_abort() {

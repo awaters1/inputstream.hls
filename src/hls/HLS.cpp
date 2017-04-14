@@ -293,7 +293,7 @@ std::string hls::Playlist::get_string_attribute_value(std::string line, std::str
 uint32_t hls::Playlist::get_number_attribute_value(std::string line, std::string attribute_name) {
   std::string attribute_value = get_attribute_value(line, attribute_name);
   if (attribute_value.length() == 0) {
-    return -1;
+    return 0;
   }
   return atoi(attribute_value.c_str());
 }
