@@ -27,6 +27,25 @@ DemuxContainer hls::Session::get_current_pkt() {
   if (!current_pkt.demux_packet) {
     read_next_pkt();
   }
+
+  DemuxPacket *pkt = current_pkt.demux_packet;
+  if (pkt) {
+    // startpts/startdts should be per video not demuxer
+    if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
+      m_startpts = pkt->pts;
+    }
+    if (m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
+      m_startdts = pkt->dts;
+    }
+
+    if (pkt->pts != DVD_NOPTS_VALUE && m_startpts != DVD_NOPTS_VALUE) {
+      pkt->pts = pkt->pts - m_startpts;
+    }
+    if (pkt->dts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
+      pkt->dts = pkt->dts - m_startdts;
+    }
+  }
+
   return current_pkt;
 }
 
@@ -151,8 +170,9 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-      current_pkt = active_demux->Read();
     }
+
+    current_pkt = active_demux->Read();
 
     // Cancel any stream switches
     switch_demux = false;
@@ -171,6 +191,8 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     downloader(downloader),
     active_playlist(this->master_playlist.get_media_playlist(0)),
     switch_demux(false),
+    m_startpts(DVD_NOPTS_VALUE),
+    m_startdts(DVD_NOPTS_VALUE),
     stall_counter(0) {
   switch_streams(0);
 }

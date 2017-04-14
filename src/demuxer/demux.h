@@ -101,14 +101,6 @@ private:
   // Playback context
   TSDemux::AVContext* m_AVContext;
   uint16_t m_mainStreamPID;     ///< PID of main stream
-  // TODO: Need to rework these for a demux that doesn't have a continuous stream
-  // of data, we can skip around without having the starting values
-  uint64_t m_DTS;               ///< absolute decode time of main stream
-  uint64_t m_PTS;               ///< absolute presentation time of main stream
-  uint64_t m_dts;               ///< rebased DTS for the program chain
-  uint64_t m_pts;               ///< rebased PTS for the program chain
-  uint64_t m_startpts;          ///< start PTS for the program chain
-  int64_t m_curTime;            ///< current relative position (90Khz)
   int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   typedef struct

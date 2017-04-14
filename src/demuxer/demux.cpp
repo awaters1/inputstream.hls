@@ -27,9 +27,6 @@
 
 #define DVD_TIME_BASE 1000000
 
-//! @todo original definition is in DVDClock.h
-#define DVD_NOPTS_VALUE 0xFFF0000000000000
-
 #include "demux.h"
 #include "debug.h"
 
@@ -81,12 +78,6 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , m_av_rbe(NULL)
   , m_AVContext(NULL)
   , m_mainStreamPID(0xffff)
-  , m_DTS(PTS_UNSET)
-  , m_PTS(PTS_UNSET)
-  , m_dts(PTS_UNSET)
-  , m_pts(PTS_UNSET)
-  , m_startpts(PTS_UNSET)
-  , m_curTime(start_time * PTS_TIME_BASE)
   , m_readTime(start_time * DVD_TIME_BASE)
   , m_segmentReadTime(start_time * DVD_TIME_BASE)
   , m_isStreamDone(false)
@@ -344,6 +335,8 @@ DemuxContainer Demux::Read()
   }
   demux_cv.notify_all();
   while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
+    // TODO: This may not work 100% because the stream may be done but there
+    // may be data still in the buffer
     if (m_isStreamDone) {
       return DemuxContainer();
     }
@@ -365,39 +358,11 @@ bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
 
   pkt->pcr = es->c_pcr;
 
-  uint64_t DTS = pkt->dts;
-  uint64_t PTS = pkt->pts;
 
-  // Don't change the PTS values
-//  if (m_startpts != PTS_UNSET)
-//  {
-//    pkt->dts = (DTS != PTS_UNSET ? m_dts + DTS - m_DTS : PTS_UNSET); // rebase dts
-//    pkt->pts = (PTS != PTS_UNSET ? m_pts + PTS - m_PTS : PTS_UNSET); // rebase pts
-//  }
-//  else if (DTS != PTS_UNSET && PTS != PTS_UNSET)
-//  {
-//    m_startpts = 0x80000000LL;
-//    m_dts = pkt->dts = m_startpts; // rebase dts
-//    m_pts = pkt->pts = m_startpts + PTS - DTS; // rebase pts
-//    m_DTS = DTS;
-//    m_PTS = PTS;
-//  }
-//  else
-//    return false;
 
   if (pkt->duration > PTS_TIME_BASE * 2)
   {
     pkt->duration = 0;
-  }
-  else if (pkt->pid == m_mainStreamPID)
-  {
-    // Fill duration map for main stream
-    m_curTime += pkt->duration;
-    // Sync main DTS & PTS
-    m_DTS = DTS;
-    m_PTS = PTS;
-    m_dts = pkt->dts;
-    m_pts = pkt->pts;
   }
   return true;
 }

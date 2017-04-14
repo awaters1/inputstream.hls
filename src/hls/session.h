@@ -67,5 +67,8 @@ namespace hls {
     bool switch_demux;
 
     DemuxContainer current_pkt;
+
+    double m_startpts;          ///< start PTS for the program chain
+    double m_startdts;          ///< start DTS for the program chain
   };
 }

@@ -15,6 +15,8 @@ like when downloading
 7. Seeking doesn't work in the live stream - may be due to the start PTS value, not sure how kodi
 calculates the absolute time to seek to in DemuxSeekTime because it is too large
 8. For live streams tho current progress isn't updated immediately - may be causing the seek issue
+9. Fix issues with current time and total time resetting, maybe cache old value
+when switching streams?
 
 Seeking
 1. Switching streams (goes hand in hand with seeking)
