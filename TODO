@@ -1,30 +1,18 @@
 Bugs
-1. Have to handle when the playlist is done, right now we hang in
-ReadAV() waiting for data. -> same thing happens with seeking
--> Can do for non-live streams but for live streams how do we know
-when they are done?
-2. GetTotalTime doesn't seem to work anymore due to loading the playlist async for 
-non-live streams
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
 like when downloading
 5. Stream switching causes a segment pause in 30 for 30, but worked okay in live stream
 6. Sometimes live streams get stuck in commercials
-8. For live streams tho current progress isn't updated immediately - may be causing the seek issue
-9. Fix issues with current time and total time resetting, maybe cache old value
-when switching streams?
+
 
 Seeking
-1. Switching streams (goes hand in hand with seeking)
 1. Cache file downloads
 2. Fix atomic_bool and mutex locking of threads
 
 Release TODO:
-1. Support stream switching
 2. Save previous bandwidth
 -> Use 4mbits as default
 -> Bandwidth settings
-3. Support resume from for non-live streams
-4. Seek live streams
 
 Issues:
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download
