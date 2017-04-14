@@ -14,6 +14,9 @@
 
 #define LOGTAG                  "[HLS] "
 
+// Limit to 3000s segments in a playlist
+const int SEGMENT_LIST_LIMIT = 3000;
+
 hls::Segment::Segment() :
 Resource(),
 duration(0),
@@ -192,6 +195,11 @@ uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
      }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
+  while(segments.size() >= SEGMENT_LIST_LIMIT && live) {
+    hls::Segment front = segments.front();
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Erasing segment %d", front.media_sequence);
+    segments.erase(segments.begin());
+  }
   return added_segments;
 }
 

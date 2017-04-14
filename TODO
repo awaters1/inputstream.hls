@@ -13,6 +13,7 @@ Release TODO:
 2. Save previous bandwidth
 -> Use 4mbits as default
 -> Bandwidth settings
+3. For live streams we have to prune the segments vector so it doesn't grow too large
 
 Issues:
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download
