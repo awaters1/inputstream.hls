@@ -125,7 +125,11 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
       *next_active_playlist != active_playlist) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
     active_playlist = *next_active_playlist;
-    hls::Segment seek_to = active_playlist.get_segment(active_playlist.get_segment_index(media_sequence));
+    int32_t segment_index = active_playlist.get_segment_index(media_sequence);
+    if (segment_index == -1) {
+      segment_index = 0;
+    }
+    hls::Segment seek_to = active_playlist.get_segment(segment_index);
     int64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
     future_demux = std::unique_ptr<Demux>(
         new Demux(downloader.get(), active_playlist, media_sequence, new_time));
