@@ -27,40 +27,25 @@ protected:
 };
 
 TEST_F(SessionTest, TotalTime) {
-  // EXPECT_EQ(20, session->get_total_time());
+  EXPECT_EQ(20, session->get_total_time());
 }
 
-TEST_F(SessionTest, ReadStreamPart) {
-  std::string file_contents = load_file_contents("test/hls/gear1/fileSequence0.ts");
-  size_t len = 100;
-  uint8_t *buf = new uint8_t[len];
-  size_t amount_read = 0; //session->read_stream(buf, len);
-  EXPECT_TRUE(memcmp(file_contents.c_str(), buf, len) == 0);
-  EXPECT_EQ(len, amount_read);
+TEST_F(SessionTest, GetStreams) {
+  session->read_next_pkt();
+  EXPECT_EQ(2, session->get_streams().m_streamCount);
 }
 
-TEST_F(SessionTest, ReadStreamSplit) {
-  std::string file_contents1 = load_file_contents("test/hls/gear1/fileSequence0.ts");
-  std::string file_contents2 = load_file_contents("test/hls/gear1/fileSequence1.ts");
-  size_t len = 500000;
-  uint8_t *buf = new uint8_t[len];
-  size_t amount_read = 0; //session->read_stream(buf, len);
-  EXPECT_TRUE(memcmp(file_contents1.c_str(), buf, file_contents1.length()) == 0);
-  size_t left_over = amount_read - file_contents1.length();
-  EXPECT_TRUE(memcmp(file_contents2.c_str(), buf + file_contents1.length(), left_over) == 0);
-  EXPECT_EQ(len, amount_read);
-}
-
-TEST_F(SessionTest, ReadStreamEnd) {
-  std::string file_contents1 = load_file_contents("test/hls/gear1/fileSequence0.ts");
-  std::string file_contents2 = load_file_contents("test/hls/gear1/fileSequence1.ts");
-  size_t len = 10000000;
-  uint8_t *buf = new uint8_t[len];
-  size_t amount_read = 0; //session->read_stream(buf, len);
-  EXPECT_TRUE(memcmp(file_contents1.c_str(), buf, file_contents1.length()) == 0);
-  size_t left_over = amount_read - file_contents1.length();
-  EXPECT_TRUE(memcmp(file_contents2.c_str(), buf + file_contents1.length(), left_over) == 0);
-  EXPECT_EQ(1256780, amount_read);
+TEST_F(SessionTest, ReadUntilEnd) {
+  /*
+  while(true) {
+    DemuxContainer demux_container = session->get_current_pkt();
+      session->read_next_pkt();
+    if (!demux_container.demux_packet) {
+      break;
+    }
+  }
+  EXPECT_TRUE(true);
+  */
 }
 
 class EncryptedSessionTest : public ::testing::Test {

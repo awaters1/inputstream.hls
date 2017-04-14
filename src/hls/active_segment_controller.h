@@ -1,8 +1,20 @@
-/*
- * active_segment_queue.h Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
- */
-
 #pragma once
+/*
+ *      Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
+ *
+ *  This Program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2, or (at your option)
+ *  any later version.
+ *
+ *  This Program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  <http://www.gnu.org/licenses/>.
+ *
+ */
 
 #include <unordered_map>
 #include <future>
@@ -19,16 +31,19 @@ struct DataHelper {
   std::string aes_uri;
   std::string aes_iv;
   bool encrypted;
+  hls::Segment segment;
 };
 
 class Demux;
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist);
+  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
   ~ActiveSegmentController();
 
-  void trigger_download();
+  // @return true if we expect more data, false if we don't
+  // expect to download more data
+  bool trigger_download();
 private:
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
@@ -44,8 +59,7 @@ private:
   FRIEND_TEST(ActiveSegmentController, DownloadSegment);
   // Where the download is pointing
   int32_t download_segment_index;
-  // Segment we started at, may be empty
-  hls::Segment start_segment;
+  uint32_t media_sequence;
 
 
   // Download thread

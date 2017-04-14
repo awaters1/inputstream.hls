@@ -2,13 +2,14 @@
  * active_segment_queue.cpp Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
  */
 
-#include <iostream>
-#include <fstream>
 #include <algorithm>
 
 #include "active_segment_controller.h"
 #include "../hls/decrypter.h"
 #include "../demuxer/demux.h"
+#include "../globals.h"
+
+#define LOGTAG                  "[ActiveSegmentController] "
 
 void ActiveSegmentController::download_next_segment() {
   while(!quit_processing) {
@@ -20,7 +21,7 @@ void ActiveSegmentController::download_next_segment() {
     download_segment = false;
 
     if (quit_processing) {
-      std::cout << "Exiting download thread\n";
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
       return;
     }
 
@@ -29,34 +30,34 @@ void ActiveSegmentController::download_next_segment() {
 
     lock.unlock();
 
-    std::cout << "Starting download of " << segment.media_sequence << " at " << segment.get_url() << "\n";
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d at %s", segment.media_sequence, segment.get_url().c_str());
 
     DataHelper data_helper;
     data_helper.aes_iv = segment.aes_iv;
     data_helper.aes_uri = segment.aes_uri;
     data_helper.encrypted = segment.encrypted;
+    data_helper.segment = segment;
 
-    std::string full_data;
+    uint64_t bytes_read = 0;
 
+    bool continue_download = demux->PrepareSegment(segment);
+    if (!continue_download) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
+      continue;
+    }
     downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [this, &data_helper](std::string data) -> void {
-          if (data.length() % 16 != 0) {
-            std::cerr << "Data is not divisible by 16 " << data.length() << "\n";
-          }
+        [this, &data_helper, &bytes_read](std::string data) -> bool {
+          bytes_read += data.length();
           this->process_data(data_helper, data);
+          if (quit_processing) {
+            return false;
+          }
+          return true;
     });
-
-    /*
-    downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [&full_data](std::string data) -> void {
-          full_data += data;
-    });
-    process_data(data_helper, full_data);
-    */
-
-
+    demux->EndSegment(segment);
 
     lock.lock();
+
     if (download_index == download_segment_index) {
       ++download_segment_index;
     } else {
@@ -64,7 +65,7 @@ void ActiveSegmentController::download_next_segment() {
       // where we are in the stream
     }
     lock.unlock();
-    std::cout << "Finished download of " << segment.media_sequence << "\n";
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
   }
 }
 
@@ -73,7 +74,7 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     auto aes_key_it = aes_uri_to_key.find(data_helper.aes_uri);
     std::string aes_key;
     if (aes_key_it == aes_uri_to_key.end()) {
-        std::cout << "Getting AES Key from " << data_helper.aes_uri << "\n";
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Getting AES Key from %s", data_helper.aes_uri.c_str());
         aes_key = downloader->download(data_helper.aes_uri);
         aes_uri_to_key.insert({data_helper.aes_uri, aes_key});
     } else {
@@ -84,8 +85,7 @@ void ActiveSegmentController::process_data(DataHelper &data_helper, std::string 
     // Prepare the iv for the next segment
     data_helper.aes_iv = next_iv;
   }
-  // TODO: Need to get the data into the demuxer somehow and have it process the data
-  demux->PushData(data);
+  demux->PushData(data, data_helper.segment);
 }
 
 void ActiveSegmentController::reload_playlist() {
@@ -101,7 +101,8 @@ void ActiveSegmentController::reload_playlist() {
     });
 
     if (quit_processing) {
-      std::cout << "Exiting reload thread\n";
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
+      lock.unlock();
       return;
     }
     reload_playlist_flag = false;
@@ -117,19 +118,16 @@ void ActiveSegmentController::reload_playlist() {
        hls::MediaPlaylist new_media_playlist;
        new_media_playlist.load_contents(playlist_contents);
        uint32_t added_segments = media_playlist.merge(new_media_playlist);
-       std::cout << "Reloaded playlist with " << added_segments << " new segments bandwidth: " << media_playlist.bandwidth << "\n";
+       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloaded playlist with %d new segments bandwidth %d", added_segments, media_playlist.bandwidth);
     }
     if (media_playlist.get_number_of_segments() > 0) {
        if (download_segment_index == -1) {
-         int32_t segment_index;
-         if (start_segment.valid) {
-           // Find this segment in our segments
-           segment_index = media_playlist.get_segment_index(start_segment);
-         } else {
-           // Just start at the beginning
-           segment_index = 0;
+         int32_t segment_index = media_playlist.get_segment_index(media_sequence);
+         if (segment_index == -1) {
+             xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment %d starting at beginning", media_sequence);
+             segment_index = 0;
          }
-         std::cout << "Starting with segment " << segment_index << "\n";
+         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting with segment %d", segment_index);
          download_segment_index = segment_index;
        }
        trigger_next_segment = true;
@@ -142,20 +140,41 @@ void ActiveSegmentController::reload_playlist() {
   }
 }
 
-void ActiveSegmentController::trigger_download() {
-  std::lock_guard<std::mutex> lock(private_data_mutex);
-  download_segment = true;
+bool ActiveSegmentController::trigger_download() {
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    download_segment = true;
+    if (download_segment_index != -1 && !media_playlist.live && !media_playlist.has_segment(download_segment_index)) {
+      return false;
+    }
+  }
   download_cv.notify_all();
+  return true;
 }
 
-ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist) :
-download_segment_index(0),
+ActiveSegmentController::ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence) :
+download_segment_index(-1),
 downloader(downloader),
 media_playlist(media_playlist),
 demux(demux),
-quit_processing(false) {
+quit_processing(false),
+download_segment(false),
+reload_playlist_flag(false),
+media_sequence(media_sequence){
+  if (media_playlist.get_number_of_segments() > 0 && download_segment_index == -1) {
+   int32_t segment_index = media_playlist.get_segment_index(media_sequence);
+   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting with segment %d", segment_index);
+   download_segment_index = segment_index;
+  }
   download_thread = std::thread(&ActiveSegmentController::download_next_segment, this);
   reload_thread = std::thread(&ActiveSegmentController::reload_playlist, this);
+  {
+    std::lock_guard<std::mutex> lock(private_data_mutex);
+    reload_playlist_flag = true;
+    download_segment = true;
+  }
+  reload_cv.notify_all();
+  download_cv.notify_all();
 }
 
 ActiveSegmentController::~ActiveSegmentController() {

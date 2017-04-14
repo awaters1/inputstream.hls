@@ -28,7 +28,6 @@
 #include "libXBMC_addon.h"
 #include "helpers.h"
 #include "kodi_vfs_types.h"
-#include "SSD_dll.h"
 #include "kodi.h"
 
 #include "kodi_inputstream_dll.h"
@@ -182,7 +181,6 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
-
     KodiMasterPlaylist master_playlist;
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
@@ -223,7 +221,7 @@ extern "C" {
     caps.m_supportsIDemux = true;
     caps.m_supportsIPosTime = false;
     caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = false;//hls_session && !hls_session->is_live();
+    caps.m_supportsSeek = true;
     caps.m_supportsPause = true; //caps.m_supportsSeek;
     return caps;
   }
@@ -280,12 +278,21 @@ extern "C" {
 
   void DemuxAbort(void)
   {
+    // Called when stopping, not sure if it is wise to stop
+    // all threads, perhaps just stop processing data and cancel
+    // any downloads
     xbmc->Log(ADDON::LOG_DEBUG, "DemuxAbort");
+    if (hls_session) {
+      hls_session->demux_abort();
+    }
   }
 
   void DemuxFlush(void)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "DemuxFlush");
+    if (hls_session) {
+      hls_session->demux_flush();
+    }
   }
 
   DemuxPacket* __cdecl DemuxRead(void)
@@ -295,15 +302,13 @@ extern "C" {
 
     DemuxContainer demux_container = hls_session->get_current_pkt();
     DemuxPacket *packet = demux_container.demux_packet;
-    std::cout.precision(17);
-    // std::cout << "Packet PID: " << packet->iStreamId << " PTS: " << packet->pts << " DTS: " << packet->dts << " PCR: " << demux_container->pcr << "\n";
     hls_session->read_next_pkt();
     return packet;
   }
 
   bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
-    return false;
+    return hls_session->seek_time(time, backwards, startpts);
   }
 
   void DemuxSetSpeed(int speed)
@@ -321,9 +326,9 @@ extern "C" {
   {
     if (!hls_session)
       return -1;
-    if (hls_session->is_live()) {
-      return -1;
-    }
+//    if (hls_session->is_live()) {
+//      return -1;
+//    }
     return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
@@ -341,9 +346,7 @@ extern "C" {
 
   bool CanSeekStream(void)
   {
-    // TODO: Support can seek stream
-    return false;
-    // return session && !session->IsLive();
+    return true;
   }
 
   bool PosTime(int)

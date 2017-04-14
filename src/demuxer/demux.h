@@ -37,20 +37,22 @@
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
 #include "../hls/active_segment_controller.h"
+#include "../ring_buffer.h"
+#include "../segment_storage.h"
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 250;
+const int MAX_DEMUX_PACKETS = 500;
 
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist);
+  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence, int64_t start_time);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 
-  void Process();
+
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
@@ -59,12 +61,16 @@ public:
   DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
 
-  int GetPlayingTime();
-
-  void PushData(std::string data);
+  // Data Managmente
+  void PushData(std::string data, hls::Segment segment);
+  // Signals that the next data to be pushed in is from
+  // this segment
+  bool PrepareSegment(hls::Segment segment);
+  void EndSegment(hls::Segment segment);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
-
+private:
+  bool Process();
 private:
   uint16_t m_channel;
   std::vector<DemuxContainer> m_demuxPacketBuffer; // Needs to be locked
@@ -82,6 +88,8 @@ private:
   void push_stream_change();
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
   void push_stream_data(DemuxContainer dxp);
+  void process_demux_thread();
+  bool should_process_demux();
 
   // AV raw buffer
   size_t m_av_buf_size;         ///< size of av buffer
@@ -93,14 +101,8 @@ private:
   // Playback context
   TSDemux::AVContext* m_AVContext;
   uint16_t m_mainStreamPID;     ///< PID of main stream
-  uint64_t m_DTS;               ///< absolute decode time of main stream
-  uint64_t m_PTS;               ///< absolute presentation time of main stream
-  uint64_t m_dts;               ///< rebased DTS for the program chain
-  uint64_t m_pts;               ///< rebased PTS for the program chain
-  uint64_t m_startpts;          ///< start PTS for the program chain
-  int64_t m_pinTime;            ///< pinned relative position (90Khz)
-  int64_t m_curTime;            ///< current relative position (90Khz)
-  int64_t m_endTime;            ///< last relative marked position (90Khz))
+  int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
+  int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   typedef struct
   {
     uint64_t av_pts;
@@ -111,11 +113,18 @@ private:
   bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
-  hls::MediaPlaylist &m_playlist;
+  // Has to be above active segment because active segment depends on it
+  SegmentStorage m_av_contents;
+  hls::Segment current_segment;
+  bool m_isStreamDone;
+  bool m_segmentChanged;
+
   ActiveSegmentController m_active_segment_controller;
-  // TODO: We should make this a ring buffer to avoid storing too much memory
-  // but we have to keep track of which segment contains which byte offsets
-  // for when we seek
-  uint64_t m_av_contents_pos;
-  std::string m_av_contents;
+
+  // Demux Process thread
+  std::mutex demux_mutex;
+  std::condition_variable demux_cv;
+  std::thread demux_thread;
+  std::atomic_bool demux_flag;
+  std::atomic_bool quit_processing;
 };

@@ -34,6 +34,8 @@ set(HLS_SOURCES
     src/demuxer/ES_Subtitle.cpp
     src/demuxer/ES_Teletext.cpp
     src/demuxer/tsDemuxer.cpp
+    src/ring_buffer.cpp
+    src/segment_storage.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -75,9 +77,27 @@ add_executable(inputstreamhlstest
     src/downloader/file_downloader.cpp
     test/active_segment_controller_test.cpp
     test/helpers.cpp
-    test/demux.cpp
+    src/ring_buffer.cpp
+    test/ring_buffer_test.cpp
+    test/global.cpp
+    test/segment_storage_test.cpp
+    src/segment_storage.cpp
+    
+    src/demuxer/bitstream.cpp
+    src/demuxer/debug.cpp
+    src/demuxer/demux.cpp
+    src/demuxer/elementaryStream.cpp
+    src/demuxer/ES_AAC.cpp
+    src/demuxer/ES_AC3.cpp
+    src/demuxer/ES_h264.cpp
+    src/demuxer/ES_hevc.cpp
+    src/demuxer/ES_MPEGAudio.cpp
+    src/demuxer/ES_MPEGVideo.cpp
+    src/demuxer/ES_Subtitle.cpp
+    src/demuxer/ES_Teletext.cpp
+    src/demuxer/tsDemuxer.cpp
     )
-target_link_libraries(inputstreamhlstest gtest_main bento4)
+target_link_libraries(inputstreamhlstest gmock_main bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)
 
 

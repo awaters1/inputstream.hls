@@ -1,8 +1,20 @@
-/*
- * session.h Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
- */
-
 #pragma once
+/*
+ *      Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
+ *
+ *  This Program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2, or (at your option)
+ *  any later version.
+ *
+ *  This Program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  <http://www.gnu.org/licenses/>.
+ *
+ */
 
 #include <unordered_map>
 #include <vector>
@@ -32,11 +44,13 @@ namespace hls {
     DemuxContainer get_current_pkt();
     void read_next_pkt();
     uint64_t get_current_time();
+    bool seek_time(double time, bool backwards, double *startpts);
+    void demux_abort();
+    void demux_flush();
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
   private:
-    void switch_streams();
-    void process_demux();
+    void switch_streams(uint32_t media_sequence);
 
     uint32_t stall_counter;
 
@@ -50,14 +64,11 @@ namespace hls {
     std::unique_ptr<Demux> active_demux;
     // For when we want to switch streams
     std::unique_ptr<Demux> future_demux;
+    bool switch_demux;
 
     DemuxContainer current_pkt;
 
-    // Demux Process thread
-    std::mutex demux_mutex;
-    std::condition_variable demux_cv;
-    std::thread demux_thread;
-    std::atomic_bool demux_flag;
-    std::atomic_bool quit_processing;
+    double m_startpts;          ///< start PTS for the program chain
+    double m_startdts;          ///< start DTS for the program chain
   };
 }

@@ -173,10 +173,10 @@ TEST(HlsTest, GetSegmentIndex) {
   media_playlist.open("test/hls/gear1/prog_index.m3u8");
   hls::Segment segment;
   segment.media_sequence = 1;
-  int32_t index = media_playlist.get_segment_index(segment);
+  int32_t index = media_playlist.get_segment_index(1);
   EXPECT_EQ(1, index);
   segment.media_sequence = 1000;
-  index = media_playlist.get_segment_index(segment);
+  index = media_playlist.get_segment_index(1000);
   EXPECT_EQ(-1, index);
 }
 }

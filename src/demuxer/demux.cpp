@@ -27,9 +27,6 @@
 
 #define DVD_TIME_BASE 1000000
 
-//! @todo original definition is in DVDClock.h
-#define DVD_NOPTS_VALUE 0xFFF0000000000000
-
 #include "demux.h"
 #include "debug.h"
 
@@ -40,6 +37,7 @@
 #define LOGTAG                  "[DEMUX] "
 #define POSMAP_PTS_INTERVAL     (PTS_TIME_BASE * 2)       // 2 secs
 #define READAV_TIMEOUT          10000                     // 10 secs
+const double BUFFER_LOWER_BOUND = 0.75;
 
 using namespace ADDON;
 using namespace P8PLATFORM;
@@ -71,7 +69,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
+Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence, int64_t start_time)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -80,18 +78,14 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
   , m_av_rbe(NULL)
   , m_AVContext(NULL)
   , m_mainStreamPID(0xffff)
-  , m_DTS(PTS_UNSET)
-  , m_PTS(PTS_UNSET)
-  , m_dts(PTS_UNSET)
-  , m_pts(PTS_UNSET)
-  , m_startpts(0)
-  , m_pinTime(0)
-  , m_curTime(0)
-  , m_endTime(0)
+  , m_readTime(start_time * DVD_TIME_BASE)
+  , m_segmentReadTime(start_time * DVD_TIME_BASE)
+  , m_isStreamDone(false)
   , m_isChangePlaced(false)
-  , m_playlist(media_playlist)
-  , m_active_segment_controller(this, downloader, media_playlist)
-  , m_av_contents_pos(0)
+  , m_segmentChanged(false)
+  , demux_flag(true)
+  , quit_processing(false)
+  , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -108,6 +102,8 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
 
     m_AVContext = new TSDemux::AVContext(this, m_av_pos, m_channel);
 
+    demux_thread = std::thread(&Demux::process_demux_thread, this);
+    demux_cv.notify_one();
   }
   else
   {
@@ -117,6 +113,19 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist)
 
 Demux::~Demux()
 {
+  // TODO: May want to think about cancelling any waiting
+  // signals
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    quit_processing = true;
+  }
+  demux_cv.notify_all();
+  demux_thread.join();
+  {
+    CLockObject lock(m_mutex);
+    m_cv.Broadcast();
+  }
+
   Abort();
 
   // Free AV context
@@ -146,8 +155,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   if (pos < m_av_pos || pos > (m_av_pos + sz))
   {
     // seek and reset buffer
-    m_av_pos = pos;
-    m_av_contents_pos = pos;
     m_av_rbs = m_av_rbe = m_av_buf;
   }
   else
@@ -167,39 +174,46 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   // fill new data
   unsigned int len = (unsigned int)(m_av_buf_size - dataread);
 
-  while (len > 0)
   {
-    size_t c = len;
-    {
-      if ((c + m_av_pos) >= m_av_contents.length()) {
-        m_active_segment_controller.trigger_download();
+    CLockObject lock(m_mutex);
+    while (!m_av_contents.has_data(m_av_pos, len)) {
+      bool expects_more_data = m_active_segment_controller.trigger_download();
+      if (!expects_more_data || quit_processing) {
+        m_isStreamDone = true;
+        return nullptr;
       }
-      CLockObject lock(m_mutex);
-      while ((c + m_av_pos) >= m_av_contents.length()) {
-        m_cv.Wait(m_mutex, 1000);
-      }
-      m_av_rbe = (unsigned char*) memcpy(m_av_rbe, m_av_contents.c_str() + m_av_contents_pos, c);
+      m_cv.Wait(m_mutex, 500);
     }
-
-    m_av_rbe += c;
-    dataread += c;
-    m_av_pos += c;
-    m_av_contents_pos += c;
-    len -= c;
-
-    if (dataread >= n || c <= 0)
-      break;
+    hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
+    if (!(segment_read == current_segment)) {
+      m_segmentChanged = true;
+      m_readTime = m_segmentReadTime;
+      current_segment = segment_read;
+      if (current_segment.valid) {
+        m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
+      }
+      if (current_segment.discontinuity) {
+        m_isChangePlaced = false;
+      }
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
+                    current_segment.media_sequence, current_segment.get_url().c_str());
+    }
   }
+
+  m_av_rbe += len;
+  dataread += len;
+  m_av_pos += len;
+
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-void Demux::Process()
+bool Demux::Process()
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing", __FUNCTION__);
   if (!m_AVContext)
   {
     xbmc->Log(LOG_ERROR, LOGTAG "%s: no AVContext", __FUNCTION__);
-    return;
+    return false;
   }
 
   int ret = 0;
@@ -220,13 +234,26 @@ void Demux::Process()
         if (pkt.streamChange)
         {
           // Update stream properties. Change will be pushed once setup is completed for all streams.
-          if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
-            push_stream_change();
+          // if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
+          update_pvr_stream(pkt.pid);
+          push_stream_change();
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
+        demux_container.segment_changed = m_segmentChanged;
+        demux_container.segment = current_segment;
+        if (m_segmentChanged) {
+          m_segmentChanged = false;
+        }
+        double current_time_ms = (double)m_readTime / 1000.0;
+        if (current_time_ms > INT_MAX)
+          current_time_ms = INT_MAX;
+        demux_container.current_time = (int) current_time_ms;
+        if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
+          m_readTime += demux_container.demux_packet->duration;
+        }
         if (dxp)
           push_stream_data(demux_container);
       }
@@ -250,12 +277,17 @@ void Demux::Process()
       m_AVContext->GoNext();
 
     CLockObject lock(m_mutex);
-    m_cv.Signal();
+    m_cv.Broadcast();
     if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+      ret = 0;
+      break;
+    }
+    if (quit_processing) {
       break;
     }
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
+  return ret >= 0 ? true : false;
 }
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
@@ -264,7 +296,7 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
-  m_isChangePlaced = false;
+  m_cv.Broadcast();
 
   return m_streamIds;
 }
@@ -275,6 +307,7 @@ INPUTSTREAM_INFO* Demux::GetStreams()
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
 
   CLockObject lock(m_mutex);
+  m_cv.Broadcast();
   return m_streams;
 }
 
@@ -284,6 +317,7 @@ void Demux::Flush(void)
   for(auto it = m_demuxPacketBuffer.begin(); it != m_demuxPacketBuffer.end(); ++it) {
     ipsh->FreeDemuxPacket(it->demux_packet);
   }
+  m_demuxPacketBuffer.clear();
 }
 
 void Demux::Abort()
@@ -295,59 +329,22 @@ void Demux::Abort()
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
-  while(m_demuxPacketBuffer.empty()) {
-    m_cv.Wait(m_mutex, 5000);
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    demux_flag = true;
+  }
+  demux_cv.notify_all();
+  while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
+    // TODO: This may not work 100% because the stream may be done but there
+    // may be data still in the buffer
+    if (m_isStreamDone) {
+      return DemuxContainer();
+    }
+    m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
   m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
   return packet;
-}
-
-// TODO: This doesn't support seeking to a position
-// that we haven't seen yet
-bool Demux::SeekTime(double time, bool backwards, double* startpts)
-{
-  // Current PTS must be valid to estimate offset
-  if (m_startpts == PTS_UNSET)
-    return false;
-  // time is in MSEC not PTS_TIME_BASE. Rescale time to PTS (90Khz)
-  int64_t pts = (int64_t)(time * PTS_TIME_BASE / 1000);
-  // Compute desired time position
-  int64_t desired = pts - m_startpts;
-
-  xbmc->Log(LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f buffered:%+6.3f", __FUNCTION__, backwards, (double)desired / PTS_TIME_BASE, (double)m_curTime / PTS_TIME_BASE);
-
-  CLockObject lock(m_mutex);
-  std::map<int64_t, AV_POSMAP_ITEM>::const_iterator it;
-  it = m_posmap.upper_bound(desired);
-  if (backwards && it != m_posmap.begin())
-    --it;
-
-  if (it != m_posmap.end())
-  {
-    int64_t new_time = it->first;
-    uint64_t new_pos = it->second.av_pos;
-    uint64_t new_pts = it->second.av_pts;
-    xbmc->Log(LOG_DEBUG, LOGTAG "seek to %+6.3f pts=%" PRIu64, (double)new_time / PTS_TIME_BASE, new_pts);
-
-    Flush();
-    m_AVContext->GoPosition(new_pos);
-    m_AVContext->ResetPackets();
-    m_curTime = m_pinTime = new_time;
-    m_DTS = m_PTS += new_pts - m_pts;
-    m_dts = m_pts = new_pts;
-  }
-
-  *startpts = (double)m_startpts * DVD_TIME_BASE / PTS_TIME_BASE;
-  return true;
-}
-
-int Demux::GetPlayingTime()
-{
-  double time_ms = (double)m_curTime * 1000 / PTS_TIME_BASE;
-  if (time_ms > INT_MAX)
-    return INT_MAX;
-  return (int)time_ms;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
@@ -361,63 +358,13 @@ bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
 
   pkt->pcr = es->c_pcr;
 
-  uint64_t DTS = pkt->dts;
-  uint64_t PTS = pkt->pts;
-  if (m_startpts != PTS_UNSET)
-  {
-    pkt->dts = (DTS != PTS_UNSET ? m_dts + DTS - m_DTS : PTS_UNSET); // rebase dts
-    pkt->pts = (PTS != PTS_UNSET ? m_pts + PTS - m_PTS : PTS_UNSET); // rebase pts
-  }
-  else if (DTS != PTS_UNSET && PTS != PTS_UNSET)
-  {
-    m_startpts = 0x80000000LL;
-    m_dts = pkt->dts = m_startpts; // rebase dts
-    m_pts = pkt->pts = m_startpts + PTS - DTS; // rebase pts
-    m_DTS = DTS;
-    m_PTS = PTS;
-  }
-  else
-    return false;
+
 
   if (pkt->duration > PTS_TIME_BASE * 2)
   {
     pkt->duration = 0;
   }
-  else if (pkt->pid == m_mainStreamPID)
-  {
-    // Fill duration map for main stream
-    m_curTime += pkt->duration;
-    if (m_curTime >= m_pinTime)
-    {
-      m_pinTime += POSMAP_PTS_INTERVAL;
-      if (m_curTime > m_endTime)
-      {
-        AV_POSMAP_ITEM item;
-        item.av_pts = pkt->pts;
-        item.av_pos = m_AVContext->GetPosition();
-        m_posmap.insert(std::make_pair(m_curTime, item));
-        m_endTime = m_curTime;
-      }
-    }
-    // Sync main DTS & PTS
-    m_DTS = DTS;
-    m_PTS = PTS;
-    m_dts = pkt->dts;
-    m_pts = pkt->pts;
-  }
   return true;
-}
-
-void Demux::reset_posmap()
-{
-  if (m_posmap.empty())
-    return;
-
-  {
-    CLockObject lock(m_mutex);
-    m_posmap.clear();
-    m_pinTime = m_curTime = m_endTime = 0;
-  }
 }
 
 static inline int stream_identifier(int composition_id, int ancillary_id)
@@ -598,6 +545,14 @@ void Demux::push_stream_change()
 
     DemuxContainer demux_container;
     demux_container.demux_packet = dxp;
+    double current_time_ms = (double)m_readTime / 1000.0;
+    // TODO: Duplicated in Process();
+    if (current_time_ms > INT_MAX)
+      current_time_ms = INT_MAX;
+    demux_container.current_time = (int) current_time_ms;
+    if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
+      m_readTime += demux_container.demux_packet->duration;
+    }
 
     CLockObject lock(m_mutex);
     m_demuxPacketBuffer.push_back(demux_container);
@@ -638,8 +593,46 @@ void Demux::push_stream_data(DemuxContainer dxp)
   m_demuxPacketBuffer.push_back(dxp);
 }
 
-void Demux::PushData(std::string data) {
+void Demux::PushData(std::string data, hls::Segment segment) {
   CLockObject lock(m_mutex);
-  m_av_contents += data;
-  m_cv.Signal();
+  m_av_contents.write_segment(segment, data);
+  m_cv.Broadcast();
 }
+
+bool Demux::PrepareSegment(hls::Segment segment) {
+  CLockObject lock(m_mutex);
+  return m_av_contents.start_segment(segment);
+}
+
+void Demux::EndSegment(hls::Segment segment) {
+  CLockObject lock(m_mutex);
+  // Update byte_offset_to_segment, the byte offset
+  // should be where the segment ends in RingBuffer
+  m_av_contents.end_segment(segment);
+}
+
+bool Demux::should_process_demux() {
+  CLockObject lock(m_mutex);
+  return !quit_processing && !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
+}
+
+void Demux::process_demux_thread() {
+  while(!quit_processing) {
+   std::unique_lock<std::mutex> lock(demux_mutex);
+   demux_cv.wait(lock, [this] {
+     return quit_processing || demux_flag;
+   });
+   demux_flag = false;
+   lock.unlock();
+
+   if (quit_processing) {
+     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting demux thread");
+     return;
+   }
+
+   while(should_process_demux() && Process()) {
+     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demux Thread Size: %d", m_demuxPacketBuffer.size());
+   }
+  }
+}
+

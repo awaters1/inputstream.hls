@@ -10,6 +10,9 @@
 #include <climits>
 
 #include "HLS.h"
+#include "../globals.h"
+
+#define LOGTAG                  "[HLS] "
 
 hls::Segment::Segment() :
 Resource(),
@@ -21,7 +24,8 @@ aes_iv(""),
 encrypted(false),
 byte_length(0),
 byte_offset(0),
-valid(false)
+valid(false),
+discontinuity(false)
 {
 
 }
@@ -29,13 +33,13 @@ valid(false)
 bool hls::MasterPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
-      std::cerr << "First line isn't #EXTM3U" << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "First line isn't #EXTM3U");
+    return false;
   }
   if (in_stream) {
       if (media_playlist.empty()) {
-          std::cerr << "In stream, but no streams found" << std::endl;
-          return false;
+        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "In stream, but no streams found");
+        return false;
       }
       MediaPlaylist stream = media_playlist.back();
       media_playlist.pop_back();
@@ -71,13 +75,13 @@ hls::MasterPlaylist::~MasterPlaylist() {
 bool hls::MediaPlaylist::write_data(std::string line) {
   is_m3u8 = is_m3u8 || line.find("#EXTM3U") == 0;
   if (!is_m3u8) {
-      std::cerr << "First line isn't #EXTM3U" << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "First line isn't #EXTM3U");
+    return false;
   }
   if (in_segment) {
       if (segments.empty()) {
-          std::cerr << "In segment, but no segments found" << std::endl;
-          return false;
+        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "In segment, but no segments found");
+        return false;
       }
       Segment segment = segments.back();
       segments.pop_back();
@@ -126,7 +130,7 @@ bool hls::MediaPlaylist::write_data(std::string line) {
           }
           aes_iv = get_attribute_value(line, "IV");
       } else {
-          std::cerr << "Encryption method " << method << " not supported" << std::endl;
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Encryption method %s not supported", method.c_str());
       }
   } else if (line.find("#EXTINF") != std::string::npos) {
       in_segment = true;
@@ -145,17 +149,21 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       if (attributes.size() > 1) {
           segment.description = attributes[1];
       }
+      segment.discontinuity = discontinuity;
+      discontinuity = false;
       segments.push_back(segment);
   } else if (line.find("#EXT-X-ENDLIST") != std::string::npos) {
       live = false;
+  } else if (line.find("#EXT-X-DISCONTINUITY") != std::string::npos) {
+    discontinuity = true;
   }
   return true;
 }
 
-int32_t hls::MediaPlaylist::get_segment_index(hls::Segment segment) {
+int32_t hls::MediaPlaylist::get_segment_index(uint32_t media_sequence) {
   auto it = std::find_if(segments.begin(), segments.end(),
-      [segment](const hls::Segment other) -> bool {
-    return segment.media_sequence == other.media_sequence;
+      [media_sequence](const hls::Segment other) -> bool {
+    return media_sequence == other.media_sequence;
   });
   if (it == segments.end()) {
     return -1;
@@ -164,6 +172,7 @@ int32_t hls::MediaPlaylist::get_segment_index(hls::Segment segment) {
 }
 
 uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
+  live = other_playlist.live;
   uint32_t last_media_sequence;
   if (segments.size() > 0) {
    last_media_sequence = segments.back().media_sequence;
@@ -177,9 +186,12 @@ uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
          segments.push_back(*it);
          ++added_segments;
          last_added_sequence = it->media_sequence;
-         std::cout << "Added segment sequence " << last_added_sequence << "\n";
+         if (added_segments < 10) {
+           xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
+         }
      }
   }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
   return added_segments;
 }
 
@@ -206,8 +218,35 @@ hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
   return segments.at(segment_index);
 }
 
-bool hls::MediaPlaylist::has_segment(uint32_t segment_index) {
+bool hls::MediaPlaylist::has_segment(int32_t segment_index) {
   return segment_index >= 0 && segment_index < segments.size();
+}
+
+double hls::MediaPlaylist::get_duration_up_to_segment(hls::Segment search) {
+  double duration(0);
+  for(auto &segment : segments) {
+    if (segment == search) {
+      return duration;
+    }
+    duration += segment.duration;
+  }
+  return 0;
+}
+
+hls::Segment hls::MediaPlaylist::find_segment_at_time(double time_in_seconds) {
+  double running_total(0);
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+    if (running_total >= time_in_seconds) {
+      if (it != segments.begin()) {
+        return *(--it);
+      } else {
+        return *(segments.begin());
+      }
+    }
+    running_total += it->duration;
+  }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment at %f", time_in_seconds);
+  return *(--segments.end());
 }
 
 hls::MediaPlaylist::MediaPlaylist()
@@ -219,7 +258,8 @@ hls::MediaPlaylist::MediaPlaylist()
   encrypted(false),
   live(true),
   bandwidth(0),
-  valid(false)
+  valid(false),
+  discontinuity(false)
 {
 
 }
@@ -291,8 +331,8 @@ void hls::Resource::set_url(std::string url) {
 bool open_playlist_file(const char *file_path, hls::Playlist &playlist) {
   std::ifstream playlist_file(file_path);
   if (!playlist_file.is_open()) {
-      std::cerr << "Unable to open " << file_path << std::endl;
-      return false;
+    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "Unable to open %s", file_path);
+    return false;
   }
   playlist.set_url(file_path);
   std::string line;

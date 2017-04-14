@@ -1,12 +1,27 @@
-/*
- * globals.h Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
- */
-
 #pragma once
+/*
+ *      Copyright (C) 2017 Anthony Waters <awaters1@gmail.com>
+ *
+ *  This Program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2, or (at your option)
+ *  any later version.
+ *
+ *  This Program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  <http://www.gnu.org/licenses/>.
+ *
+ */
 
 #include "libKODI_inputstream.h"
 #include "libXBMC_addon.h"
 #include "libXBMC_codec.h"
+
+//! @todo original definition is in DVDClock.h
+#define DVD_NOPTS_VALUE 0xFFF0000000000000
 
 extern ADDON::CHelper_libXBMC_addon *xbmc;
 extern std::uint16_t kodiDisplayWidth, kodiDisplayHeight;

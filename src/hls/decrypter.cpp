@@ -41,7 +41,7 @@ bool convert_hex_to_bytes(std::string hex, AP4_UI08 *iv, uint32_t iv_length) {
 
 std::string decrypt(std::string b64_aes_key, std::string iv_str, std::string encrypted_data_str) {
   uint32_t aes_key_len = 16;
-  std::unique_ptr<uint8_t> aes_key = std::unique_ptr<uint8_t>(new uint8_t[aes_key_len]);
+  auto aes_key = std::make_unique<uint8_t[]>(aes_key_len);
   if (b64_aes_key.length() == 16) {
     memcpy(aes_key.get(), b64_aes_key.c_str(), aes_key_len);
   } else {
@@ -51,7 +51,7 @@ std::string decrypt(std::string b64_aes_key, std::string iv_str, std::string enc
     iv_str = iv_str.substr(2);
   }
   uint32_t iv_len = 16;
-  std::unique_ptr<uint8_t> iv = std::unique_ptr<uint8_t>(new uint8_t[iv_len]);
+  auto iv = std::make_unique<uint8_t[]>(iv_len);
   if (iv_str.length() == 32) {
     convert_hex_to_bytes(iv_str, iv.get(), 16);
   } else {
@@ -61,7 +61,7 @@ std::string decrypt(std::string b64_aes_key, std::string iv_str, std::string enc
 
   const uint8_t* encrypted_data = reinterpret_cast<const uint8_t*>(encrypted_data_str.c_str());
 
-  std::unique_ptr<AP4_UI08> output = std::unique_ptr<AP4_UI08>(new AP4_UI08[encrypted_data_str.length()]);
+  auto output = std::make_unique<AP4_UI08[]>(encrypted_data_str.length());
 
   decrypt(aes_key.get(), iv.get(), encrypted_data, encrypted_data_str.length(), output.get());
 
