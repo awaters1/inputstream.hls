@@ -98,10 +98,10 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   // Bits per second
   uint32_t bandwith_of_current_stream = 0;
   double average_bandwidth = downloader->get_average_bandwidth();
-  bool switch_up = false;
+  bool switch_up = true;
   if (active_demux) {
-    if (active_demux->get_percentage_packet_buffer_full() >= 0.10) {
-      switch_up = true;
+    if (active_demux->get_percentage_packet_buffer_full() < 0.10) {
+      switch_up = false;
     }
     bandwith_of_current_stream = active_playlist.bandwidth;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d",

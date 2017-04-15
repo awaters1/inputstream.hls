@@ -83,6 +83,7 @@ public:
   void SetProfilePath(const char *profilePath)
   {
     m_strProfilePath = profilePath;
+    xbmc->CreateDirectory(m_strProfilePath.c_str());
 
     const char *pathSep(profilePath[0] && profilePath[1] == ':' && isalpha(profilePath[0]) ? "\\" : "/");
 
