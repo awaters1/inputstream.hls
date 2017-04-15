@@ -10,9 +10,7 @@ Seeking
 2. Fix atomic_bool and mutex locking of threads
 
 Release TODO:
-2. Save previous bandwidth
--> Use 4mbits as default
--> Bandwidth settings
+1. Testing
 
 Issues:
 2. Some times it stalls attempting to download, not sure if it is because we attempt to download
