@@ -4,15 +4,15 @@ This is a HLS m3u8 file addon for kodi's new InputStream Interface.
 
 To use
 - create a .strm file / or addon with passes an url with .m3u8 extension and open the strm file in kodi
-- or write an addon wich passes .m3u8 files to kodi
+- or write an addon which passes .m3u8 files to kodi
 
 ##### Examples:
 1.) HLS example with no encryption
-- Force inputstream.mpd using a Property in strm file: #KODIPROP:inputstreamaddon=inputstream.hls
+- Force inputstream.hls using a Property in strm file: #KODIPROP:inputstreamaddon=inputstream.hls
 - URL to paste into strm file: https://devimages.apple.com.edgekey.net/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8
 
 2.) HLS example with AES encryption
-- Force inputstream.mpd using a Property in strm file: #KODIPROP:inputstreamaddon=inputstream.hls
+- Force inputstream.hls using a Property in strm file: #KODIPROP:inputstreamaddon=inputstream.hls
 - URL to paste into strm file: https://cdn.theoplayer.com/video/big_buck_bunny_encrypted/stream-800/index.m3u8
 
 
