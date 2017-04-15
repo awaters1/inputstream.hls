@@ -30,7 +30,7 @@ namespace hls {
   class Session {
   public:
     Session(MasterPlaylist master_playlist, Downloader *downloader);
-    ~Session();
+    virtual ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
     uint64_t get_total_time();
@@ -49,6 +49,8 @@ namespace hls {
     void demux_flush();
   protected:
     virtual MediaPlaylist download_playlist(std::string url);
+    // Downloader has to be deleted last
+    std::unique_ptr<Downloader> downloader;
   private:
     void switch_streams(uint32_t media_sequence);
 
@@ -57,9 +59,6 @@ namespace hls {
 
     MasterPlaylist master_playlist;
     MediaPlaylist &active_playlist;
-
-    // Downloader has to be deleted last
-    std::unique_ptr<Downloader> downloader;
 
     std::unique_ptr<Demux> active_demux;
     // For when we want to switch streams

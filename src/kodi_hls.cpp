@@ -45,6 +45,16 @@ hls::MediaPlaylist KodiSession::download_playlist(std::string url) {
   return playlist;
 }
 
+KodiSession::~KodiSession() {
+  std::string fn(profile_path + "bandwidth.bin");
+  FILE* f = fopen(fn.c_str(), "wb");
+  if (f) {
+    double val(downloader->get_average_bandwidth());
+    fwrite((const char*)&val, sizeof(double), 1, f);
+    fclose(f);
+  }
+}
+
 void KodiMasterPlaylist::select_media_playlist() {
   if (media_playlist.empty()) {
     // Assume the URL we were given was a media playlist and not a master playlist

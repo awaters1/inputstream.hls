@@ -28,8 +28,13 @@ class KodiMasterPlaylist : public hls::MasterPlaylist {
 
 class KodiSession : public hls::Session {
 public:
-  KodiSession(KodiMasterPlaylist master_playlist) : hls::Session(master_playlist, new KodiDownloader()) { };
+  KodiSession(KodiMasterPlaylist master_playlist, double bandwidth, std::string profile_path) :
+    hls::Session(master_playlist, new KodiDownloader(bandwidth)),
+    profile_path(profile_path) { };
+  ~KodiSession();
 protected:
-    hls::MediaPlaylist download_playlist(std::string url);
-    std::string download_aes_key(std::string aes_uri);
+  hls::MediaPlaylist download_playlist(std::string url);
+  std::string download_aes_key(std::string aes_uri);
+private:
+  std::string profile_path;
 };

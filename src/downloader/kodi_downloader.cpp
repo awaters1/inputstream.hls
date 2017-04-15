@@ -10,12 +10,13 @@
 #include "../globals.h"
 #include "kodi_downloader.h"
 
-KodiDownloader::KodiDownloader() :
-  number_of_measurements(0),
-  current_measurement_index(0) {
+KodiDownloader::KodiDownloader(double bandwidth) :
+  number_of_measurements(1),
+  current_measurement_index(1) {
   for(uint32_t i = 0; i < BANDWIDTH_BINS; ++i) {
     bandwidth_measurements[i] = 0;
   }
+  bandwidth_measurements[0] = bandwidth;
 }
 
 double KodiDownloader::get_current_bandwidth() {

@@ -181,10 +181,19 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
+    std::string fn(std::string(props.m_profileFolder) + "bandwidth.bin");
+    FILE* f = fopen(fn.c_str(), "rb");
+    double bandwidth = 4000000;
+    if (f) {
+      fread(&bandwidth, sizeof(double), 1, f);
+      fclose(f);
+    }
+    xbmc->Log(ADDON::LOG_DEBUG, "Initial bandwidth: %f ", bandwidth);
+
     KodiMasterPlaylist master_playlist;
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
-    hls_session = new KodiSession(master_playlist);
+    hls_session = new KodiSession(master_playlist, bandwidth, props.m_profileFolder);
 
     return true;
   }
@@ -326,9 +335,6 @@ extern "C" {
   {
     if (!hls_session)
       return -1;
-//    if (hls_session->is_live()) {
-//      return -1;
-//    }
     return static_cast<int>(hls_session->get_total_time() * 1000);
   }
 
