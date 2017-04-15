@@ -181,9 +181,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+      current_pkt.demux_packet = 0;
     }
-
-    current_pkt = active_demux->Read();
 
     // Cancel any stream switches
     switch_demux = false;
