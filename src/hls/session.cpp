@@ -62,12 +62,18 @@ void hls::Session::read_next_pkt() {
       // So we decide to switch in one segment, then the next segment we switch, this gives the demuxer
       // one segment's worth of time to prepare packets
       if (switch_demux && future_demux) {
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at segment %d", current_pkt.segment.media_sequence);
-        active_demux.swap(future_demux);
-        delete future_demux.release();
-        ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-        current_pkt = active_demux->Read();
-        switch_demux = false;
+        // Should only switch if future_demux is at the next segment we are looking for
+        if (future_demux->get_current_media_sequence() == current_pkt.segment.media_sequence) {
+          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at segment %d", current_pkt.segment.media_sequence);
+          active_demux.swap(future_demux);
+          delete future_demux.release();
+          ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+          current_pkt = active_demux->Read();
+          switch_demux = false;
+        } else {
+            xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Delaying stream switch at %d waiting for %d",
+                      current_pkt.segment.media_sequence, future_demux->get_current_media_sequence());
+        }
       } else {
         switch_streams(current_pkt.segment.media_sequence + 1);
         switch_demux = !(future_demux == nullptr);

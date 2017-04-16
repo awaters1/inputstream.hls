@@ -69,6 +69,7 @@ public:
   void EndSegment(hls::Segment segment);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
+  int32_t get_current_media_sequence();
 private:
   bool Process();
 private:

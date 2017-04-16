@@ -347,6 +347,18 @@ DemuxContainer Demux::Read()
   return packet;
 }
 
+int32_t Demux::get_current_media_sequence() {
+  CLockObject lock(m_mutex);
+  while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
+    if (m_isStreamDone) {
+      return -1;
+    }
+    m_cv.Wait(m_mutex, 1000);
+  }
+  DemuxContainer packet = m_demuxPacketBuffer.front();
+  return packet.segment.media_sequence;
+}
+
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
 {
   TSDemux::ElementaryStream* es = m_AVContext->GetPIDStream();
