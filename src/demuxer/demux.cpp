@@ -194,6 +194,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       }
       if (current_segment.discontinuity) {
         m_isChangePlaced = false;
+        xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
       }
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
                     current_segment.media_sequence, current_segment.get_url().c_str());
@@ -293,7 +294,7 @@ bool Demux::Process()
 INPUTSTREAM_IDS Demux::GetStreamIds()
 {
   if (!m_nosetup.empty())
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
+    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup for streamids", __FUNCTION__);
 
   CLockObject lock(m_mutex);
   m_cv.Broadcast();
@@ -304,7 +305,7 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
 INPUTSTREAM_INFO* Demux::GetStreams()
 {
   if (!m_nosetup.empty())
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup", __FUNCTION__);
+    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup for streamids", __FUNCTION__);
 
   CLockObject lock(m_mutex);
   m_cv.Broadcast();
@@ -569,7 +570,7 @@ void Demux::push_stream_change()
     CLockObject lock(m_mutex);
     m_demuxPacketBuffer.push_back(demux_container);
     m_isChangePlaced = true;
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s: done", __FUNCTION__);
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);
   }
 }
 

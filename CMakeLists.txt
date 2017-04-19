@@ -112,19 +112,6 @@ include_directories(${INCLUDES}
                     lib/demux-mpegts/src
                     "${gtest_SOURCE_DIR}/include"
 )
-                    
-if(WIN32)
- 	add_definitions(-DXML_STATIC)
-	include_directories(lib/expat/include)
-	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-	list(APPEND DEPLIBS ws2_32 expat)
-else()
-	include(FindEXPAT)
-	find_package(EXPAT REQUIRED)
-	include_directories(${EXPAT_INCLUDE_DIRS})
-	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
-	add_definitions(-D__STDC_FORMAT_MACROS)
-endif()
 
 add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
