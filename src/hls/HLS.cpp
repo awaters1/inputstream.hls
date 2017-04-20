@@ -14,7 +14,8 @@
 
 #define LOGTAG                  "[HLS] "
 
-// Limit to 3000s segments in a playlist
+// Limit to 3000 segments in a playlist
+// would be about 200.0 minutes
 const int SEGMENT_LIST_LIMIT = 3000;
 
 hls::Segment::Segment() :

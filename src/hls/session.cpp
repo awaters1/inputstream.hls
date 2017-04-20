@@ -36,11 +36,16 @@ DemuxContainer hls::Session::get_current_pkt() {
   DemuxPacket *pkt = current_pkt.demux_packet;
   if (pkt) {
     bool discontinuity = pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE;
+    if (discontinuity) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
+                            pkt->pts);
+      m_startpts = DVD_NOPTS_VALUE;
+    }
     // startpts/startdts should be per video not demuxer
-    if ((discontinuity || m_startpts == DVD_NOPTS_VALUE) && pkt->pts != DVD_NOPTS_VALUE) {
+    if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
       m_startpts = pkt->pts;
     }
-    if ((discontinuity || m_startdts == DVD_NOPTS_VALUE) && pkt->dts != DVD_NOPTS_VALUE) {
+    if (m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
       m_startdts = pkt->dts;
     }
 

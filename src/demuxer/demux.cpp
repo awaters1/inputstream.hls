@@ -193,6 +193,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
       }
       if (current_segment.discontinuity) {
+
         m_isChangePlaced = false;
         xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
       }
