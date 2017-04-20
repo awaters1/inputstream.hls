@@ -40,6 +40,7 @@ DemuxContainer hls::Session::get_current_pkt() {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
                             pkt->pts);
       m_startpts = DVD_NOPTS_VALUE;
+      m_startdts = DVD_NOPTS_VALUE;
     }
     // startpts/startdts should be per video not demuxer
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
