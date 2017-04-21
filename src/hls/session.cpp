@@ -41,6 +41,11 @@ DemuxContainer hls::Session::get_current_pkt() {
                             pkt->pts);
       m_startpts = DVD_NOPTS_VALUE;
       m_startdts = DVD_NOPTS_VALUE;
+      // TODO: During the stream switch we should make sure that the PTS/DTS
+      // values continue normally, I don't know if we are allowed to change them
+      // in the middle of demuxing
+      // TODO: The streaminfo structures may not be setup correctly by the time the stream
+      // change happens, perhaps when the FPS changes from 60 to 30
     }
     // startpts/startdts should be per video not demuxer
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
