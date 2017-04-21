@@ -19,6 +19,7 @@
 #include "downloader.h"
 
 class FileDownloader : public Downloader {
+public:
   std::string download(std::string location);
   double get_current_bandwidth() {
     return 100000000;

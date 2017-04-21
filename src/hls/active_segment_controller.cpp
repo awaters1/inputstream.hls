@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "active_segment_controller.h"
+#include "../downloader/file_downloader.h"
 #include "../hls/decrypter.h"
 #include "../demuxer/demux.h"
 #include "../globals.h"
@@ -45,15 +46,22 @@ void ActiveSegmentController::download_next_segment() {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
       continue;
     }
-    downloader->download(segment.get_url(), segment.byte_offset, segment.byte_length,
-        [this, &data_helper, &bytes_read](std::string data) -> bool {
-          bytes_read += data.length();
-          this->process_data(data_helper, data);
-          if (quit_processing) {
-            return false;
-          }
-          return true;
-    });
+    std::string url = segment.get_url();
+    if (url.find("http") != std::string::npos) {
+      downloader->download(url, segment.byte_offset, segment.byte_length,
+          [this, &data_helper, &bytes_read](std::string data) -> bool {
+            bytes_read += data.length();
+            this->process_data(data_helper, data);
+            if (quit_processing) {
+              return false;
+            }
+            return true;
+      });
+    } else {
+      FileDownloader file_downloader;
+      std::string contents = file_downloader.download(url);
+      this->process_data(data_helper, contents);
+    }
     demux->EndSegment(segment);
 
     lock.lock();

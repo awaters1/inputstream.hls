@@ -10,7 +10,7 @@
   <extension
     point="kodi.inputstream"
     name="hls"
-    extension=".hls"
+    extension=".m3u8"
     tags="true"
     listitemprops="license_type|license_key|license_data"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>

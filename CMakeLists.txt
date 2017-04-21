@@ -21,6 +21,7 @@ set(HLS_SOURCES
   src/hls/decrypter.cpp
   src/hls/active_segment_controller.cpp
   src/downloader/kodi_downloader.cpp
+  src/downloader/file_downloader.cpp
     src/demuxer/bitstream.cpp
     src/demuxer/debug.cpp
     src/demuxer/demux.cpp

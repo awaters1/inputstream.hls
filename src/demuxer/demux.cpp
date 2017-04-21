@@ -235,6 +235,9 @@ bool Demux::Process()
       {
         if (pkt.streamChange)
         {
+          // We cannot wait to push the stream change because our data packets will get in for one stream
+          // and start playing while the other stream is attempting setup
+          // TODO: Need to stall while the stream properties are updated
           // Update stream properties. Change will be pushed once setup is completed for all streams.
           // if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
           update_pvr_stream(pkt.pid);

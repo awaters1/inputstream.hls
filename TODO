@@ -4,6 +4,7 @@ like when downloading
 5. Stream switching causes a segment pause in 30 for 30, but worked okay in live stream
 6. Sometimes live streams get stuck in commercials and come back and skip some video,
 may be related to PTS/DTS values changing in the embedded video
+7. Handle when there is no data, we shoudln't stallin this case
 
 
 Seeking
