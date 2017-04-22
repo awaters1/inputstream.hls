@@ -32,20 +32,16 @@ DemuxContainer hls::Session::get_current_pkt() {
   if (!current_pkt.demux_packet) {
     read_next_pkt();
   }
-
   DemuxPacket *pkt = current_pkt.demux_packet;
   if (pkt) {
-    bool discontinuity = pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE;
-    if (discontinuity) {
+    // TODO: When we have a discontinuity we have to modify the PTS values
+    // of the incoming packets to match the existing stream
+    bool discontinuity = current_pkt.discontinuity;
+    if (discontinuity && m_startpts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
                             pkt->pts);
-      m_startpts = DVD_NOPTS_VALUE;
-      m_startdts = DVD_NOPTS_VALUE;
-      // TODO: During the stream switch we should make sure that the PTS/DTS
-      // values continue normally, I don't know if we are allowed to change them
-      // in the middle of demuxing
-      // TODO: The streaminfo structures may not be setup correctly by the time the stream
-      // change happens, perhaps when the FPS changes from 60 to 30
+      m_startpts = pkt->pts - last_pts;
+      m_startdts = pkt->dts - last_dts;
     }
     // startpts/startdts should be per video not demuxer
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
@@ -57,9 +53,11 @@ DemuxContainer hls::Session::get_current_pkt() {
 
     if (pkt->pts != DVD_NOPTS_VALUE && m_startpts != DVD_NOPTS_VALUE) {
       pkt->pts = pkt->pts - m_startpts;
+      last_pts = pkt->pts;
     }
     if (pkt->dts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
       pkt->dts = pkt->dts - m_startdts;
+      last_dts = pkt->dts;
     }
   }
 
@@ -220,6 +218,8 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     switch_demux(false),
     m_startpts(DVD_NOPTS_VALUE),
     m_startdts(DVD_NOPTS_VALUE),
+    last_pts(0),
+    last_dts(0),
     last_total_time(0),
     last_current_time(0),
     stall_counter(0) {

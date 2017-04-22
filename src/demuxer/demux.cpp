@@ -85,6 +85,10 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , m_segmentChanged(false)
   , demux_flag(true)
   , quit_processing(false)
+  , processed_discontinuity(true)
+  , awaiting_initial_setup(false)
+  , m_isDemuxDone(false)
+  , include_discontinuity(false)
   , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -172,7 +176,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   m_av_rbe = m_av_rbs + dataread;
   m_av_pos = pos;
   // fill new data
-  unsigned int len = (unsigned int)(m_av_buf_size - dataread);
+  size_t len = (size_t)(m_av_buf_size - dataread);
 
   {
     CLockObject lock(m_mutex);
@@ -180,12 +184,12 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
       bool expects_more_data = m_active_segment_controller.trigger_download();
       if (!expects_more_data || quit_processing) {
         m_isStreamDone = true;
-        return nullptr;
+        break;
       }
       m_cv.Wait(m_mutex, 500);
     }
     hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
-    if (!(segment_read == current_segment)) {
+    if (!(segment_read == current_segment) && len > 0) {
       m_segmentChanged = true;
       m_readTime = m_segmentReadTime;
       current_segment = segment_read;
@@ -193,12 +197,15 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
       }
       if (current_segment.discontinuity) {
-
-        m_isChangePlaced = false;
+        processed_discontinuity = false;
+        include_discontinuity = true;
         xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
       }
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
                     current_segment.media_sequence, current_segment.get_url().c_str());
+    }
+    if (len == 0) {
+      m_isStreamDone = true;
     }
   }
 
@@ -226,6 +233,16 @@ bool Demux::Process()
     if (ret != TSDemux::AVCONTEXT_CONTINUE)
       break;
 
+    if (!processed_discontinuity) {
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
+      awaiting_initial_setup = true;
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
+      m_AVContext->StreamDiscontinuity();
+      m_AVContext->Reset();
+      m_AVContext->ResetPackets();
+      processed_discontinuity = true;
+    }
+
     ret = m_AVContext->ProcessTSPacket();
 
     if (m_AVContext->HasPIDStreamData())
@@ -237,11 +254,16 @@ bool Demux::Process()
         {
           // We cannot wait to push the stream change because our data packets will get in for one stream
           // and start playing while the other stream is attempting setup
-          // TODO: Need to stall while the stream properties are updated
-          // Update stream properties. Change will be pushed once setup is completed for all streams.
-          // if (update_pvr_stream(pkt.pid) && m_nosetup.empty())
           update_pvr_stream(pkt.pid);
-          push_stream_change();
+          if (awaiting_initial_setup) {
+            if (m_nosetup.empty()) {
+              std::lock_guard<std::mutex> lock(initial_setup_mutex);
+              awaiting_initial_setup = false;
+            }
+            initial_setup_cv.notify_all();
+          } else {
+            push_stream_change();
+          }
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
         DemuxContainer demux_container;
@@ -249,8 +271,10 @@ bool Demux::Process()
         demux_container.pcr = pkt.pcr;
         demux_container.segment_changed = m_segmentChanged;
         demux_container.segment = current_segment;
+        demux_container.discontinuity = include_discontinuity;
         if (m_segmentChanged) {
           m_segmentChanged = false;
+          include_discontinuity = false;
         }
         double current_time_ms = (double)m_readTime / 1000.0;
         if (current_time_ms > INT_MAX)
@@ -268,6 +292,8 @@ bool Demux::Process()
       ret = m_AVContext->ProcessTSPayload();
       if (ret == TSDemux::AVCONTEXT_PROGRAM_CHANGE)
       {
+        xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing stream change", __FUNCTION__);
+        awaiting_initial_setup = true;
         populate_pvr_streams();
         push_stream_change();
       }
@@ -292,27 +318,30 @@ bool Demux::Process()
     }
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
+  if (ret < 0) {
+    CLockObject lock(m_mutex);
+    m_isDemuxDone = true;
+  }
   return ret >= 0 ? true : false;
 }
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
 {
-  if (!m_nosetup.empty())
+  while(!quit_processing && awaiting_initial_setup) {
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup for streamids", __FUNCTION__);
+    std::unique_lock<std::mutex> lock(initial_setup_mutex);
+    initial_setup_cv.wait(lock, [this] {
+      return !awaiting_initial_setup || quit_processing;
+    });
+  }
 
   CLockObject lock(m_mutex);
-  m_cv.Broadcast();
-
   return m_streamIds;
 }
 
 INPUTSTREAM_INFO* Demux::GetStreams()
 {
-  if (!m_nosetup.empty())
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup for streamids", __FUNCTION__);
-
   CLockObject lock(m_mutex);
-  m_cv.Broadcast();
   return m_streams;
 }
 
@@ -334,17 +363,16 @@ void Demux::Abort()
 DemuxContainer Demux::Read()
 {
   CLockObject lock(m_mutex);
-  {
-    std::lock_guard<std::mutex> lock(demux_mutex);
-    demux_flag = true;
-  }
-  demux_cv.notify_all();
-  while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
-    // TODO: This may not work 100% because the stream may be done but there
-    // may be data still in the buffer
-    if (m_isStreamDone) {
-      return DemuxContainer();
+  while(m_demuxPacketBuffer.empty()) {
+    if (m_isDemuxDone) {
+      DemuxContainer container;
+      return container;
     }
+    {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      demux_flag = true;
+    }
+    demux_cv.notify_all();
     m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
@@ -354,7 +382,7 @@ DemuxContainer Demux::Read()
 
 int32_t Demux::get_current_media_sequence() {
   CLockObject lock(m_mutex);
-  while(m_demuxPacketBuffer.empty() || !m_nosetup.empty()) {
+  while(m_demuxPacketBuffer.empty()) {
     if (m_isStreamDone) {
       return -1;
     }
@@ -554,28 +582,24 @@ bool Demux::update_pvr_stream(uint16_t pid)
 
 void Demux::push_stream_change()
 {
-  if (!m_isChangePlaced)
-  {
-    bool ret = false;
-    DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
-    dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
+  DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
+  dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
 
-    DemuxContainer demux_container;
-    demux_container.demux_packet = dxp;
-    double current_time_ms = (double)m_readTime / 1000.0;
-    // TODO: Duplicated in Process();
-    if (current_time_ms > INT_MAX)
-      current_time_ms = INT_MAX;
-    demux_container.current_time = (int) current_time_ms;
-    if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
-      m_readTime += demux_container.demux_packet->duration;
-    }
-
-    CLockObject lock(m_mutex);
-    m_demuxPacketBuffer.push_back(demux_container);
-    m_isChangePlaced = true;
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);
+  DemuxContainer demux_container;
+  demux_container.demux_packet = dxp;
+  double current_time_ms = (double)m_readTime / 1000.0;
+  // TODO: Duplicated in Process();
+  if (current_time_ms > INT_MAX)
+    current_time_ms = INT_MAX;
+  demux_container.current_time = (int) current_time_ms;
+  if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
+    m_readTime += demux_container.demux_packet->duration;
   }
+
+  CLockObject lock(m_mutex);
+  m_demuxPacketBuffer.push_back(demux_container);
+  m_isChangePlaced = true;
+  xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);
 }
 
 DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
@@ -630,7 +654,7 @@ void Demux::EndSegment(hls::Segment segment) {
 
 bool Demux::should_process_demux() {
   CLockObject lock(m_mutex);
-  return !quit_processing && !m_isStreamDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
+  return !quit_processing && !m_isDemuxDone && (m_demuxPacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < BUFFER_LOWER_BOUND;
 }
 
 void Demux::process_demux_thread() {

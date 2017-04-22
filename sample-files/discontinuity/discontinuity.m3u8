@@ -6,9 +6,4 @@
 #UPLYNK-SEGMENT: f85bab9bcb694975b4015bb35ed48ee1,00000001,segment
 #EXTINF:4.0107,
 sample-files/discontinuity/1.ts
-#EXT-X-DISCONTINUITY
-#EXTINF:4.0960,
-sample-files/discontinuity/2.ts
-#EXT-X-DISCONTINUITY
-#EXTINF:4.0960,
-sample-files/discontinuity/3.ts
+#EXT-X-ENDLIST

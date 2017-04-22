@@ -85,6 +85,8 @@ namespace TSDemux
     int ProcessTSPacket();
     int ProcessTSPayload();
 
+    void StreamDiscontinuity(void);
+
   private:
     AVContext(const AVContext&);
     AVContext& operator=(const AVContext&);

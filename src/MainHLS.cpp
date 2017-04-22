@@ -311,6 +311,11 @@ extern "C" {
 
     DemuxContainer demux_container = hls_session->get_current_pkt();
     DemuxPacket *packet = demux_container.demux_packet;
+    /*
+    if (!packet) {
+      return ipsh->AllocateDemuxPacket(0);
+    }
+    */
     hls_session->read_next_pkt();
     return packet;
   }

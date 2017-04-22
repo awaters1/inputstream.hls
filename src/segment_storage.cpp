@@ -54,11 +54,12 @@ bool SegmentStorage::has_data(uint64_t pos, size_t size) {
 }
 
 
-hls::Segment SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const destination) {
+hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const destination) {
   size_t destination_offset = 0;
   uint32_t current_read_segment_index = read_segment_data_index;
   uint64_t next_offset = offset;
   hls::Segment first_segment;
+  size_t data_read = 0;
   while(size > 0) {
     size_t relative_offset;
     if (pos >= next_offset) {
@@ -87,6 +88,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const des
       destination_offset += data_to_read_from_segment;
       size -= data_to_read_from_segment;
       next_offset += data_to_read_from_segment;
+      data_read += data_to_read_from_segment;
     } else {
       // We read all of the data in this segment so it is safe to overwrite
       current_segment.can_overwrite = true;
@@ -94,6 +96,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t size, uint8_t * const des
     }
     current_read_segment_index = (current_read_segment_index + 1)% MAX_SEGMENTS;
   }
+  size = data_read;
   return first_segment;
 }
 

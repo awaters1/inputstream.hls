@@ -5,6 +5,7 @@ like when downloading
 6. Sometimes live streams get stuck in commercials and come back and skip some video,
 may be related to PTS/DTS values changing in the embedded video
 7. Handle when there is no data, we shoudln't stallin this case
+-> can return an empty demux packet to get it to show the loading indicator
 8. Should we make a new demuxer when we get a discontinuity segment?
 
 Seeking

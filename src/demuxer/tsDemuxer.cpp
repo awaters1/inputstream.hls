@@ -57,6 +57,13 @@ AVContext::AVContext(TSDemuxer* const demux, uint64_t pos, uint16_t channel)
   memset(av_buf, 0, sizeof(av_buf));
 };
 
+void AVContext::StreamDiscontinuity(void)
+{
+  P8PLATFORM::CLockObject lock(mutex);
+
+  is_configured = false;
+}
+
 void AVContext::Reset(void)
 {
   P8PLATFORM::CLockObject lock(mutex);
@@ -176,6 +183,7 @@ void AVContext::ResetPackets()
   {
     it->second.Reset();
   }
+  packets.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

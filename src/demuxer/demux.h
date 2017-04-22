@@ -84,6 +84,10 @@ private:
   void reset_posmap();
 
   // PVR interfaces
+  bool processed_discontinuity;
+  std::mutex initial_setup_mutex;
+  std::condition_variable initial_setup_cv;
+  std::atomic_bool awaiting_initial_setup;
   void populate_pvr_streams();
   bool update_pvr_stream(uint16_t pid);
   void push_stream_change();
@@ -118,7 +122,9 @@ private:
   SegmentStorage m_av_contents;
   hls::Segment current_segment;
   bool m_isStreamDone;
+  bool m_isDemuxDone;
   bool m_segmentChanged;
+  bool include_discontinuity;
 
   ActiveSegmentController m_active_segment_controller;
 
