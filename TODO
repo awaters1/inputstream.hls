@@ -2,11 +2,11 @@ Bugs
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
 like when downloading
 5. Stream switching causes a segment pause in 30 for 30, but worked okay in live stream
-6. Sometimes live streams get stuck in commercials and come back and skip some video,
-may be related to PTS/DTS values changing in the embedded video
+-> May be due to resolution change and VAAPI
 7. Handle when there is no data, we shoudln't stallin this case
 -> can return an empty demux packet to get it to show the loading indicator
 9. Discontinuity playlist ends 10  frames too early
+10. Sometimes the current time exceeds the total playlist time, may be due to stalling
 
 Seeking
 1. Cache file downloads
