@@ -223,6 +223,10 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   dataread += len;
   m_av_pos += len;
 
+  if (dataread < n) {
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Didn't read enough data", __FUNCTION__);
+  }
+
   return dataread >= n ? m_av_rbs : NULL;
 }
 

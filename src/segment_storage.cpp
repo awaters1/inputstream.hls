@@ -4,7 +4,10 @@
 
 #include <cstring>
 
+#include "globals.h"
 #include "segment_storage.h"
+
+#define LOGTAG                  "[SegmentStorage] "
 
 SegmentStorage::SegmentStorage() :
 offset(0),
@@ -60,6 +63,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
   uint64_t next_offset = offset;
   hls::Segment first_segment;
   size_t data_read = 0;
+  size_t wanted_data = size;
   while(size > 0) {
     size_t relative_offset;
     if (pos >= next_offset) {
@@ -80,6 +84,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
       size_t data_to_read_from_segment;
       if (data_left_in_segment < size) {
         data_to_read_from_segment = data_left_in_segment;
+        next_offset += current_segment.contents.length();
       } else {
         data_to_read_from_segment = size;
       }
@@ -87,7 +92,6 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
           current_segment.contents.c_str() + relative_offset, data_to_read_from_segment);
       destination_offset += data_to_read_from_segment;
       size -= data_to_read_from_segment;
-      next_offset += data_to_read_from_segment;
       data_read += data_to_read_from_segment;
     } else {
       // We read all of the data in this segment so it is safe to overwrite
@@ -95,6 +99,9 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
       next_offset += current_segment.contents.length();
     }
     current_read_segment_index = (current_read_segment_index + 1)% MAX_SEGMENTS;
+  }
+  if (data_read < wanted_data) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Not enough data read", __FUNCTION__);
   }
   size = data_read;
   return first_segment;
