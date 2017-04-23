@@ -4,6 +4,9 @@
 #EXT-X-TARGETDURATION:8
 #EXT-X-DISCONTINUITY-SEQUENCE:8
 #UPLYNK-SEGMENT: f85bab9bcb694975b4015bb35ed48ee1,00000001,segment
-#EXTINF:14.0107,
-sample-files/discontinuity/merged.ts
+#EXTINF:4.0107,
+sample-files/discontinuity/1.ts
+#EXT-X-DISCONTINUITY
+#EXTINF:10,
+sample-files/discontinuity/3.ts
 #EXT-X-ENDLIST

@@ -200,6 +200,16 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         processed_discontinuity = false;
         include_discontinuity = true;
         xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
+
+        if (!processed_discontinuity) {
+          xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
+          awaiting_initial_setup = true;
+          xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
+          m_AVContext->StreamDiscontinuity();
+          m_AVContext->Reset();
+          m_AVContext->ResetPackets();
+          processed_discontinuity = true;
+        }
       }
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
                     current_segment.media_sequence, current_segment.get_url().c_str());
@@ -232,16 +242,6 @@ bool Demux::Process()
     ret = m_AVContext->TSResync();
     if (ret != TSDemux::AVCONTEXT_CONTINUE)
       break;
-
-    if (!processed_discontinuity) {
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
-      awaiting_initial_setup = true;
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
-      m_AVContext->StreamDiscontinuity();
-      m_AVContext->Reset();
-      m_AVContext->ResetPackets();
-      processed_discontinuity = true;
-    }
 
     ret = m_AVContext->ProcessTSPacket();
 

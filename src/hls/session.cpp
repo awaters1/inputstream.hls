@@ -33,7 +33,7 @@ DemuxContainer hls::Session::get_current_pkt() {
     read_next_pkt();
   }
   DemuxPacket *pkt = current_pkt.demux_packet;
-  if (pkt) {
+  if (pkt && pkt->iStreamId != DMX_SPECIALID_STREAMCHANGE) {
     // TODO: When we have a discontinuity we have to modify the PTS values
     // of the incoming packets to match the existing stream
     bool discontinuity = current_pkt.discontinuity;
