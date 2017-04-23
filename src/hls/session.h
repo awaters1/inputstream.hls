@@ -76,8 +76,6 @@ namespace hls {
     std::map<uint64_t, START_POS_ITEM> start_map;
     double m_startpts;          ///< start PTS for the program chain
     double m_startdts;          ///< start DTS for the program chain
-    double last_pts;
-    double last_dts;
     uint64_t last_total_time;
     uint64_t last_current_time;
   };

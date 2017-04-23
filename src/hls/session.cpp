@@ -38,35 +38,29 @@ DemuxContainer hls::Session::get_current_pkt() {
     // of the incoming packets to match the existing stream
     // But we have to keep track of which times have a different start value
     // to take into account seeking
+    // TODO: Changing the PTS isn't reliable if we seek over discontinuity segments
+    // perhaps we should just set the start pts/dts to the current time
+    // of the segment?
     bool discontinuity = current_pkt.discontinuity;
-    if (discontinuity && m_startpts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
+    if (discontinuity) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
                             pkt->pts);
-      m_startpts = pkt->pts - last_pts;
-      m_startdts = pkt->dts - last_dts;
-      start_map.insert(std::make_pair<uint64_t, START_POS_ITEM>(current_pkt.current_time, {
-          m_startpts, m_startdts,
-          last_pts, last_dts
-      }));
+      m_startpts = DVD_NOPTS_VALUE;
+      m_startdts = DVD_NOPTS_VALUE;
     }
-    // startpts/startdts should be per video not demuxer
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE &&
         m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
-      m_startpts = pkt->pts;
-      m_startdts = pkt->dts;
-      start_map.insert(std::make_pair<uint64_t, START_POS_ITEM>(current_pkt.current_time, {
-          m_startpts, m_startdts,
-          last_pts, last_dts
-      }));
+      double desired_pts = active_playlist.get_duration_up_to_segment(current_pkt.segment) * DVD_TIME_BASE;
+      double diff = pkt->pts - desired_pts;
+      m_startpts = diff;
+      m_startdts = diff;
     }
 
     if (pkt->pts != DVD_NOPTS_VALUE && m_startpts != DVD_NOPTS_VALUE) {
       pkt->pts = pkt->pts - m_startpts;
-      last_pts = pkt->pts;
     }
     if (pkt->dts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
       pkt->dts = pkt->dts - m_startdts;
-      last_dts = pkt->dts;
     }
   }
 
@@ -208,21 +202,9 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
       current_pkt.demux_packet = 0;
     }
 
-    // Fix start pts/dts
-    if (!start_map.empty()) {
-      auto it = start_map.lower_bound(new_time);
-      if (it == start_map.end()) {
-        --it;
-      }
-      auto timing = it->second;
-      m_startpts = timing.start_pts;
-      m_startdts = timing.start_dts;
-      last_pts = timing.last_pts;
-      last_dts = timing.last_dts;
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Update start pts to %d and start dts to %d",
-          m_startpts, m_startdts);
-    }
+    m_startdts = m_startpts = DVD_NOPTS_VALUE;
 
+    *startpts = (double) (new_time * DVD_TIME_BASE);
 
     // Cancel any stream switches
     switch_demux = false;
@@ -243,8 +225,6 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
     switch_demux(false),
     m_startpts(DVD_NOPTS_VALUE),
     m_startdts(DVD_NOPTS_VALUE),
-    last_pts(0),
-    last_dts(0),
     last_total_time(0),
     last_current_time(0),
     stall_counter(0) {

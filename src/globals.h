@@ -22,6 +22,7 @@
 
 //! @todo original definition is in DVDClock.h
 #define DVD_NOPTS_VALUE 0xFFF0000000000000
+#define DVD_TIME_BASE 1000000
 
 extern ADDON::CHelper_libXBMC_addon *xbmc;
 extern std::uint16_t kodiDisplayWidth, kodiDisplayHeight;

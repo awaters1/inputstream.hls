@@ -25,8 +25,6 @@
 #include <p8-platform/os.h>
 #include <xbmc_codec_types.h>
 
-#define DVD_TIME_BASE 1000000
-
 #include "demux.h"
 #include "debug.h"
 
