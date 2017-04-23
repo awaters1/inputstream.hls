@@ -6,7 +6,6 @@ like when downloading
 may be related to PTS/DTS values changing in the embedded video
 7. Handle when there is no data, we shoudln't stallin this case
 -> can return an empty demux packet to get it to show the loading indicator
-8. Should we make a new demuxer when we get a discontinuity segment?
 9. Discontinuity playlist ends 10  frames too early
 
 Seeking
@@ -17,8 +16,8 @@ Release TODO:
 1. Testing
 
 Issues:
-2. Some times it stalls attempting to download, not sure if it is because we attempt to download
-the segment as soon as we see it
+1. Sometimes the video freezes, may be due to the resolution changing and 
+VAAPI doesn't like it
 
 Features:
 2. Rest of addon interface

@@ -36,6 +36,8 @@ DemuxContainer hls::Session::get_current_pkt() {
   if (pkt && pkt->iStreamId != DMX_SPECIALID_STREAMCHANGE) {
     // TODO: When we have a discontinuity we have to modify the PTS values
     // of the incoming packets to match the existing stream
+    // But we have to keep track of which times have a different start value
+    // to take into account seeking
     bool discontinuity = current_pkt.discontinuity;
     if (discontinuity && m_startpts != DVD_NOPTS_VALUE && m_startdts != DVD_NOPTS_VALUE) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
