@@ -68,7 +68,8 @@ namespace hls
     bool operator==(Segment segment) const {
     	return get_url() == segment.get_url() &&
     			byte_length == segment.byte_length &&
-				byte_offset == segment.byte_offset;
+				byte_offset == segment.byte_offset &&
+				media_sequence == segment.media_sequence;
     }
   };
 

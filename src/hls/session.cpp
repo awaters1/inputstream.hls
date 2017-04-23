@@ -34,7 +34,7 @@ DemuxContainer hls::Session::get_current_pkt() {
   }
   DemuxPacket *pkt = current_pkt.demux_packet;
   if (pkt && pkt->iStreamId != DMX_SPECIALID_STREAMCHANGE) {
-    // TODO: When we have a discontinuity we have to modify the PTS values
+    // When we have a discontinuity we have to modify the PTS values
     // of the incoming packets to match the existing stream
     // But we have to keep track of which times have a different start value
     // to take into account seeking
@@ -44,13 +44,20 @@ DemuxContainer hls::Session::get_current_pkt() {
                             pkt->pts);
       m_startpts = pkt->pts - last_pts;
       m_startdts = pkt->dts - last_dts;
+      start_map.insert(std::make_pair<uint64_t, START_POS_ITEM>(current_pkt.current_time, {
+          m_startpts, m_startdts,
+          last_pts, last_dts
+      }));
     }
     // startpts/startdts should be per video not demuxer
-    if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE) {
+    if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE &&
+        m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
       m_startpts = pkt->pts;
-    }
-    if (m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
       m_startdts = pkt->dts;
+      start_map.insert(std::make_pair<uint64_t, START_POS_ITEM>(current_pkt.current_time, {
+          m_startpts, m_startdts,
+          last_pts, last_dts
+      }));
     }
 
     if (pkt->pts != DVD_NOPTS_VALUE && m_startpts != DVD_NOPTS_VALUE) {
@@ -190,7 +197,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
     hls::Segment seek_to = active_playlist.find_segment_at_time(desired);
-    int64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
+    uint64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
 
     active_demux = std::unique_ptr<Demux>(
@@ -200,6 +207,22 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
       current_pkt.demux_packet = 0;
     }
+
+    // Fix start pts/dts
+    if (!start_map.empty()) {
+      auto it = start_map.lower_bound(new_time);
+      if (it == start_map.end()) {
+        --it;
+      }
+      auto timing = it->second;
+      m_startpts = timing.start_pts;
+      m_startdts = timing.start_dts;
+      last_pts = timing.last_pts;
+      last_dts = timing.last_dts;
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Update start pts to %d and start dts to %d",
+          m_startpts, m_startdts);
+    }
+
 
     // Cancel any stream switches
     switch_demux = false;
