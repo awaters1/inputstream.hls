@@ -60,6 +60,7 @@ void KodiMasterPlaylist::select_media_playlist() {
     // Assume the URL we were given was a media playlist and not a master playlist
     hls::MediaPlaylist playlist;
     download_playlist_impl(get_url().c_str(), playlist);
+    playlist.valid = true;
     media_playlist.push_back(playlist);
   }
   for(std::vector<hls::MediaPlaylist>::iterator it = media_playlist.begin(); it != media_playlist.end(); ++it) {

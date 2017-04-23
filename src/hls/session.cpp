@@ -38,9 +38,6 @@ DemuxContainer hls::Session::get_current_pkt() {
     // of the incoming packets to match the existing stream
     // But we have to keep track of which times have a different start value
     // to take into account seeking
-    // TODO: Changing the PTS isn't reliable if we seek over discontinuity segments
-    // perhaps we should just set the start pts/dts to the current time
-    // of the segment?
     bool discontinuity = current_pkt.discontinuity;
     if (discontinuity) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Detected a discontinuity at pts %f",
