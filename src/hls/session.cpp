@@ -79,13 +79,14 @@ void hls::Session::read_next_pkt() {
           ipsh->FreeDemuxPacket(current_pkt.demux_packet);
           current_pkt = active_demux->Read();
           switch_demux = false;
-          hls::MediaPlaylist &old_playlist = active_playlist;
-          active_playlist = active_demux->get_media_playlist();
+
           // If the old active_playlist was a live playlist
           // then the segments should be cleared
-          if (old_playlist.live) {
-              old_playlist.clear_segments();
+          if (active_playlist.live) {
+              active_playlist.clear_segments();
           }
+          active_playlist = active_demux->get_media_playlist();
+
         } else {
             xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Delaying stream switch at %d waiting for %d",
                       current_pkt.segment.media_sequence, future_demux->get_current_media_sequence());
@@ -122,7 +123,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   double average_bandwidth = downloader->get_average_bandwidth();
   bool switch_up = true;
   if (active_demux) {
-    if (active_demux->get_percentage_packet_buffer_full() < 0.10) {
+    if (average_bandwidth <= active_playlist.bandwidth) {
       switch_up = false;
     }
     bandwith_of_current_stream = active_playlist.bandwidth;
@@ -136,7 +137,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Up) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
-    } else if (it->bandwidth <= bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
+    } else if (!switch_up && it->bandwidth <= bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
       // Switch down
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;

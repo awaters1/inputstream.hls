@@ -598,6 +598,7 @@ void Demux::push_stream_change()
   if (current_time_ms > INT_MAX)
     current_time_ms = INT_MAX;
   demux_container.current_time = (int) current_time_ms;
+  demux_container.segment = current_segment;
   if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
     m_readTime += demux_container.demux_packet->duration;
   }
