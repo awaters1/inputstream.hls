@@ -129,7 +129,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Up) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
-    } else if (it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
+    } else if (it->bandwidth <= bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
       // Switch down
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
@@ -141,6 +141,8 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
       *next_active_playlist != active_playlist) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
     active_playlist = *next_active_playlist;
+    // TODO: May not work if the next playlist hasn't been loaded yet, it wouldn't have any
+    // segments within it
     int32_t segment_index = active_playlist.get_segment_index(media_sequence);
     if (segment_index == -1) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find media sequence %d in the new playlist", media_sequence);
