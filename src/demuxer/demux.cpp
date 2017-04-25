@@ -67,7 +67,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence, int64_t start_time)
+Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -76,17 +76,18 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , m_av_rbe(NULL)
   , m_AVContext(NULL)
   , m_mainStreamPID(0xffff)
-  , m_readTime(start_time * DVD_TIME_BASE)
-  , m_segmentReadTime(start_time * DVD_TIME_BASE)
   , m_isStreamDone(false)
   , m_isChangePlaced(false)
   , m_segmentChanged(false)
+  , m_readTime(-1)
+  , m_segmentReadTime(-1)
   , demux_flag(true)
   , quit_processing(false)
   , processed_discontinuity(true)
   , awaiting_initial_setup(false)
   , m_isDemuxDone(false)
   , include_discontinuity(false)
+  , media_playlist(media_playlist)
   , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -189,6 +190,9 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
     if (!(segment_read == current_segment) && len > 0) {
       m_segmentChanged = true;
+      if (m_segmentReadTime == -1) {
+          m_segmentReadTime = media_playlist.get_duration_up_to_segment(segment_read);
+      }
       m_readTime = m_segmentReadTime;
       current_segment = segment_read;
       if (current_segment.valid) {

@@ -47,7 +47,7 @@ const int MAX_DEMUX_PACKETS = 500;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence, int64_t start_time);
+  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -70,6 +70,7 @@ public:
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   int32_t get_current_media_sequence();
+  hls::MediaPlaylist & get_media_playlist() { return media_playlist; };
 private:
   bool Process();
 private:
@@ -126,6 +127,7 @@ private:
   bool m_segmentChanged;
   bool include_discontinuity;
 
+  hls::MediaPlaylist &media_playlist;
   ActiveSegmentController m_active_segment_controller;
 
   // Demux Process thread
