@@ -123,6 +123,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   double average_bandwidth = downloader->get_average_bandwidth();
   bool switch_up = true;
   if (active_demux) {
+    // TODO: Also update this to detect a falling packet buffer
     if (average_bandwidth <= active_playlist.bandwidth) {
       switch_up = false;
     }
