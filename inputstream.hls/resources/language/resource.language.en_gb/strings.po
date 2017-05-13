@@ -1,7 +1,7 @@
 # Kodi Media Center language file
-# Addon Name: Inputstream.mpd
-# Addon id: inputstream.mpd
-# Addon Provider: peak3d
+# Addon Name: Inputstream.hls
+# Addon id: inputstream.hls
+# Addon Provider: awaters1
 
 msgid ""
 msgstr ""
@@ -17,20 +17,12 @@ msgid "General"
 msgstr ""
 
 msgctxt "#30101"
-msgid "Min. Bandwidth (Bit/s)"
+msgid "Min. Bandwidth (KBit/s)"
 msgstr "The minimum bandwidth which should not be deceeded."
 
 msgctxt "#30102"
-msgid "Max. Bandwidth (Bit/s)"
+msgid "Max. Bandwidth (KBit/s)"
 msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
-
-msgctxt "#30103"
-msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
-
-msgctxt "#30110"
-msgid "Max. Resolution"
-msgstr "Maximum Resolution"
 
 msgctxt "#30111"
 msgid "Stream Selection"
