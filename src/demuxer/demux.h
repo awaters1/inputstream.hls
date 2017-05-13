@@ -42,7 +42,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 500;
+const int MAX_DEMUX_PACKETS = 5000;
 
 class Demux : public TSDemux::TSDemuxer
 {

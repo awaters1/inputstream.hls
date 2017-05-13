@@ -35,7 +35,7 @@
 #define LOGTAG                  "[DEMUX] "
 #define POSMAP_PTS_INTERVAL     (PTS_TIME_BASE * 2)       // 2 secs
 #define READAV_TIMEOUT          10000                     // 10 secs
-const double BUFFER_LOWER_BOUND = 0.75;
+const double BUFFER_LOWER_BOUND = 0.50;
 
 using namespace ADDON;
 using namespace P8PLATFORM;
