@@ -368,15 +368,15 @@ void Demux::Abort()
 
 DemuxContainer Demux::Read()
 {
+  {
+    std::lock_guard<std::mutex> lock(demux_mutex);
+    demux_flag = should_process_demux();
+  }
   CLockObject lock(m_mutex);
   while(m_demuxPacketBuffer.empty()) {
     if (m_isDemuxDone) {
       DemuxContainer container;
       return container;
-    }
-    {
-      std::lock_guard<std::mutex> lock(demux_mutex);
-      demux_flag = true;
     }
     demux_cv.notify_all();
     m_cv.Wait(m_mutex, 1000);

@@ -135,8 +135,9 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
       switch_up = false;
       bandwith_of_current_stream = 0;
     }
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d",
-        stall_counter, active_demux->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence);
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d current: %d",
+        stall_counter, active_demux->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence,
+        active_playlist.bandwidth);
   }
   std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
   auto next_active_playlist = media_playlists.end();
@@ -155,7 +156,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
 
   if (active_demux && next_active_playlist != media_playlists.end() &&
       *next_active_playlist != active_playlist) {
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %s", next_active_playlist->get_url().c_str());
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %d %s", next_active_playlist->bandwidth, next_active_playlist->get_url().c_str());
     future_demux = std::unique_ptr<Demux>(
         new Demux(downloader.get(), *next_active_playlist, media_sequence));
   } else if (!active_demux) {
