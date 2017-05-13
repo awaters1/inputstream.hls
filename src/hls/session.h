@@ -27,6 +27,8 @@
 
 namespace hls {
 
+  const int SEGMENTS_BEFORE_SWITCH = 10;
+
   class Session {
   public:
     Session(MasterPlaylist master_playlist, Downloader *downloader);
@@ -53,6 +55,7 @@ namespace hls {
     std::unique_ptr<Downloader> downloader;
   private:
     void switch_streams(uint32_t media_sequence);
+    uint32_t last_switch_sequence;
 
     uint32_t stall_counter;
 
