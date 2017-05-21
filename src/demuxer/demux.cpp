@@ -191,7 +191,8 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
     if (!(segment_read == current_segment) && len > 0) {
       m_segmentChanged = true;
       if (m_segmentReadTime == -1) {
-          m_segmentReadTime = media_playlist.get_duration_up_to_segment(segment_read);
+          m_segmentReadTime = media_playlist.get_duration_up_to_segment(segment_read) * DVD_TIME_BASE;
+          xbmc->Log(LOG_DEBUG, LOGTAG "%s Setting segment read time: %d", __FUNCTION__, m_segmentReadTime);
       }
       m_readTime = m_segmentReadTime;
       current_segment = segment_read;
