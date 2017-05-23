@@ -196,6 +196,21 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     double desired = time / 1000.0;
 
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
+    if (active_playlist.live) {
+        if (active_playlist.empty()) {
+            // Cannot seek if there are no segments
+            return false;
+        }
+    } else if (active_playlist.empty()) {
+        // Wait until the playlist is loaded before trying to seek
+        active_demux->wait_for_playlist();
+    }
+
+    if (active_playlist.empty()) {
+        return false;
+    }
+
+
     hls::Segment seek_to = active_playlist.find_segment_at_time(desired);
     uint64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);

@@ -101,6 +101,7 @@ namespace hls
     double get_duration_up_to_segment(Segment segment);
     bool valid;
     void clear_segments() { segments.clear(); };
+    bool empty() { return segments.empty(); };
   protected:
     bool write_data(std::string line);
   private:
