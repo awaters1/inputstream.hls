@@ -47,7 +47,7 @@ DemuxContainer hls::Session::get_current_pkt() {
     }
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE &&
         m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
-      double desired_pts = active_playlist.get_duration_up_to_segment(current_pkt.segment) * DVD_TIME_BASE;
+      double desired_pts = current_pkt.segment.time_in_playlist * DVD_TIME_BASE;
       double diff = pkt->pts - desired_pts;
       m_startpts = diff;
       m_startdts = diff;
@@ -203,7 +203,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
         }
     } else if (active_playlist.empty()) {
         // Wait until the playlist is loaded before trying to seek
-        active_demux->wait_for_playlist();
+        // active_demux->wait_for_playlist();
     }
 
     if (active_playlist.empty()) {
@@ -212,7 +212,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
 
     hls::Segment seek_to = active_playlist.find_segment_at_time(desired);
-    uint64_t new_time = active_playlist.get_duration_up_to_segment(seek_to);
+    uint64_t new_time = seek_to.time_in_playlist;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
 
     active_demux = std::unique_ptr<Demux>(

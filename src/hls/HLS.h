@@ -56,6 +56,7 @@ namespace hls
   public:
     Segment();
     float duration;
+    double time_in_playlist; // when the segment is in the playlist
     std::string description;
     uint32_t media_sequence;
     std::string aes_uri;
@@ -88,18 +89,18 @@ namespace hls
     std::string aes_iv;
     bool live;
     bool discontinuity;
-    void add_segment(Segment segment) { segments.push_back(segment); };
-    uint32_t get_number_of_segments() { return segments.size(); };
     float get_segment_target_duration() { return segment_target_duration; };
+    bool load_contents(std::string playlist_contents);
+    bool valid;
+  public:
+    uint32_t get_total_duration();
+    Segment find_segment_at_time(double time_in_seconds);
+    double get_duration_up_to_segment(Segment segment);
+    uint32_t merge(MediaPlaylist other_playlist);
     int32_t get_segment_index(uint32_t media_sequence);
     bool has_segment(int32_t segment_index);
     Segment get_segment(uint32_t segment_index);
-    uint32_t get_total_duration();
-    bool load_contents(std::string playlist_contents);
-    uint32_t merge(MediaPlaylist other_playlist);
-    Segment find_segment_at_time(double time_in_seconds);
-    double get_duration_up_to_segment(Segment segment);
-    bool valid;
+    uint32_t get_number_of_segments() { return segments.size(); };
     void clear_segments() { segments.clear(); };
     bool empty() { return segments.empty(); };
   protected:

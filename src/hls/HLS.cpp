@@ -29,7 +29,8 @@ encrypted(false),
 byte_length(0),
 byte_offset(0),
 valid(false),
-discontinuity(false)
+discontinuity(false),
+time_in_playlist(0)
 {
 
 }
@@ -143,6 +144,9 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       segment.valid = true;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
+      if (!segments.empty()) {
+        segment.time_in_playlist = (segments.back().time_in_playlist + segments.back().duration);
+      }
       if (aes_iv.empty()) {
         segment.aes_iv = std::to_string(segment.media_sequence);
       } else {
@@ -185,14 +189,19 @@ uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
   }
   uint32_t added_segments = 0;
   uint32_t last_added_sequence = 0;
+  double time_in_playlist_offset = 0;
+  if (!segments.empty()) {
+    time_in_playlist_offset = segments.back().time_in_playlist + segments.back().duration;
+  }
   for(std::vector<Segment>::iterator it = other_playlist.segments.begin(); it != other_playlist.segments.end(); ++it) {
      if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
-         segments.push_back(*it);
-         ++added_segments;
-         last_added_sequence = it->media_sequence;
-         if (added_segments < 10) {
-           xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-         }
+       it->time_in_playlist = it->time_in_playlist + time_in_playlist_offset;
+       segments.push_back(*it);
+       ++added_segments;
+       last_added_sequence = it->media_sequence;
+       if (added_segments < 10) {
+         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
+       }
      }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
@@ -229,17 +238,6 @@ hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
 
 bool hls::MediaPlaylist::has_segment(int32_t segment_index) {
   return segment_index >= 0 && segment_index < segments.size();
-}
-
-double hls::MediaPlaylist::get_duration_up_to_segment(hls::Segment search) {
-  double duration(0);
-  for(auto &segment : segments) {
-    if (segment == search) {
-      return duration;
-    }
-    duration += segment.duration;
-  }
-  return 0;
 }
 
 hls::Segment hls::MediaPlaylist::find_segment_at_time(double time_in_seconds) {

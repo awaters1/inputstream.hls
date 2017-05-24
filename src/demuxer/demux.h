@@ -52,8 +52,6 @@ public:
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
 
-
-
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
