@@ -16,6 +16,7 @@
  *
  */
 
+#include <mutex>
 #include "hls/HLS.h"
 #include "hls/segment_data.h"
 
@@ -24,20 +25,20 @@ const uint32_t MAX_SEGMENTS = 10;
 class SegmentStorage {
 public:
   SegmentStorage();
+  bool has_data(uint64_t pos, size_t size);
+  hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination);
+public:
+  // These three are all executed from another thread that stays the same
   bool start_segment(hls::Segment segment);
   void write_segment(hls::Segment segment, std::string data);
   void end_segment(hls::Segment segment);
-  bool has_data(uint64_t pos, size_t size);
-  hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination);
-  bool has_segment(hls::Segment segment);
-  uint64_t get_segment_start_position(hls::Segment segment);
-  void reset_segment(hls::Segment segment);
 private:
   size_t get_size();
 private:
   uint64_t offset;
-  bool has_room;
   uint32_t read_segment_data_index;
   uint32_t write_segment_data_index;
+  std::mutex data_lock;
   std::vector<SegmentData> segment_data;
+  std::vector<std::mutex> segment_locks;
 };

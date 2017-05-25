@@ -34,11 +34,11 @@ struct DataHelper {
   hls::Segment segment;
 };
 
-class Demux;
+class SegmentStorage;
 
 class ActiveSegmentController {
 public:
-  ActiveSegmentController(Demux *demux, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  ActiveSegmentController(SegmentStorage *segment_storage, Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
   ~ActiveSegmentController();
 
   // @return true if we expect more data, false if we don't
@@ -51,7 +51,7 @@ private:
 private:
   Downloader *downloader;
   hls::MediaPlaylist &media_playlist;
-  Demux *demux;
+  SegmentStorage *segment_storage;
 
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 

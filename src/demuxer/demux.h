@@ -47,7 +47,7 @@ const int MAX_DEMUX_PACKETS = 2000;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_segment_controller);
   ~Demux();
 
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -59,16 +59,8 @@ public:
   DemuxContainer Read();
   bool SeekTime(double time, bool backwards, double* startpts);
 
-  // Data Managmente
-  void PushData(std::string data, hls::Segment segment);
-  // Signals that the next data to be pushed in is from
-  // this segment
-  bool PrepareSegment(hls::Segment segment);
-  void EndSegment(hls::Segment segment);
-
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   int32_t get_current_media_sequence();
-  hls::MediaPlaylist & get_media_playlist() { return media_playlist; };
 private:
   bool Process();
 private:
@@ -117,16 +109,13 @@ private:
   bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
-  // Has to be above active segment because active segment depends on it
-  SegmentStorage m_av_contents;
+  SegmentStorage *m_av_contents;
+  ActiveSegmentController *m_active_segment_controller;
   hls::Segment current_segment;
   bool m_isStreamDone;
   bool m_isDemuxDone;
   bool m_segmentChanged;
   bool include_discontinuity;
-
-  hls::MediaPlaylist &media_playlist;
-  ActiveSegmentController m_active_segment_controller;
 
   // Demux Process thread
   std::mutex demux_mutex;

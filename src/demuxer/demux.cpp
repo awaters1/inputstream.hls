@@ -67,7 +67,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence)
+Demux::Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_segment_controller)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -87,8 +87,8 @@ Demux::Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_
   , awaiting_initial_setup(false)
   , m_isDemuxDone(false)
   , include_discontinuity(false)
-  , media_playlist(media_playlist)
-  , m_active_segment_controller(this, downloader, media_playlist, media_sequence)
+  , m_av_contents(segment_storage)
+  , m_active_segment_controller(active_segment_controller)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -179,15 +179,15 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
   {
     CLockObject lock(m_mutex);
-    while (!m_av_contents.has_data(m_av_pos, len)) {
-      bool expects_more_data = m_active_segment_controller.trigger_download();
+    while (!m_av_contents->has_data(m_av_pos, len)) {
+      bool expects_more_data = m_active_segment_controller->trigger_download();
       if (!expects_more_data || quit_processing) {
         m_isStreamDone = true;
         break;
       }
       m_cv.Wait(m_mutex, 500);
     }
-    hls::Segment segment_read = m_av_contents.read(m_av_pos, len, m_av_rbe);
+    hls::Segment segment_read = m_av_contents->read(m_av_pos, len, m_av_rbe);
     if (!(segment_read == current_segment) && len > 0) {
       m_segmentChanged = true;
       if (m_segmentReadTime == -1) {
@@ -635,24 +635,6 @@ void Demux::push_stream_data(DemuxContainer dxp)
 {
   CLockObject lock(m_mutex);
   m_demuxPacketBuffer.push_back(dxp);
-}
-
-void Demux::PushData(std::string data, hls::Segment segment) {
-  CLockObject lock(m_mutex);
-  m_av_contents.write_segment(segment, data);
-  m_cv.Broadcast();
-}
-
-bool Demux::PrepareSegment(hls::Segment segment) {
-  CLockObject lock(m_mutex);
-  return m_av_contents.start_segment(segment);
-}
-
-void Demux::EndSegment(hls::Segment segment) {
-  CLockObject lock(m_mutex);
-  // Update byte_offset_to_segment, the byte offset
-  // should be where the segment ends in RingBuffer
-  m_av_contents.end_segment(segment);
 }
 
 bool Demux::should_process_demux() {

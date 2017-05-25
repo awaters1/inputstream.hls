@@ -13,16 +13,18 @@ SegmentStorage::SegmentStorage() :
 offset(0),
 read_segment_data_index(0),
 write_segment_data_index(0),
-has_room(true),
-segment_data(MAX_SEGMENTS) {
+segment_data(MAX_SEGMENTS),
+segment_locks(MAX_SEGMENTS){
 }
 
 bool SegmentStorage::start_segment(hls::Segment segment) {
+  std::lock_guard<std::mutex> lock(data_lock);
+  std::lock_guard<std::mutex> segment_lock(segment_locks.at(write_segment_data_index));
   SegmentData &current_segment_data = segment_data.at(write_segment_data_index);
   if (current_segment_data.can_overwrite == false) {
     return false;
   } else if (current_segment_data.segment.valid && write_segment_data_index == read_segment_data_index) {
-    // We are overwriting an existing element so incremet read pointer
+    // We are overwriting an existing element so increment read pointer
     read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   }
   offset += current_segment_data.contents.length();
@@ -33,12 +35,15 @@ bool SegmentStorage::start_segment(hls::Segment segment) {
 }
 
 void SegmentStorage::write_segment(hls::Segment segment, std::string data) {
+  std::lock_guard<std::mutex> lock(segment_locks.at(write_segment_data_index));
   if (segment_data.at(write_segment_data_index).segment == segment) {
     segment_data.at(write_segment_data_index).contents += data;
+    segment_data.at(write_segment_data_index).can_overwrite = false;
   }
 }
 
 void SegmentStorage::end_segment(hls::Segment segment) {
+  std::lock_guard<std::mutex> lock(segment_locks.at(write_segment_data_index));
   if (segment_data.at(write_segment_data_index).segment == segment) {
     write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
   }
@@ -46,18 +51,21 @@ void SegmentStorage::end_segment(hls::Segment segment) {
 
 size_t SegmentStorage::get_size() {
   size_t size(0);
-  for(auto &s : segment_data) {
+  for(size_t i = 0; i < segment_data.size(); ++i) {
+    std::lock_guard<std::mutex> lock(segment_locks.at(i));
+    SegmentData &s = segment_data.at(i);
     size += s.contents.length();
   }
   return size;
 }
 
 bool SegmentStorage::has_data(uint64_t pos, size_t size) {
+  std::lock_guard<std::mutex> lock(data_lock);
   return pos >= offset && ((pos - offset) + size) <= (get_size());
 }
 
-
 hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const destination) {
+  std::lock_guard<std::mutex> lock(data_lock);
   size_t destination_offset = 0;
   uint32_t current_read_segment_index = read_segment_data_index;
   uint64_t next_offset = offset;
@@ -71,6 +79,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
     } else {
       relative_offset = 0; // start at beginning of segment
     }
+    std::lock_guard<std::mutex> segment_lock(segment_locks.at(current_read_segment_index));
     SegmentData &current_segment = segment_data.at(current_read_segment_index);
     if (!current_segment.segment.valid) {
       break;
@@ -105,33 +114,4 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
   }
   size = data_read;
   return first_segment;
-}
-
-bool SegmentStorage::has_segment(hls::Segment segment) {
-  for(auto &data : segment_data) {
-    if (data.segment == segment) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void SegmentStorage::reset_segment(hls::Segment segment) {
-  for(auto &data : segment_data) {
-    if (data.segment == segment) {
-      data.can_overwrite = false;
-      break;
-    }
-  }
-}
-
-uint64_t SegmentStorage::get_segment_start_position(hls::Segment segment) {
-  uint64_t start_position = offset;
-  for(uint32_t start = read_segment_data_index; start < MAX_SEGMENTS + read_segment_data_index; ++start) {
-    if (segment_data.at(start % MAX_SEGMENTS).segment == segment) {
-      return start_position;
-    }
-    start_position += segment_data.at(start % MAX_SEGMENTS).contents.length();
-  }
-  return offset;
 }
