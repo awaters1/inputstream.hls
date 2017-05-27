@@ -1,8 +1,12 @@
+1. The active_playlist isn't thread safe (could just protect the segments variable)
+2. Clean up locking within the demux, we don't need to lock access to segment storage anymore
+3. Think about reworking the demux process to demux the whole segment at once to avoid
+having to lock
+
 Bugs
 1. Seek To position when starting a video
 causes a SIGSEV because there are no segments in the playlist
-2. The active_playlist isn't thread safe
-(could just protect the segments variable)
+
 
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
 like when downloading

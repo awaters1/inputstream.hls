@@ -177,49 +177,48 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   // fill new data
   size_t len = (size_t)(m_av_buf_size - dataread);
 
-  {
-    CLockObject lock(m_mutex);
-    while (!m_av_contents->has_data(m_av_pos, len)) {
-      bool expects_more_data = m_active_segment_controller->trigger_download();
-      if (!expects_more_data || quit_processing) {
-        m_isStreamDone = true;
-        break;
-      }
-      m_cv.Wait(m_mutex, 500);
-    }
-    hls::Segment segment_read = m_av_contents->read(m_av_pos, len, m_av_rbe);
-    if (!(segment_read == current_segment) && len > 0) {
-      m_segmentChanged = true;
-      if (m_segmentReadTime == -1) {
-          m_segmentReadTime = segment_read.time_in_playlist * DVD_TIME_BASE;
-          xbmc->Log(LOG_DEBUG, LOGTAG "%s Setting segment read time: %d", __FUNCTION__, m_segmentReadTime);
-      }
-      m_readTime = m_segmentReadTime;
-      current_segment = segment_read;
-      if (current_segment.valid) {
-        m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
-      }
-      if (current_segment.discontinuity) {
-        processed_discontinuity = false;
-        include_discontinuity = true;
-        xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
-
-        if (!processed_discontinuity) {
-          xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
-          awaiting_initial_setup = true;
-          xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
-          m_AVContext->StreamDiscontinuity();
-          m_AVContext->Reset();
-          m_AVContext->ResetPackets();
-          processed_discontinuity = true;
-        }
-      }
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
-                    current_segment.media_sequence, current_segment.get_url().c_str());
-    }
-    if (len == 0) {
+  while (!m_av_contents->has_data(m_av_pos, len)) {
+    bool expects_more_data = m_active_segment_controller->trigger_download();
+    if (!expects_more_data || quit_processing) {
       m_isStreamDone = true;
+      break;
     }
+    // TODO: Not sure what to do here because this won't get notified anymore
+    // and the while loop is a busy loop
+    m_cv.Wait(m_mutex, 500);
+  }
+  hls::Segment segment_read = m_av_contents->read(m_av_pos, len, m_av_rbe);
+  if (!(segment_read == current_segment) && len > 0) {
+    m_segmentChanged = true;
+    if (m_segmentReadTime == -1) {
+        m_segmentReadTime = segment_read.time_in_playlist * DVD_TIME_BASE;
+        xbmc->Log(LOG_DEBUG, LOGTAG "%s Setting segment read time: %d", __FUNCTION__, m_segmentReadTime);
+    }
+    m_readTime = m_segmentReadTime;
+    current_segment = segment_read;
+    if (current_segment.valid) {
+      m_segmentReadTime += (current_segment.duration * DVD_TIME_BASE);
+    }
+    if (current_segment.discontinuity) {
+      processed_discontinuity = false;
+      include_discontinuity = true;
+      xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
+
+      if (!processed_discontinuity) {
+        xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
+        awaiting_initial_setup = true;
+        xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
+        m_AVContext->StreamDiscontinuity();
+        m_AVContext->Reset();
+        m_AVContext->ResetPackets();
+        processed_discontinuity = true;
+      }
+    }
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
+                  current_segment.media_sequence, current_segment.get_url().c_str());
+  }
+  if (len == 0) {
+    m_isStreamDone = true;
   }
 
   m_av_rbe += len;
@@ -364,6 +363,7 @@ void Demux::Flush(void)
 void Demux::Abort()
 {
   Flush();
+  CLockObject lock(m_mutex);
   m_streamIds.m_streamCount = 0;
 }
 
@@ -373,6 +373,7 @@ DemuxContainer Demux::Read()
     std::lock_guard<std::mutex> lock(demux_mutex);
     demux_flag = should_process_demux();
   }
+  demux_cv.notify_all();
   CLockObject lock(m_mutex);
   while(m_demuxPacketBuffer.empty()) {
     if (m_isDemuxDone) {

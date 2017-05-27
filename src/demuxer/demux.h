@@ -50,18 +50,16 @@ public:
   Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_segment_controller);
   ~Demux();
 
-  const unsigned char* ReadAV(uint64_t pos, size_t n);
-
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
   DemuxContainer Read();
-  bool SeekTime(double time, bool backwards, double* startpts);
 
   double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   int32_t get_current_media_sequence();
 private:
+  const unsigned char* ReadAV(uint64_t pos, size_t n);
   bool Process();
 private:
   uint16_t m_channel;
