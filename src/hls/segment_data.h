@@ -19,9 +19,11 @@
 #include "HLS.h"
 
 struct SegmentData {
-  SegmentData() : can_overwrite(true) {};
+  SegmentData() : can_overwrite(true), finished(true) {};
   hls::Segment segment;
   std::string contents;
   bool can_overwrite;
+  bool finished;
+  uint64_t start_offset;
 };
 

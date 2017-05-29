@@ -1,3 +1,6 @@
+1. sometimes there are minor hiccups, not
+sure if they are caused by the demuxing process
+
 1. The active_playlist isn't thread safe (could just protect the segments variable)
 2. Clean up locking within the demux, we don't need to lock access to segment storage anymore
 3. Think about reworking the demux process to demux the whole segment at once to avoid

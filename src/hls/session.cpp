@@ -19,9 +19,8 @@
 
 hls::Stream::Stream(MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
 playlist(playlist),
-segment_storage(new SegmentStorage()),
-active_segment_controller(new ActiveSegmentController(segment_storage.get(), downloader, playlist, media_sequence)),
-demux(new Demux(segment_storage.get(), active_segment_controller.get())){
+segment_storage(new SegmentStorage(downloader, playlist, media_sequence)),
+demux(new Demux(segment_storage.get())){
 
 }
 

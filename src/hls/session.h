@@ -36,7 +36,6 @@ namespace hls {
     MediaPlaylist &get_playlist() { return playlist; };
   private:
     std::unique_ptr<SegmentStorage> segment_storage;
-    std::unique_ptr<ActiveSegmentController> active_segment_controller;
     std::unique_ptr<Demux> demux;
     MediaPlaylist &playlist;
   };

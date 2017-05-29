@@ -16,29 +16,66 @@
  *
  */
 
+#include <unordered_map>
+#include <future>
+#include <thread>
+#include <vector>
+#include <atomic>
 #include <mutex>
 #include "hls/HLS.h"
 #include "hls/segment_data.h"
+#include "downloader/downloader.h"
 
-const uint32_t MAX_SEGMENTS = 10;
+const size_t MAX_SEGMENTS = 1;
+
+struct DataHelper {
+  std::string aes_uri;
+  std::string aes_iv;
+  bool encrypted;
+  hls::Segment segment;
+};
+
 
 class SegmentStorage {
 public:
-  SegmentStorage();
+  SegmentStorage(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  ~SegmentStorage();
   bool has_data(uint64_t pos, size_t size);
-  hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination);
+  hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same
   bool start_segment(hls::Segment segment);
   void write_segment(hls::Segment segment, std::string data);
   void end_segment(hls::Segment segment);
 private:
+  hls::Segment read_impl(uint64_t pos, size_t &size, uint8_t * const destination);
   size_t get_size();
+  void download_next_segment();
+  void process_data(DataHelper &data_helper, std::string data);
 private:
+  Downloader *downloader;
+  hls::MediaPlaylist &media_playlist;
+
+  std::unordered_map<std::string, std::string> aes_uri_to_key;
+
+  FRIEND_TEST(ActiveSegmentController, DownloadSegment);
+  uint32_t media_sequence;
+
+
+  // Download thread
+  std::condition_variable download_cv;
+  std::thread download_thread;
+
+  bool quit_processing;
+  bool download_segment;
+private:
+  uint64_t bytes_read;
   uint64_t offset;
   uint32_t read_segment_data_index;
   uint32_t write_segment_data_index;
   std::mutex data_lock;
   std::vector<SegmentData> segment_data;
   std::vector<std::mutex> segment_locks;
+  std::condition_variable data_cv;
+  bool no_more_data;
 };

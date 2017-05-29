@@ -36,7 +36,6 @@
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
-#include "../hls/active_segment_controller.h"
 #include "../ring_buffer.h"
 #include "../segment_storage.h"
 
@@ -47,7 +46,7 @@ const int MAX_DEMUX_PACKETS = 2000;
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_segment_controller);
+  Demux(SegmentStorage *segment_storage);
   ~Demux();
 
   INPUTSTREAM_IDS GetStreamIds();
@@ -108,7 +107,6 @@ private:
   std::set<uint16_t> m_nosetup;
 
   SegmentStorage *m_av_contents;
-  ActiveSegmentController *m_active_segment_controller;
   hls::Segment current_segment;
   bool m_isStreamDone;
   bool m_isDemuxDone;

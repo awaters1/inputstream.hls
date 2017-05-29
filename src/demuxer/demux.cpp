@@ -21,6 +21,7 @@
  */
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 #include <p8-platform/os.h>
 #include <xbmc_codec_types.h>
@@ -67,7 +68,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_segment_controller)
+Demux::Demux(SegmentStorage *segment_storage)
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -88,7 +89,6 @@ Demux::Demux(SegmentStorage *segment_storage, ActiveSegmentController *active_se
   , m_isDemuxDone(false)
   , include_discontinuity(false)
   , m_av_contents(segment_storage)
-  , m_active_segment_controller(active_segment_controller)
 {
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
@@ -169,25 +169,19 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   size_t dataread = m_av_rbe - m_av_rbs;
   if (dataread >= n)
     return m_av_rbs;
+  dataread = 0;
+//  xbmc->Log(LOG_DEBUG, LOGTAG "%s: Starting read at %d", __FUNCTION__, pos);
   // flush old data to free up space at the end
   memmove(m_av_buf, m_av_rbs, dataread);
   m_av_rbs = m_av_buf;
   m_av_rbe = m_av_rbs + dataread;
-  m_av_pos = pos;
+  m_av_pos = pos - dataread;
   // fill new data
   size_t len = (size_t)(m_av_buf_size - dataread);
+  // xbmc->Log(LOG_DEBUG, LOGTAG "%s Going to read at %d for %d bytes, dataread: %d len %d", __FUNCTION__, pos, n, dataread, len);
 
-  while (!m_av_contents->has_data(m_av_pos, len)) {
-    bool expects_more_data = m_active_segment_controller->trigger_download();
-    if (!expects_more_data || quit_processing) {
-      m_isStreamDone = true;
-      break;
-    }
-    // TODO: Not sure what to do here because this won't get notified anymore
-    // and the while loop is a busy loop
-    m_cv.Wait(m_mutex, 500);
-  }
-  hls::Segment segment_read = m_av_contents->read(m_av_pos, len, m_av_rbe);
+  hls::Segment segment_read = m_av_contents->read(m_av_pos + dataread, len, m_av_rbe, n);
+  // xbmc->Log(LOG_DEBUG, LOGTAG "%s Read at %d for %d bytes", __FUNCTION__, pos, len);
   if (!(segment_read == current_segment) && len > 0) {
     m_segmentChanged = true;
     if (m_segmentReadTime == -1) {
@@ -214,7 +208,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         processed_discontinuity = true;
       }
     }
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s Current Segment: %d %s", __FUNCTION__,
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d %s", __FUNCTION__, m_av_pos,
                   current_segment.media_sequence, current_segment.get_url().c_str());
   }
   if (len == 0) {
@@ -223,10 +217,9 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
   m_av_rbe += len;
   dataread += len;
-  m_av_pos += len;
 
   if (dataread < n) {
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s Didn't read enough data", __FUNCTION__);
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Didn't read enough data, read %d", __FUNCTION__, dataread);
   }
 
   return dataread >= n ? m_av_rbs : NULL;
@@ -234,7 +227,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
 bool Demux::Process()
 {
-  xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing", __FUNCTION__);
+  xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);
   if (!m_AVContext)
   {
     xbmc->Log(LOG_ERROR, LOGTAG "%s: no AVContext", __FUNCTION__);
@@ -289,8 +282,11 @@ bool Demux::Process()
         if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
           m_readTime += demux_container.demux_packet->duration;
         }
-        if (dxp)
+        if (dxp) {
           push_stream_data(demux_container);
+//          xbmc->Log(LOG_NOTICE, LOGTAG "%s: Adding packet %d", __FUNCTION__, m_demuxPacketBuffer.size());
+          m_cv.Broadcast();
+        }
       }
     }
     if (m_AVContext->HasPIDPayload())
@@ -313,14 +309,15 @@ bool Demux::Process()
     else
       m_AVContext->GoNext();
 
-    CLockObject lock(m_mutex);
-    m_cv.Broadcast();
-    if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
-      ret = 0;
-      break;
-    }
-    if (quit_processing) {
-      break;
+    {
+      CLockObject lock(m_mutex);
+      if (m_demuxPacketBuffer.size() >= MAX_DEMUX_PACKETS) {
+        ret = 0;
+        break;
+      }
+      if (quit_processing) {
+        break;
+      }
     }
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
@@ -369,22 +366,34 @@ void Demux::Abort()
 
 DemuxContainer Demux::Read()
 {
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+  /*
   {
     std::lock_guard<std::mutex> lock(demux_mutex);
     demux_flag = should_process_demux();
   }
   demux_cv.notify_all();
+  */
   CLockObject lock(m_mutex);
   while(m_demuxPacketBuffer.empty()) {
+    xbmc->Log(LOG_NOTICE, LOGTAG "%s: Have to wait for packet", __FUNCTION__);
     if (m_isDemuxDone) {
       DemuxContainer container;
       return container;
+    }
+    {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      demux_flag = true;
     }
     demux_cv.notify_all();
     m_cv.Wait(m_mutex, 1000);
   }
   DemuxContainer packet = m_demuxPacketBuffer.front();
   m_demuxPacketBuffer.erase(m_demuxPacketBuffer.begin());
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+//  xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, m_demuxPacketBuffer.size());
   return packet;
 }
 
