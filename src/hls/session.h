@@ -24,22 +24,9 @@
 #include "HLS.h"
 #include "../downloader/downloader.h"
 #include "../demuxer/demux.h"
+#include "stream.h"
 
 namespace hls {
-
-  class Stream {
-  public:
-    Stream(MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
-    Stream(const Stream& other) = delete;
-    ~Stream();
-    Demux *get_demux() { return demux.get(); };
-    MediaPlaylist &get_playlist() { return playlist; };
-  private:
-    std::unique_ptr<SegmentStorage> segment_storage;
-    std::unique_ptr<Demux> demux;
-    MediaPlaylist &playlist;
-  };
-
   const int SEGMENTS_BEFORE_SWITCH = 10;
 
   class Session {

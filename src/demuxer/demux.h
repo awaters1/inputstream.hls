@@ -41,7 +41,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 2000;
+const int MAX_DEMUX_PACKETS = 100;
 
 class Demux : public TSDemux::TSDemuxer
 {
@@ -55,16 +55,16 @@ public:
   void Abort();
   DemuxContainer Read();
 
-  double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
+  double get_percentage_packet_buffer_full() { return writePacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   int32_t get_current_media_sequence();
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
   bool Process();
 private:
   uint16_t m_channel;
-  std::vector<DemuxContainer> m_demuxPacketBuffer; // Needs to be locked
-  P8PLATFORM::CMutex m_mutex;
-  P8PLATFORM::CCondition<bool> m_cv;
+  std::deque<DemuxContainer> writePacketBuffer; // Needs to be locked
+  std::deque<DemuxContainer> readPacketBuffer; // Only read in Read()
+  std::mutex demux_mutex;
   INPUTSTREAM_IDS m_streamIds;
   INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 
@@ -102,21 +102,16 @@ private:
     uint64_t av_pos;
   } AV_POSMAP_ITEM;
   std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
-
-  bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
   SegmentStorage *m_av_contents;
   hls::Segment current_segment;
   bool m_isStreamDone;
-  bool m_isDemuxDone;
   bool m_segmentChanged;
   bool include_discontinuity;
 
-  // Demux Process thread
-  std::mutex demux_mutex;
+  std::condition_variable read_demux_cv;
   std::condition_variable demux_cv;
   std::thread demux_thread;
-  std::atomic_bool demux_flag;
   std::atomic_bool quit_processing;
 };

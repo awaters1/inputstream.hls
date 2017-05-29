@@ -26,6 +26,8 @@
 #include "hls/segment_data.h"
 #include "downloader/downloader.h"
 
+class Stream;
+
 const size_t MAX_SEGMENTS = 1;
 
 struct DataHelper {
@@ -38,7 +40,7 @@ struct DataHelper {
 
 class SegmentStorage {
 public:
-  SegmentStorage(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  SegmentStorage(Downloader *downloader, Stream *stream);
   ~SegmentStorage();
   bool has_data(uint64_t pos, size_t size);
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
@@ -50,26 +52,21 @@ public:
 private:
   hls::Segment read_impl(uint64_t pos, size_t &size, uint8_t * const destination);
   size_t get_size();
+  bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
 private:
   Downloader *downloader;
-  hls::MediaPlaylist &media_playlist;
+  Stream *stream;
 
   std::unordered_map<std::string, std::string> aes_uri_to_key;
-
-  FRIEND_TEST(ActiveSegmentController, DownloadSegment);
-  uint32_t media_sequence;
-
 
   // Download thread
   std::condition_variable download_cv;
   std::thread download_thread;
 
   bool quit_processing;
-  bool download_segment;
 private:
-  uint64_t bytes_read;
   uint64_t offset;
   uint32_t read_segment_data_index;
   uint32_t write_segment_data_index;

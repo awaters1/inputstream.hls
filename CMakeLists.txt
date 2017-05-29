@@ -19,6 +19,7 @@ set(HLS_SOURCES
   src/hls/session.cpp
   src/kodi_hls.cpp
   src/hls/decrypter.cpp
+  src/hls/stream.cpp
   src/downloader/kodi_downloader.cpp
   src/downloader/file_downloader.cpp
     src/demuxer/bitstream.cpp
@@ -80,7 +81,7 @@ add_executable(inputstreamhlstest
     test/global.cpp
     test/segment_storage_test.cpp
     src/segment_storage.cpp
-    
+    src/hls/stream.cpp
     src/demuxer/bitstream.cpp
     src/demuxer/debug.cpp
     src/demuxer/demux.cpp
