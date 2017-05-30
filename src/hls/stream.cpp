@@ -12,7 +12,11 @@ media_sequence(media_sequence),
 segments(playlist.get_segments().begin(), playlist.get_segments().end()),
 live(playlist.live),
 download_itr(segments.end()) {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream", __FUNCTION__);
+}
 
+Stream::~Stream() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct stream", __FUNCTION__);
 }
 
 StreamContainer::StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
@@ -20,7 +24,7 @@ stream(new Stream(playlist, media_sequence)),
 segment_storage(new SegmentStorage(downloader, stream.get())),
 demux(new Demux(segment_storage.get()))
 {
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream", __FUNCTION__);
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream container", __FUNCTION__);
 }
 
 bool Stream::is_live() {
@@ -123,9 +127,3 @@ void Stream::merge(hls::MediaPlaylist &other_playlist) {
   }
 }
 
-Stream::~Stream() {
-  playlist.live = live;
-  if (!live) {
-    playlist.set_segments(segments);
-  }
-}

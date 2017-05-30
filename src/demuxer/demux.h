@@ -96,12 +96,6 @@ private:
   uint16_t m_mainStreamPID;     ///< PID of main stream
   int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
-  typedef struct
-  {
-    uint64_t av_pts;
-    uint64_t av_pos;
-  } AV_POSMAP_ITEM;
-  std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
   std::set<uint16_t> m_nosetup;
 
   SegmentStorage *m_av_contents;

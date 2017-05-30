@@ -20,9 +20,18 @@ class Stream {
 public:
   Stream(hls::MediaPlaylist &playlist, uint32_t media_sequence);
   Stream(const Stream& other) = delete;
+  void operator=(const Stream& other) = delete;
   ~Stream();
   hls::MediaPlaylist &get_playlist() { return playlist; };
   std::string get_playlist_url() { return playlist.get_url(); };
+  hls::MediaPlaylist &get_updated_playlist() {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    playlist.live = live;
+    if (!live) {
+      playlist.set_segments(segments);
+    }
+    return playlist;
+  }
 public:
   bool is_live();
   bool empty();
@@ -34,18 +43,19 @@ public:
   uint64_t get_total_duration();
   hls::Segment find_segment_at_time(double time_in_seconds);
 private:
-  std::mutex data_mutex;
-  std::list<hls::Segment> segments;
-  std::list<hls::Segment>::const_iterator download_itr;
-  bool live;
-private:
-  uint32_t media_sequence;
   hls::MediaPlaylist &playlist;
+  uint32_t media_sequence;
+  std::list<hls::Segment> segments;
+  bool live;
+  std::list<hls::Segment>::const_iterator download_itr;
+  std::mutex data_mutex;
 };
 
 class StreamContainer {
 public:
   StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
+  void operator=(const StreamContainer& other) = delete;
+  StreamContainer(const StreamContainer& other) = delete;
   Demux *get_demux() { return demux.get(); };
   Stream *get_stream() { return stream.get(); };
 private:

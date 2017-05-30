@@ -202,9 +202,14 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     uint64_t new_time = seek_to.time_in_playlist;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
 
-    hls::MediaPlaylist &active_playlist = active_stream->get_stream()->get_playlist();
+    try {
+    hls::MediaPlaylist &active_playlist = active_stream->get_stream()->get_updated_playlist();
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Using playlist %s", active_playlist.get_url().c_str());
     active_stream = std::unique_ptr<StreamContainer>(
-        new StreamContainer(active_playlist, downloader.get(), seek_to.media_sequence));
+        new StreamContainer(master_playlist.get_media_playlist(0), downloader.get(), seek_to.media_sequence));
+    } catch (std::exception &e) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exception %s", e.what());
+    }
 
 
     if (current_pkt.demux_packet) {

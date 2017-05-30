@@ -114,6 +114,7 @@ Demux::Demux(SegmentStorage *segment_storage)
 
 Demux::~Demux()
 {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct demux", __FUNCTION__);
   // TODO: May want to think about cancelling any waiting
   // signals
   {

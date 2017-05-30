@@ -226,7 +226,6 @@ void SegmentStorage::download_next_segment() {
     });
 
     if (quit_processing || no_more_data) {
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
       return;
     }
     lock.unlock();
@@ -279,6 +278,7 @@ void SegmentStorage::download_next_segment() {
       }
     }
   }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
 }
 
 void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
@@ -301,6 +301,7 @@ void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
 }
 
 SegmentStorage::~SegmentStorage() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct segment storage", __FUNCTION__);
   {
     std::lock_guard<std::mutex> lock(data_lock);
     quit_processing = true;

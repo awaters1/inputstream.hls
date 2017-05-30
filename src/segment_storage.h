@@ -56,6 +56,13 @@ private:
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
 private:
+  uint64_t offset;
+  uint32_t read_segment_data_index;
+  uint32_t write_segment_data_index;
+  std::vector<SegmentData> segment_data;
+  std::vector<std::mutex> segment_locks;
+  bool quit_processing;
+  bool no_more_data;
   Downloader *downloader;
   Stream *stream;
 
@@ -64,15 +71,6 @@ private:
   // Download thread
   std::condition_variable download_cv;
   std::thread download_thread;
-
-  bool quit_processing;
-private:
-  uint64_t offset;
-  uint32_t read_segment_data_index;
-  uint32_t write_segment_data_index;
   std::mutex data_lock;
-  std::vector<SegmentData> segment_data;
-  std::vector<std::mutex> segment_locks;
   std::condition_variable data_cv;
-  bool no_more_data;
 };

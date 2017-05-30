@@ -2,6 +2,7 @@
 was reloaded to avoid reloading too much
 Need to fix some segfaults with switching streams and other things like
 "ERROR: CInputStream::ReadDemux - error. Reason: basic_string::_M_construct null not valid"
+-> May be due to the playlist reference, not sure what happens to it exactly
 
 1. Find out when a playlist is invalid
 

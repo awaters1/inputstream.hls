@@ -94,7 +94,7 @@ namespace hls
     float get_segment_target_duration() { return segment_target_duration; };
     bool load_contents(std::string playlist_contents);
     bool valid;
-    std::vector<Segment> get_segments() { return segments; };
+    std::vector<Segment>& get_segments() { return segments; };
     void set_segments(std::list<Segment> other) {
        segments.clear();
        segments.insert(segments.end(), other.begin(), other.end());
