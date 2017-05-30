@@ -12,6 +12,7 @@ media_sequence(media_sequence),
 segments(playlist.get_segments().begin(), playlist.get_segments().end()),
 live(playlist.live),
 download_itr(segments.end()){
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream", __FUNCTION__);
   segment_storage = std::unique_ptr<SegmentStorage>(new SegmentStorage(downloader, this));
   demux = std::unique_ptr<Demux>(new Demux(segment_storage.get()));
 }

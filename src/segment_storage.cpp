@@ -22,6 +22,7 @@ downloader(downloader),
 stream(stream),
 quit_processing(false),
 no_more_data(false) {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   download_cv.notify_all();
 }
@@ -195,6 +196,7 @@ hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * con
 }
 
 void reload_playlist(Stream *stream, Downloader  *downloader) {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloading playlist");
   if (stream->is_live() || stream->empty()) {
      std::string playlist_contents = downloader->download(stream->get_playlist_url());
      if (playlist_contents.empty()) {
@@ -207,6 +209,7 @@ void reload_playlist(Stream *stream, Downloader  *downloader) {
 }
 
 void SegmentStorage::download_next_segment() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of segments");
   if (!stream->has_download_item()) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Have to reload playlist to get segment");
     reload_playlist(stream, downloader);

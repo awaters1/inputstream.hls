@@ -189,7 +189,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
             return false;
         }
     } else if (active_stream->empty()) {
-        // Wait until the playlist is loaded before trying to seek
+        // TODO: Wait until the playlist is loaded before trying to seek
         // active_demux->wait_for_playlist();
     }
 
@@ -202,8 +202,10 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     uint64_t new_time = seek_to.time_in_playlist;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
 
-    active_stream = std::unique_ptr<Stream>(
-        new Stream(active_stream->get_playlist(), downloader.get(), seek_to.media_sequence));
+    hls::MediaPlaylist &active_playlist = active_stream->get_playlist();
+    Stream *stream = new Stream(active_playlist, downloader.get(), seek_to.media_sequence);
+    active_stream = std::unique_ptr<Stream>(stream);
+
 
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);

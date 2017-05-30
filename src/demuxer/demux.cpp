@@ -87,6 +87,7 @@ Demux::Demux(SegmentStorage *segment_storage)
   , include_discontinuity(false)
   , m_av_contents(segment_storage)
 {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demux", __FUNCTION__);
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
   m_av_buf = (unsigned char*)malloc(sizeof(*m_av_buf) * (m_av_buf_size + 1));
   if (m_av_buf)
@@ -635,6 +636,7 @@ void Demux::push_stream_data(DemuxContainer dxp) {
 }
 
 void Demux::process_demux_thread() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demuxer thread", __FUNCTION__);
   while(true) {
    std::unique_lock<std::mutex> lock(demux_mutex);
    demux_cv.wait(lock, [this] {
