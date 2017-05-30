@@ -6,15 +6,21 @@
 #include "stream.h"
 #define LOGTAG                  "[Stream] "
 
-Stream::Stream(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
+Stream::Stream(hls::MediaPlaylist &playlist, uint32_t media_sequence) :
 playlist(playlist),
 media_sequence(media_sequence),
 segments(playlist.get_segments().begin(), playlist.get_segments().end()),
 live(playlist.live),
-download_itr(segments.end()){
+download_itr(segments.end()) {
+
+}
+
+StreamContainer::StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
+stream(new Stream(playlist, media_sequence)),
+segment_storage(new SegmentStorage(downloader, stream.get())),
+demux(new Demux(segment_storage.get()))
+{
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream", __FUNCTION__);
-  segment_storage = std::unique_ptr<SegmentStorage>(new SegmentStorage(downloader, this));
-  demux = std::unique_ptr<Demux>(new Demux(segment_storage.get()));
 }
 
 bool Stream::is_live() {

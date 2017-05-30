@@ -59,9 +59,9 @@ namespace hls {
 
     MasterPlaylist master_playlist;
 
-    std::unique_ptr<Stream> active_stream;
+    std::unique_ptr<StreamContainer> active_stream;
     // For when we want to switch streams
-    std::unique_ptr<Stream> future_stream;
+    std::unique_ptr<StreamContainer> future_stream;
     bool switch_demux;
 
     DemuxContainer current_pkt;

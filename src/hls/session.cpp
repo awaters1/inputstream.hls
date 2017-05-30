@@ -120,7 +120,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   double average_bandwidth = downloader->get_average_bandwidth();
   bool switch_up = true;
   if (active_stream) {
-    bandwith_of_current_stream = active_stream->get_playlist().bandwidth;
+    bandwith_of_current_stream = active_stream->get_stream()->get_playlist().bandwidth;
     // TODO: Also update this to detect a falling packet buffer
     if (average_bandwidth <= bandwith_of_current_stream) {
       switch_up = false;
@@ -146,14 +146,14 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   }
 
   if (active_stream && next_active_playlist != media_playlists.end() &&
-      *next_active_playlist != active_stream->get_playlist()) {
+      *next_active_playlist != active_stream->get_stream()->get_playlist()) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %d %s", next_active_playlist->bandwidth, next_active_playlist->get_url().c_str());
-    future_stream = std::unique_ptr<Stream>(new Stream(*next_active_playlist, downloader.get(), media_sequence));
+    future_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), media_sequence));
   } else if (!active_stream) {
     if (next_active_playlist == media_playlists.end()) {
       next_active_playlist = media_playlists.begin();
     }
-    active_stream = std::unique_ptr<Stream>(new Stream(*next_active_playlist, downloader.get(), 0));
+    active_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), 0));
   }
 }
 
@@ -183,28 +183,28 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     double desired = time / 1000.0;
 
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
-    if (active_stream->is_live()) {
-        if (active_stream->empty()) {
+    if (active_stream->get_stream()->is_live()) {
+        if (active_stream->get_stream()->empty()) {
             // Cannot seek if there are no segments
             return false;
         }
-    } else if (active_stream->empty()) {
+    } else if (active_stream->get_stream()->empty()) {
         // TODO: Wait until the playlist is loaded before trying to seek
         // active_demux->wait_for_playlist();
     }
 
-    if (active_stream->empty()) {
+    if (active_stream->get_stream()->empty()) {
         return false;
     }
 
 
-    hls::Segment seek_to = active_stream->find_segment_at_time(desired);
+    hls::Segment seek_to = active_stream->get_stream()->find_segment_at_time(desired);
     uint64_t new_time = seek_to.time_in_playlist;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
 
-    hls::MediaPlaylist &active_playlist = active_stream->get_playlist();
-    Stream *stream = new Stream(active_playlist, downloader.get(), seek_to.media_sequence);
-    active_stream = std::unique_ptr<Stream>(stream);
+    hls::MediaPlaylist &active_playlist = active_stream->get_stream()->get_playlist();
+    active_stream = std::unique_ptr<StreamContainer>(
+        new StreamContainer(active_playlist, downloader.get(), seek_to.media_sequence));
 
 
     if (current_pkt.demux_packet) {
@@ -242,7 +242,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
 }
 
 uint64_t hls::Session::get_total_time() {
-  uint64_t current_total_time = active_stream->get_total_duration();
+  uint64_t current_total_time = active_stream->get_stream()->get_total_duration();
   if (current_total_time == 0) {
     return last_total_time;
   }

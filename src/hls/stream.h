@@ -18,10 +18,9 @@ const int SEGMENT_LIST_LIMIT = 3000;
 
 class Stream {
 public:
-  Stream(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
+  Stream(hls::MediaPlaylist &playlist, uint32_t media_sequence);
   Stream(const Stream& other) = delete;
   ~Stream();
-  Demux *get_demux() { return demux.get(); };
   hls::MediaPlaylist &get_playlist() { return playlist; };
   std::string get_playlist_url() { return playlist.get_url(); };
 public:
@@ -41,7 +40,16 @@ private:
   bool live;
 private:
   uint32_t media_sequence;
+  hls::MediaPlaylist &playlist;
+};
+
+class StreamContainer {
+public:
+  StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
+  Demux *get_demux() { return demux.get(); };
+  Stream *get_stream() { return stream.get(); };
+private:
+  std::unique_ptr<Stream> stream;
   std::unique_ptr<SegmentStorage> segment_storage;
   std::unique_ptr<Demux> demux;
-  hls::MediaPlaylist &playlist;
 };
