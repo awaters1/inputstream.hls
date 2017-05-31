@@ -263,20 +263,11 @@ bool Demux::Process()
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
-        demux_container.segment_changed = m_segmentChanged;
-        demux_container.segment = current_segment;
-        demux_container.discontinuity = include_discontinuity;
         if (m_segmentChanged) {
           m_segmentChanged = false;
           include_discontinuity = false;
         }
-        double current_time_ms = (double)m_readTime / 1000.0;
-        if (current_time_ms > INT_MAX)
-          current_time_ms = INT_MAX;
-        demux_container.current_time = (int) current_time_ms;
-        if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
-          m_readTime += demux_container.demux_packet->duration;
-        }
+        update_timing_data(demux_container);
         if (dxp) {
           push_stream_data(demux_container);
 //          xbmc->Log(LOG_NOTICE, LOGTAG "%s: Adding packet %d", __FUNCTION__, m_demuxPacketBuffer.size());
@@ -577,13 +568,7 @@ bool Demux::update_pvr_stream(uint16_t pid)
   return false;
 }
 
-void Demux::push_stream_change()
-{
-  DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
-  dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
-
-  DemuxContainer demux_container;
-  demux_container.demux_packet = dxp;
+void Demux::update_timing_data(DemuxContainer &demux_container) {
   double current_time_ms = (double)m_readTime / 1000.0;
   // TODO: Duplicated in Process();
   if (current_time_ms > INT_MAX)
@@ -593,6 +578,19 @@ void Demux::push_stream_change()
   if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
     m_readTime += demux_container.demux_packet->duration;
   }
+  demux_container.segment_changed = m_segmentChanged;
+  demux_container.segment = current_segment;
+  demux_container.discontinuity = include_discontinuity;
+}
+
+void Demux::push_stream_change()
+{
+  DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
+  dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
+
+  DemuxContainer demux_container;
+  demux_container.demux_packet = dxp;
+  update_timing_data(demux_container);
 
   push_stream_data(demux_container);
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);

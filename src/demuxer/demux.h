@@ -60,6 +60,7 @@ public:
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
   bool Process();
+  void update_timing_data(DemuxContainer &demux_container);
 private:
   uint16_t m_channel;
   std::deque<DemuxContainer> writePacketBuffer; // Needs to be locked
