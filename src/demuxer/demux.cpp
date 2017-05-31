@@ -115,12 +115,12 @@ Demux::Demux(SegmentStorage *segment_storage)
 Demux::~Demux()
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct demux", __FUNCTION__);
-  // TODO: May want to think about cancelling any waiting
-  // signals
   {
     std::lock_guard<std::mutex> lock(demux_mutex);
+    std::lock_guard<std::mutex> lock(initial_setup_mutex);
     quit_processing = true;
   }
+  initial_setup_cv.notify_all();
   demux_cv.notify_all();
   demux_thread.join();
 
