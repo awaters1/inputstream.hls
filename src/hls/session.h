@@ -24,9 +24,9 @@
 #include "HLS.h"
 #include "../downloader/downloader.h"
 #include "../demuxer/demux.h"
+#include "stream.h"
 
 namespace hls {
-
   const int SEGMENTS_BEFORE_SWITCH = 10;
 
   class Session {
@@ -36,9 +36,6 @@ namespace hls {
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
     uint64_t get_total_time();
-    bool is_live() {
-      return active_playlist.live;
-    };
 
     INPUTSTREAM_IDS get_streams();
     INPUTSTREAM_INFO get_stream(uint32_t stream_id);
@@ -61,11 +58,10 @@ namespace hls {
 
 
     MasterPlaylist master_playlist;
-    MediaPlaylist &active_playlist;
 
-    std::unique_ptr<Demux> active_demux;
+    std::unique_ptr<StreamContainer> active_stream;
     // For when we want to switch streams
-    std::unique_ptr<Demux> future_demux;
+    std::unique_ptr<StreamContainer> future_stream;
     bool switch_demux;
 
     DemuxContainer current_pkt;

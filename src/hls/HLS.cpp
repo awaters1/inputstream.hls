@@ -14,10 +14,6 @@
 
 #define LOGTAG                  "[HLS] "
 
-// Limit to 3000 segments in a playlist
-// would be about 200.0 minutes
-const int SEGMENT_LIST_LIMIT = 3000;
-
 hls::Segment::Segment() :
 Resource(),
 duration(0),
@@ -46,14 +42,12 @@ bool hls::MasterPlaylist::write_data(std::string line) {
         xbmc->Log(ADDON::LOG_ERROR, LOGTAG "In stream, but no streams found");
         return false;
       }
-      MediaPlaylist stream = media_playlist.back();
-      media_playlist.pop_back();
+      MediaPlaylist &stream = media_playlist.back();
       if (line.find("http") == std::string::npos) {
         stream.set_url(base_url + line);
       } else {
         stream.set_url(line);
       }
-      media_playlist.push_back(stream);
       in_stream = false;
       return true;
   }
@@ -168,51 +162,6 @@ bool hls::MediaPlaylist::write_data(std::string line) {
   return true;
 }
 
-int32_t hls::MediaPlaylist::get_segment_index(uint32_t media_sequence) {
-  auto it = std::find_if(segments.begin(), segments.end(),
-      [media_sequence](const hls::Segment other) -> bool {
-    return media_sequence == other.media_sequence;
-  });
-  if (it == segments.end()) {
-    return -1;
-  }
-  return it - segments.begin();
-}
-
-uint32_t hls::MediaPlaylist::merge(hls::MediaPlaylist other_playlist) {
-  live = other_playlist.live;
-  uint32_t last_media_sequence;
-  if (segments.size() > 0) {
-   last_media_sequence = segments.back().media_sequence;
-  } else {
-   last_media_sequence = -1;
-  }
-  uint32_t added_segments = 0;
-  uint32_t last_added_sequence = 0;
-  double time_in_playlist_offset = 0;
-  if (!segments.empty()) {
-    time_in_playlist_offset = segments.back().time_in_playlist + segments.back().duration;
-  }
-  for(std::vector<Segment>::iterator it = other_playlist.segments.begin(); it != other_playlist.segments.end(); ++it) {
-     if (it->media_sequence > last_media_sequence || last_media_sequence == uint32_t(-1)) {
-       it->time_in_playlist = it->time_in_playlist + time_in_playlist_offset;
-       segments.push_back(*it);
-       ++added_segments;
-       last_added_sequence = it->media_sequence;
-       if (added_segments < 10) {
-         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-       }
-     }
-  }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-  while(segments.size() >= SEGMENT_LIST_LIMIT && live) {
-    hls::Segment front = segments.front();
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Erasing segment %d", front.media_sequence);
-    segments.erase(segments.begin());
-  }
-  return added_segments;
-}
-
 bool hls::MediaPlaylist::load_contents(std::string playlist_contents) {
   std::istringstream content_stream(playlist_contents);
   std::string line;
@@ -222,38 +171,6 @@ bool hls::MediaPlaylist::load_contents(std::string playlist_contents) {
       }
   }
   return true;
-}
-
-uint32_t hls::MediaPlaylist::get_total_duration() {
-  uint32_t total_time = 0;
-  for(std::vector<hls::Segment>::iterator it = segments.begin(); it != segments.end(); ++it) {
-    total_time += it->duration;
-  }
-  return total_time;
-}
-
-hls::Segment hls::MediaPlaylist::get_segment(uint32_t segment_index) {
-  return segments.at(segment_index);
-}
-
-bool hls::MediaPlaylist::has_segment(int32_t segment_index) {
-  return segment_index >= 0 && segment_index < segments.size();
-}
-
-hls::Segment hls::MediaPlaylist::find_segment_at_time(double time_in_seconds) {
-  double running_total(0);
-  for(auto it = segments.begin(); it != segments.end(); ++it) {
-    if (running_total >= time_in_seconds) {
-      if (it != segments.begin()) {
-        return *(--it);
-      } else {
-        return *(segments.begin());
-      }
-    }
-    running_total += it->duration;
-  }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment at %f", time_in_seconds);
-  return *(--segments.end());
 }
 
 hls::MediaPlaylist::MediaPlaylist()

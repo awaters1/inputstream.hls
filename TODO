@@ -1,8 +1,21 @@
+2. Seek when starting a stream (for non-live streams)
+(need some way to notify the seek that the playlist has been loaded)
+3. See if there is a way to handle when the bandwidth drops to very low levels
+and kodi ends up skipping or fast forwarding
+
+1. Find out when a playlist is invalid
+
+1. sometimes there are minor hiccups, not
+sure if they are caused by the demuxing process or just the video syncing
+(caused by my computer, doesn't happen on dedicated kodi box)
+
+Test
+1. Loss of network
+
 Bugs
 1. Seek To position when starting a video
 causes a SIGSEV because there are no segments in the playlist
-2. The active_playlist isn't thread safe
-(could just protect the segments variable)
+
 
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
 like when downloading

@@ -36,46 +36,36 @@
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
-#include "../hls/active_segment_controller.h"
 #include "../ring_buffer.h"
 #include "../segment_storage.h"
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 2000;
+const int MAX_DEMUX_PACKETS = 100;
 
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(Downloader *downloader, hls::MediaPlaylist &media_playlist, uint32_t media_sequence);
+  Demux(SegmentStorage *segment_storage);
   ~Demux();
-
-  const unsigned char* ReadAV(uint64_t pos, size_t n);
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
-  DemuxContainer Read();
-  bool SeekTime(double time, bool backwards, double* startpts);
+  DemuxContainer Read(bool remove_packet = true);
 
-  // Data Managmente
-  void PushData(std::string data, hls::Segment segment);
-  // Signals that the next data to be pushed in is from
-  // this segment
-  bool PrepareSegment(hls::Segment segment);
-  void EndSegment(hls::Segment segment);
-
-  double get_percentage_packet_buffer_full() { return m_demuxPacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
-  int32_t get_current_media_sequence();
-  hls::MediaPlaylist & get_media_playlist() { return media_playlist; };
+  double get_percentage_packet_buffer_full() { return writePacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
+  uint32_t get_current_media_sequence();
 private:
+  const unsigned char* ReadAV(uint64_t pos, size_t n);
   bool Process();
+  void update_timing_data(DemuxContainer &demux_container);
 private:
   uint16_t m_channel;
-  std::vector<DemuxContainer> m_demuxPacketBuffer; // Needs to be locked
-  P8PLATFORM::CMutex m_mutex;
-  P8PLATFORM::CCondition<bool> m_cv;
+  std::deque<DemuxContainer> writePacketBuffer; // Needs to be locked
+  std::deque<DemuxContainer> readPacketBuffer; // Only read in Read()
+  std::mutex demux_mutex;
   INPUTSTREAM_IDS m_streamIds;
   INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 
@@ -107,31 +97,16 @@ private:
   uint16_t m_mainStreamPID;     ///< PID of main stream
   int64_t m_segmentReadTime;    ///< current relative position based on segments (DVD_TIME_BASE)
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
-  typedef struct
-  {
-    uint64_t av_pts;
-    uint64_t av_pos;
-  } AV_POSMAP_ITEM;
-  std::map<int64_t, AV_POSMAP_ITEM> m_posmap;
-
-  bool m_isChangePlaced;
   std::set<uint16_t> m_nosetup;
 
-  // Has to be above active segment because active segment depends on it
-  SegmentStorage m_av_contents;
+  SegmentStorage *m_av_contents;
   hls::Segment current_segment;
   bool m_isStreamDone;
-  bool m_isDemuxDone;
   bool m_segmentChanged;
   bool include_discontinuity;
 
-  hls::MediaPlaylist &media_playlist;
-  ActiveSegmentController m_active_segment_controller;
-
-  // Demux Process thread
-  std::mutex demux_mutex;
+  std::condition_variable read_demux_cv;
   std::condition_variable demux_cv;
   std::thread demux_thread;
-  std::atomic_bool demux_flag;
   std::atomic_bool quit_processing;
 };

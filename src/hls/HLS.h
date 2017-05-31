@@ -18,6 +18,8 @@
 
 #include <string>
 #include <vector>
+#include <mutex>
+#include <list>
 
 #include "gtest/gtest_prod.h"
 
@@ -92,17 +94,11 @@ namespace hls
     float get_segment_target_duration() { return segment_target_duration; };
     bool load_contents(std::string playlist_contents);
     bool valid;
-  public:
-    uint32_t get_total_duration();
-    Segment find_segment_at_time(double time_in_seconds);
-    double get_duration_up_to_segment(Segment segment);
-    uint32_t merge(MediaPlaylist other_playlist);
-    int32_t get_segment_index(uint32_t media_sequence);
-    bool has_segment(int32_t segment_index);
-    Segment get_segment(uint32_t segment_index);
-    uint32_t get_number_of_segments() { return segments.size(); };
-    void clear_segments() { segments.clear(); };
-    bool empty() { return segments.empty(); };
+    std::vector<Segment>& get_segments() { return segments; };
+    void set_segments(std::list<Segment> other) {
+       segments.clear();
+       segments.insert(segments.end(), other.begin(), other.end());
+    };
   protected:
     bool write_data(std::string line);
   private:
