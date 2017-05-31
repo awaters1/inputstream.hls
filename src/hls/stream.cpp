@@ -11,7 +11,8 @@ playlist(playlist),
 media_sequence(media_sequence),
 segments(playlist.get_segments().begin(), playlist.get_segments().end()),
 live(playlist.live),
-download_itr(segments.end()) {
+download_itr(segments.end()),
+set_promise(false) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream", __FUNCTION__);
 }
 
@@ -28,6 +29,16 @@ segment_storage(new SegmentStorage(downloader, stream.get())),
 demux(new Demux(segment_storage.get()))
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting stream container", __FUNCTION__);
+}
+
+void Stream::wait_for_playlist(std::promise<void> promise) {
+  std::lock_guard<std::mutex> lock(data_mutex);
+  if (segments.empty()) {
+    set_promise = true;
+    segment_promise = std::move(promise);
+  } else {
+    promise.set_value();
+  }
 }
 
 bool Stream::is_live() {
@@ -127,6 +138,10 @@ void Stream::merge(hls::MediaPlaylist &other_playlist) {
         segments.pop_front();
       }
     }
+  }
+  if (!segments.empty() && set_promise) {
+    segment_promise.set_value();
+    set_promise = false;
   }
 }
 

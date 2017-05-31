@@ -30,6 +30,7 @@ public:
     playlist.set_segments(segments);
     return playlist;
   }
+  void wait_for_playlist(std::promise<void> promise);
 public:
   bool is_live();
   bool empty();
@@ -47,6 +48,8 @@ private:
   bool live;
   std::list<hls::Segment>::const_iterator download_itr;
   std::mutex data_mutex;
+  bool set_promise;
+  std::promise<void> segment_promise;
 };
 
 class StreamContainer {

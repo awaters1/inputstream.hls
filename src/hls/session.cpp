@@ -183,14 +183,12 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     double desired = time / 1000.0;
 
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
-    if (active_stream->get_stream()->is_live()) {
-        if (active_stream->get_stream()->empty()) {
-            // Cannot seek if there are no segments
-            return false;
-        }
-    } else if (active_stream->get_stream()->empty()) {
-        // TODO: Wait until the playlist is loaded before trying to seek
-        // active_demux->wait_for_playlist();
+    if (active_stream->get_stream()->empty()) {
+      std::promise<void> promise;
+      std::future<void> future = promise.get_future();
+      active_stream->get_stream()->wait_for_playlist(std::move(promise));
+      future.wait();
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Playlist is ready", __FUNCTION__);
     }
 
     if (active_stream->get_stream()->empty()) {

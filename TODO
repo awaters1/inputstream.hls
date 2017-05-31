@@ -9,6 +9,8 @@ and kodi ends up skipping or fast forwarding
 sure if they are caused by the demuxing process or just the video syncing
 (caused by my computer, doesn't happen on dedicated kodi box)
 
+Test
+1. Loss of network
 
 Bugs
 1. Seek To position when starting a video

@@ -304,7 +304,11 @@ bool Demux::Process()
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
   if (ret < 0) {
-    quit_processing = true;
+    {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      quit_processing = true;
+    }
+    read_demux_cv.notify_all();
   }
   return ret >= 0 ? true : false;
 }
