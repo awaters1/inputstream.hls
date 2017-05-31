@@ -53,7 +53,7 @@ public:
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
-  DemuxContainer Read(bool remove_packet = false);
+  DemuxContainer Read(bool remove_packet = true);
 
   double get_percentage_packet_buffer_full() { return writePacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   uint32_t get_current_media_sequence();

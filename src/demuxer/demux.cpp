@@ -268,10 +268,7 @@ bool Demux::Process()
           include_discontinuity = false;
         }
         update_timing_data(demux_container);
-        if (dxp) {
-          push_stream_data(demux_container);
-//          xbmc->Log(LOG_NOTICE, LOGTAG "%s: Adding packet %d", __FUNCTION__, m_demuxPacketBuffer.size());
-        }
+        push_stream_data(demux_container);
       }
     }
     if (m_AVContext->HasPIDPayload())
