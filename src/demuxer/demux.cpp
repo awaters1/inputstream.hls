@@ -570,7 +570,6 @@ bool Demux::update_pvr_stream(uint16_t pid)
 
 void Demux::update_timing_data(DemuxContainer &demux_container) {
   double current_time_ms = (double)m_readTime / 1000.0;
-  // TODO: Duplicated in Process();
   if (current_time_ms > INT_MAX)
     current_time_ms = INT_MAX;
   demux_container.current_time = (int) current_time_ms;
