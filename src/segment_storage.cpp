@@ -95,9 +95,8 @@ bool SegmentStorage::has_data(uint64_t pos, size_t size) {
   return pos >= offset && ((pos - offset) + size) <= (get_size());
 }
 
-// TODO: This should have a timeout like 1 second or something so we don't stall
-// when there are errors
 hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read) {
+  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
   size_t desired_size = size;
   size_t data_read = 0;
   hls::Segment segment = read_impl(pos, size, destination);
@@ -124,8 +123,17 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
     size = desired_size - data_read;
     segment = read_impl(pos + data_read, size, destination + data_read);
     data_read += size;
+    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+    if (duration >= READ_TIMEOUT_MS) {
+        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "%s Read timeout", __FUNCTION__);
+        break;
+    }
   }
   size = data_read;
+  if (!segment.valid) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s segment is invalid", __FUNCTION__);
+  }
   return segment;
 }
 
@@ -192,6 +200,9 @@ hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * con
 //    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Read %d bytes at %d", __FUNCTION__, data_read, pos);
   }
   size = data_read;
+  if (!first_segment.valid) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s First segment is invalid", __FUNCTION__);
+  }
   return first_segment;
 }
 
@@ -218,6 +229,7 @@ void SegmentStorage::download_next_segment() {
        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment starting at beginning");
     }
   }
+  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(data_lock);
@@ -271,6 +283,14 @@ void SegmentStorage::download_next_segment() {
     }
 
     if (!stream->has_download_item()) {
+      std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+      float target_duration = stream->get_playlist().get_segment_target_duration() / 2.0;
+      if (duration <= target_duration) {
+          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Sleeping thread for about %f", target_duration);
+          std::this_thread::sleep_for(
+              std::chrono::milliseconds((int) target_duration * 1000 - duration));
+      }
       reload_playlist(stream, downloader);
       if (!stream->is_live()) {
         std::lock_guard<std::mutex> lock(data_lock);
