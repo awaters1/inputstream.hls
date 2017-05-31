@@ -53,10 +53,10 @@ public:
   INPUTSTREAM_INFO* GetStreams();
   void Flush();
   void Abort();
-  DemuxContainer Read();
+  DemuxContainer Read(bool remove_packet = false);
 
   double get_percentage_packet_buffer_full() { return writePacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
-  int32_t get_current_media_sequence();
+  uint32_t get_current_media_sequence();
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
   bool Process();

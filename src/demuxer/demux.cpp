@@ -116,8 +116,8 @@ Demux::~Demux()
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct demux", __FUNCTION__);
   {
-    std::lock_guard<std::mutex> lock(demux_mutex);
-    std::lock_guard<std::mutex> lock(initial_setup_mutex);
+    std::lock_guard<std::mutex> lock1(demux_mutex);
+    std::lock_guard<std::mutex> lock2(initial_setup_mutex);
     quit_processing = true;
   }
   initial_setup_cv.notify_all();
@@ -357,7 +357,7 @@ void Demux::Abort()
   m_streamIds.m_streamCount = 0;
 }
 
-DemuxContainer Demux::Read()
+DemuxContainer Demux::Read(bool remove_packet)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   if (readPacketBuffer.empty()) {
@@ -378,7 +378,9 @@ DemuxContainer Demux::Read()
     demux_cv.notify_all();
   }
   DemuxContainer packet = readPacketBuffer.front();
-  readPacketBuffer.pop_front();
+  if (remove_packet) {
+      readPacketBuffer.pop_front();
+  }
   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
 
@@ -387,17 +389,9 @@ DemuxContainer Demux::Read()
 //  }
   return packet;
 }
-// TODO: Combine with Read somehow?
-int32_t Demux::get_current_media_sequence() {
-  std::unique_lock<std::mutex> lock(demux_mutex);
-  while(writePacketBuffer.empty()) {
-    if (m_isStreamDone) {
-      return -1;
-    }
-    read_demux_cv.wait(lock);
-  }
-  DemuxContainer packet = writePacketBuffer.front();
-  return packet.segment.media_sequence;
+
+uint32_t Demux::get_current_media_sequence() {
+  return Read(false).segment.media_sequence;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
