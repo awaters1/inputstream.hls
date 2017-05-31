@@ -16,6 +16,9 @@ download_itr(segments.end()) {
 }
 
 Stream::~Stream() {
+  if (live) {
+    playlist.set_segments(std::list<hls::Segment>());
+  }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct stream", __FUNCTION__);
 }
 

@@ -27,9 +27,7 @@ public:
   hls::MediaPlaylist &get_updated_playlist() {
     std::lock_guard<std::mutex> lock(data_mutex);
     playlist.live = live;
-    if (!live) {
-      playlist.set_segments(segments);
-    }
+    playlist.set_segments(segments);
     return playlist;
   }
 public:
