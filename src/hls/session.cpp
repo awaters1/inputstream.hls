@@ -69,6 +69,7 @@ void hls::Session::read_next_pkt() {
     if (current_pkt.segment_changed) {
       // So we decide to switch in one segment, then the next segment we switch, this gives the demuxer
       // one segment's worth of time to prepare packets
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Changed to segment %d", current_pkt.segment.media_sequence);
       if (switch_demux && future_stream) {
         // Should only switch if future_demux is at the next segment we are looking for
         if (future_stream->get_demux()->get_current_media_sequence() == current_pkt.segment.media_sequence) {

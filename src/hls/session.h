@@ -27,7 +27,7 @@
 #include "stream.h"
 
 namespace hls {
-  const int SEGMENTS_BEFORE_SWITCH = 10;
+  const int SEGMENTS_BEFORE_SWITCH = 5;
 
   class Session {
   public:

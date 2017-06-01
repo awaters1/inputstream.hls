@@ -282,10 +282,10 @@ void SegmentStorage::download_next_segment() {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
     }
 
-    if (!stream->has_download_item()) {
-      std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
-      float target_duration = stream->get_playlist().get_segment_target_duration() / 2.0;
+    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+    float target_duration = stream->get_playlist().get_segment_target_duration() / 2.0;
+    if (!stream->has_download_item() || duration >= target_duration) {
       if (duration <= target_duration) {
           xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Sleeping thread for about %f", target_duration);
           std::this_thread::sleep_for(

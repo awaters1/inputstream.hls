@@ -203,8 +203,8 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
         processed_discontinuity = true;
       }
     }
-    xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d %s", __FUNCTION__, m_av_pos,
-                  current_segment.media_sequence, current_segment.get_url().c_str());
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d", __FUNCTION__, m_av_pos,
+                  current_segment.media_sequence);
   }
   if (len == 0) {
     m_isStreamDone = true;
@@ -263,11 +263,11 @@ bool Demux::Process()
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         demux_container.pcr = pkt.pcr;
+        update_timing_data(demux_container);
         if (m_segmentChanged) {
           m_segmentChanged = false;
           include_discontinuity = false;
         }
-        update_timing_data(demux_container);
         push_stream_data(demux_container);
       }
     }
@@ -356,7 +356,7 @@ DemuxContainer Demux::Read(bool remove_packet)
     while(readPacketBuffer.empty() && !quit_processing) {
       std::unique_lock<std::mutex> lock(demux_mutex);
       read_demux_cv.wait(lock, [&] {
-        return quit_processing || !writePacketBuffer.empty();
+        return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
       });
       readPacketBuffer.swap(writePacketBuffer);
 //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
