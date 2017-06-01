@@ -55,6 +55,7 @@ private:
   size_t get_size();
   bool can_download_segment();
   void download_next_segment();
+  void reload_playlist_thread();
   void process_data(DataHelper &data_helper, std::string data);
 private:
   uint64_t offset;
@@ -74,4 +75,7 @@ private:
   std::thread download_thread;
   std::mutex data_lock;
   std::condition_variable data_cv;
+
+  std::condition_variable reload_cv;
+  std::thread reload_thread;
 };
