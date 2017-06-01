@@ -1,4 +1,4 @@
-
+1. Need to reload in the background incase the user pauses during a live stream
 3. See if there is a way to handle when the bandwidth drops to very low levels
 and kodi ends up skipping or fast forwarding
 
