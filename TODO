@@ -1,5 +1,4 @@
-2. Seek when starting a stream (for non-live streams)
-(need some way to notify the seek that the playlist has been loaded)
+
 3. See if there is a way to handle when the bandwidth drops to very low levels
 and kodi ends up skipping or fast forwarding
 
@@ -13,8 +12,6 @@ Test
 1. Loss of network
 
 Bugs
-1. Seek To position when starting a video
-causes a SIGSEV because there are no segments in the playlist
 
 
 4. Need to be able to quit everything instead of stalling sometimes when we want to exit
@@ -28,7 +25,6 @@ like when downloading
 
 Seeking
 1. Cache file downloads
-2. Fix atomic_bool and mutex locking of threads
 
 Release TODO:
 1. Testing
