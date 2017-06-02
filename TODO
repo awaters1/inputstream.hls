@@ -1,4 +1,6 @@
-1. Need to reload in the background incase the user pauses during a live stream
+1. When coming back from a commercial it doesn't always start playing
+2. Seeking is laggy - not sure if it is network or something else
+3. The time seems to become off sometimes
 3. See if there is a way to handle when the bandwidth drops to very low levels
 and kodi ends up skipping or fast forwarding
 

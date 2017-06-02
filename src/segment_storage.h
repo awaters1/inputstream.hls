@@ -29,7 +29,7 @@
 class Stream;
 
 const size_t MAX_SEGMENTS = 1;
-const size_t READ_TIMEOUT_MS = 10000;
+const size_t READ_TIMEOUT_MS = 60000;
 
 struct DataHelper {
   std::string aes_uri;
