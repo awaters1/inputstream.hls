@@ -1,8 +1,10 @@
 1. When coming back from a commercial it doesn't always start playing
-2. Seeking is laggy - not sure if it is network or something else (seems to work fine on my computer)
-3. The time seems to become off sometimes (it is because it switches the playlist)
+2. Make it so we don't switch streams so aggresively based on the bandwidth amount
+
 3. See if there is a way to handle when the bandwidth drops to very low levels
 and kodi ends up skipping or fast forwarding
+(maybe send empty demux packets?)
+4. Maybe continue to load the variant playlist in the background because seeking is lost when swithching streams
 
 1. Find out when a playlist is invalid
 

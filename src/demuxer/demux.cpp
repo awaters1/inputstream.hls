@@ -353,14 +353,12 @@ DemuxContainer Demux::Read(bool remove_packet)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   if (readPacketBuffer.empty()) {
-    while(readPacketBuffer.empty() && !quit_processing) {
-      std::unique_lock<std::mutex> lock(demux_mutex);
-      read_demux_cv.wait(lock, [&] {
-        return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
-      });
-      readPacketBuffer.swap(writePacketBuffer);
+    std::unique_lock<std::mutex> lock(demux_mutex);
+    read_demux_cv.wait_for(lock, std::chrono::milliseconds(100), [&] {
+      return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
+    });
+    readPacketBuffer.swap(writePacketBuffer);
 //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
-    }
   }
   if (quit_processing) {
     DemuxContainer container;
@@ -368,6 +366,12 @@ DemuxContainer Demux::Read(bool remove_packet)
   }
   if (readPacketBuffer.size() / (double) MAX_DEMUX_PACKETS < 0.5) {
     demux_cv.notify_all();
+  }
+  if (readPacketBuffer.empty()) {
+    xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
+    DemuxContainer container;
+    container.demux_packet = ipsh->AllocateDemuxPacket(0);
+    return container;
   }
   DemuxContainer packet = readPacketBuffer.front();
   if (remove_packet) {

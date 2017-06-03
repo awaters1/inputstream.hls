@@ -122,8 +122,8 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   bool switch_up = true;
   if (active_stream) {
     bandwith_of_current_stream = active_stream->get_stream()->get_playlist().bandwidth;
-    // TODO: Also update this to detect a falling packet buffer
-    if (average_bandwidth <= bandwith_of_current_stream) {
+    // TODO: Also update this to detect stalls in the demux waiting for packets
+    if (average_bandwidth <= (bandwith_of_current_stream * .9)) {
       switch_up = false;
       bandwith_of_current_stream = 0;
     }
