@@ -17,9 +17,6 @@ set_promise(false) {
 }
 
 Stream::~Stream() {
-  if (live) {
-    playlist.set_segments(std::list<hls::Segment>());
-  }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct stream", __FUNCTION__);
 }
 
@@ -117,9 +114,11 @@ void Stream::merge(hls::MediaPlaylist &other_playlist) {
     uint32_t last_added_sequence(0);
     uint32_t last_media_sequence(segments.back().media_sequence);
     double time_in_playlist_offset = segments.back().time_in_playlist + segments.back().duration;
+    double time_in_playlist = 0;
     for(auto it = other_segments.begin(); it != other_segments.end(); ++it) {
        if (it->media_sequence > last_media_sequence) {
-         it->time_in_playlist = it->time_in_playlist + time_in_playlist_offset;
+         it->time_in_playlist = time_in_playlist + time_in_playlist_offset;
+         time_in_playlist += it->duration;
          segments.push_back(*it);
          last_added_sequence = it->media_sequence;
          if (added_segments < 10) {
