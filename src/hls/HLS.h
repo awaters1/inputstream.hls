@@ -84,6 +84,9 @@ namespace hls
     bool operator!=(const MediaPlaylist& rhs){
       return this->get_url() != rhs.get_url();
     }
+    bool operator==(const MediaPlaylist& rhs) {
+      return this->get_url() == rhs.get_url();
+    }
     uint32_t bandwidth;
     std::string program_id;
     bool encrypted;
@@ -98,6 +101,9 @@ namespace hls
     void set_segments(std::list<Segment> other) {
        segments.clear();
        segments.insert(segments.end(), other.begin(), other.end());
+    };
+    void clear_segments() {
+      segments.clear();
     };
   protected:
     bool write_data(std::string line);

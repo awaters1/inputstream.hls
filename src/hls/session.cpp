@@ -88,6 +88,8 @@ void hls::Session::read_next_pkt() {
               xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Cancelling switch");
               delete future_stream.release();
             }
+            switch_streams(current_pkt.segment.media_sequence + 1);
+            switch_demux = !(future_stream == nullptr);
         }
       } else {
         switch_streams(current_pkt.segment.media_sequence + 1);
@@ -112,7 +114,7 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 // 2. If we able to keep our buffer full in active_segment_controller
 // 3. If we stalled at all in get next segment
 void hls::Session::switch_streams(uint32_t media_sequence) {
-  if (future_stream || (media_sequence != 0 && media_sequence < last_switch_sequence + SEGMENTS_BEFORE_SWITCH)) {
+  if ((media_sequence != 0 && media_sequence < last_switch_sequence + SEGMENTS_BEFORE_SWITCH)) {
     // Skip stream switch if we are in the middle of one
     return;
   }
@@ -123,13 +125,13 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   if (active_stream) {
     bandwith_of_current_stream = active_stream->get_stream()->get_playlist().bandwidth;
     // TODO: Also update this to detect stalls in the demux waiting for packets
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d current: %d",
+        stall_counter, active_stream->get_demux()->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence,
+        bandwith_of_current_stream);
     if (average_bandwidth <= (bandwith_of_current_stream * .9)) {
       switch_up = false;
       bandwith_of_current_stream = 0;
     }
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d current: %d",
-        stall_counter, active_stream->get_demux()->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence,
-        bandwith_of_current_stream);
   }
   std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
   auto next_active_playlist = media_playlists.end();
@@ -149,12 +151,22 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   if (active_stream && next_active_playlist != media_playlists.end() &&
       *next_active_playlist != active_stream->get_stream()->get_playlist()) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %d %s", next_active_playlist->bandwidth, next_active_playlist->get_url().c_str());
-    future_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), media_sequence));
+    if (future_stream && *next_active_playlist == future_stream->get_stream()->get_playlist()) {
+      // Ignore switch to the current playlist
+    } else {
+      if (next_active_playlist->live) {
+        next_active_playlist->clear_segments();
+      }
+      future_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), media_sequence));
+    }
   } else if (!active_stream) {
     if (next_active_playlist == media_playlists.end()) {
       next_active_playlist = media_playlists.begin();
     }
     active_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), 0));
+  } else if (next_active_playlist != media_playlists.end() && *next_active_playlist == active_stream->get_stream()->get_playlist() && future_stream){
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Cancelling playlist switch because it is the current one");
+      delete future_stream.get();
   }
 }
 
