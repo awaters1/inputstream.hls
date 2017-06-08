@@ -32,7 +32,7 @@ before_script:
 script: make package-addons
 before_deploy:
 - cd "$TRAVIS_BUILD_DIR/zips" 
-- mv "${app_id}-*.zip" "${app_id}-$TRAVIS_OS_NAME.zip"
+- mv ${app_id}-*.zip "${app_id}-$TRAVIS_OS_NAME.zip"
 deploy:
   provider: releases
   api_key:
