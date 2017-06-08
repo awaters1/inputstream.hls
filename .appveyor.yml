@@ -34,8 +34,8 @@ build_script:
             -DADDONS_TO_BUILD="$env:APPVEYOR_PROJECT_NAME" `
             -DCMAKE_INSTALL_PREFIX="$env:ROOT\addons" `
             -DCMAKE_BUILD_TYPE="$env:CONFIG" `
-            -DCMAKE_USER_MAKE_RULES_OVERRIDE="$env:KODI\cmake\scripts\windows\CFlagOverrides.cmake" `
-            -DCMAKE_USER_MAKE_RULES_OVERRIDE_CXX="$env:KODI\cmake\scripts\windows\CXXFlagOverrides.cmake" `
+            -DCMAKE_USER_MAKE_RULES_OVERRIDE="$env:KODI\project\cmake\scripts\windows\CFlagOverrides.cmake" `
+            -DCMAKE_USER_MAKE_RULES_OVERRIDE_CXX="$env:KODI\project\cmake\scripts\windows\CXXFlagOverrides.cmake" `
             -DPACKAGE_ZIP=ON `
             -DPACKAGE_DIR="$env:ROOT\zips" `
             "$env:KODI\project\cmake\addons"
@@ -50,3 +50,13 @@ after_build:
       mv "$env:APPVEYOR_PROJECT_NAME-*.zip" "$env:APPVEYOR_PROJECT_NAME-$env:ARCH.zip"
       Get-ChildItem *.zip | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
 test: off
+
+deploy:
+  # https://www.appveyor.com/docs/deployment/github/
+  - provider: GitHub
+    auth_token:
+      secure: KZbVkCGeTgltFcBASPZvMGl0SKPenhAqvnM3aUI+jrchXDxHs99aXF2GhzV/Y2R2
+    artifact: /$(appveyor_project_name)-.*\.zip/
+    draft: true
+    on:
+      appveyor_repo_tag: true # tags only
