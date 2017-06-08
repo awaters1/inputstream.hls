@@ -40,3 +40,4 @@ inputstream.mpd as a base for the project
 [bento4 library](https://www.bento4.com/) For me the best library choice for mp4 streams. Well written and extensible!
 
 ##### Continuous integration:
+[![Build Status](https://travis-ci.org/awaters1/inputstream.hls.svg?branch=master)](https://travis-ci.org/awaters1/inputstream.hls)
