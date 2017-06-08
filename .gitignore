@@ -13,7 +13,7 @@ debian/kodi-inputstream-mpd.substvars
 debian/kodi-inputstream-mpd/
 debian/tmp/
 obj-x86_64-linux-gnu/
-inputstream.mpd/addon.xml
+inputstream.hls/addon.xml
 
 # clion
 .idea/
