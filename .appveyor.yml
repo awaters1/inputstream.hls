@@ -48,5 +48,3 @@ after_build:
       mv "$env:APPVEYOR_PROJECT_NAME-*.zip" "$env:APPVEYOR_PROJECT_NAME-$env:ARCH.zip"
       Get-ChildItem *.zip | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
 test: off
-
-appveyor_repo_tag: true # tags only
