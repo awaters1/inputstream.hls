@@ -140,14 +140,14 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
 
 hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * const destination) {
   std::lock_guard<std::mutex> lock(data_lock);
-  size_t destination_offset = 0;
+  uint64_t destination_offset = 0;
   uint32_t current_read_segment_index = read_segment_data_index;
   uint64_t next_offset = offset;
   hls::Segment first_segment;
-  size_t data_read = 0;
-  size_t wanted_data = size;
+  uint64_t data_read = 0;
+  uint64_t wanted_data = size;
   while(size > 0) {
-    size_t relative_offset;
+    uint64_t relative_offset;
     if (pos >= next_offset) {
       relative_offset = pos - next_offset;
     } else {

@@ -57,7 +57,7 @@ namespace hls
     friend class MediaPlaylist;
   public:
     Segment();
-    float duration;
+    double duration;
     double time_in_playlist; // when the segment is in the playlist
     std::string description;
     uint32_t media_sequence;
@@ -109,7 +109,7 @@ namespace hls
     bool write_data(std::string line);
   private:
     bool in_segment;
-    float segment_target_duration;
+    double segment_target_duration;
     uint32_t starting_media_sequence;
     uint32_t current_media_sequence;
     std::vector<Segment> segments;

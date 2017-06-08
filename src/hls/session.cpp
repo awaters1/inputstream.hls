@@ -210,8 +210,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
 
     hls::Segment seek_to = active_stream->get_stream()->find_segment_at_time(desired);
-    uint64_t new_time = seek_to.time_in_playlist;
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", (double)new_time);
+    double new_time = seek_to.time_in_playlist;
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
 
     hls::MediaPlaylist &active_playlist = active_stream->get_stream()->get_updated_playlist();
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Using playlist %s", active_playlist.get_url().c_str());
@@ -226,7 +226,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
     m_startdts = m_startpts = DVD_NOPTS_VALUE;
 
-    *startpts = (double) (new_time * DVD_TIME_BASE);
+    *startpts = (new_time * DVD_TIME_BASE);
 
     // Cancel any stream switches
     switch_demux = false;
