@@ -23,6 +23,7 @@ build_script:
       # download kodi
       git clone -q --branch="$env:KODI_BRANCH" --depth=1 https://github.com/xbmc/xbmc.git
       $env:KODI = "$env:ROOT\xbmc"
+      cp -R $env:ROOT\kodi\ $env:KODI\project\cmake\addons\addons\
       # create build directory
       md -force "$env:ROOT\build"
       pushd "$env:ROOT\build"
@@ -36,7 +37,7 @@ build_script:
             -DCMAKE_USER_MAKE_RULES_OVERRIDE_CXX="$env:KODI\cmake\scripts\windows\CXXFlagOverrides.cmake" `
             -DPACKAGE_ZIP=ON `
             -DPACKAGE_DIR="$env:ROOT\zips" `
-            "$env:KODI\cmake\addons"
+            "$env:KODI\project\cmake\addons"
 
       # build
       cmd /c 'cmake --build . -- package-addons 2>&1'
