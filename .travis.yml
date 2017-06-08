@@ -1,51 +1,42 @@
 language: cpp
-
-#
-# Define the build matrix
-#
-# Travis defaults to building on Ubuntu Precise when building on 
-# Linux. We need Trusty in order to get up to date versions of 
-# cmake and g++.
-#
 env:
   global:
-    - app_id=inputstream.hls
-    
+  - app_id=inputstream.hls
 matrix:
   include:
-    - os: linux
-      dist: trusty    
-      sudo: required
-      compiler: gcc
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-6
-      env:
-        - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
-    - os: osx
-      osx_image: xcode7.3
-
-#
-# Some of the OS X images don't have cmake, contrary to what people 
-# on the Internet say
-#
+  - os: linux
+    dist: trusty
+    sudo: required
+    compiler: gcc
+    addons:
+      apt:
+        sources:
+        - ubuntu-toolchain-r-test
+        packages:
+        - g++-6
+    env:
+    - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
+  - os: osx
+    osx_image: xcode7.3
 before_install:
-  - eval "${MATRIX_EVAL}"
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew update        ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew install cmake ; fi
-
-#
-# The addon source is automatically checked out in $TRAVIS_BUILD_DIR,
-# we'll put the Kodi source on the same level
-#
+- eval "${MATRIX_EVAL}"
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew update        ; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew install cmake ; fi
 before_script:
-  - cd $TRAVIS_BUILD_DIR/..
-  - git clone --depth=1 https://github.com/xbmc/xbmc.git -b Krypton
-  - cp -R ${app_id}/kodi/ $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons/addons/
-  - cd ${app_id} && mkdir build && cd build
-  - cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=$TRAVIS_BUILD_DIR/.. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/../xbmc/addons -DPACKAGE_ZIP=1 $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons
-
+- cd $TRAVIS_BUILD_DIR/..
+- git clone --depth=1 https://github.com/xbmc/xbmc.git -b Krypton
+- cp -R ${app_id}/kodi/ $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons/addons/
+- cd ${app_id} && mkdir build && cd build
+- cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=$TRAVIS_BUILD_DIR/.. -DCMAKE_BUILD_TYPE=Debug
+  -DCMAKE_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/../xbmc/addons -DPACKAGE_ZIP=1 $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons
 script: make
+before_deploy:
+- pushd "$TRAVIS_BUILD_DIR/../xbmc/addons/zips" mv "${app_id}-*.zip" "${app_id}-$TRAVIS_OS_NAME.zip"
+- 4866207b1f8aa9fc52f7302555d91ee7bf9059c4
+deploy:
+  provider: releases
+  api_key:
+    secure: gVWe3kNqk27tKkBK6ddu+OU3riLU/PFYrEHUaPhkMPc2WLd7z/E1YHi49IOLukIw15tWOR/qghJOeP/xY9C2zugGo9rwmybyvWrIPAzqljeBz0e3KtmJn6LbXYoPz0HY9ezV4Qvtcm5eHgWkLD1yAsh7w8HLiDDRSpT8o0BYyqEvwD+j1MJnpTNJFr4G+z8raMmUxoVvF20we9HMHhaQxm0zf6I83eY7sIdEwIC90GU5bXXLrw0iGNkG/YVodJi49rBtXD6c6w/OfK9iRDMhJpZpiiplEWHbfOSQS4iSYkRdFGQiu6DcgWg8IFVwR+IoCAu/9vhcZu2QZ3QeCRMhYC19JgpWKNC7dhyXHRxcjFXWsRPgIdNHmUoDmrorfzvYDhoqnNThyiEyFzHlP9HaIrJtwRiMBDgb9DlzIv98OqkMeVpKsE6L2cufhHZyqHgXvyfmPbctyBRJE5CFoPOfbwtqVfT253f5g6PkWXkKw7am42pWnpRzojrnHvuZlHYBnqa6sdBx6tMjHH+Lu4amVWeZ/RAvfd9G4PTvMC0HJgvAhJPqX0RS57hwo1UWPEYLkLIXcRdDda2LGvq9tnvWy7nmaYG11IczXfFgs6PrjJ0wXiwXBtx58WWyftgiDhX5ebcbKA7Z+XANe52Hl5EXFkWc1t6TMSaUvPhEyw5uYPA=
+  file: "$TRAVIS_BUILD_DIR/../xbmc/addons/zips/${app_id}-$TRAVIS_OS_NAME.zip"
+  on:
+    repo: awaters1/inputstream.hls
