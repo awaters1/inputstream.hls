@@ -12,6 +12,7 @@
 ```inputstream.hls https://github.com/awaters1/inputstream.hls master```
 3. Also create a file platforms.txt with the contents
 ```all```
+(see https://github.com/awaters1/inputstream.hls/tree/master/kodi/inputstream.hls for samples)
 
 # Build Addon
 
