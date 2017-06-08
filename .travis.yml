@@ -29,10 +29,10 @@ before_script:
 - cd ${app_id} && mkdir build && cd build
 - cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=$TRAVIS_BUILD_DIR/.. -DCMAKE_BUILD_TYPE=Debug
   -DCMAKE_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/../xbmc/addons -DPACKAGE_ZIP=1 $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons
-script: make
+script: make package-addons
 before_deploy:
-- pushd "$TRAVIS_BUILD_DIR/../xbmc/addons/zips" mv "${app_id}-*.zip" "${app_id}-$TRAVIS_OS_NAME.zip"
-- 4866207b1f8aa9fc52f7302555d91ee7bf9059c4
+- pushd "$TRAVIS_BUILD_DIR/../xbmc/addons/zips" 
+- mv "${app_id}-*.zip" "${app_id}-$TRAVIS_OS_NAME.zip"
 deploy:
   provider: releases
   api_key:
