@@ -35,7 +35,6 @@ set(HLS_SOURCES
     src/demuxer/ES_Subtitle.cpp
     src/demuxer/ES_Teletext.cpp
     src/demuxer/tsDemuxer.cpp
-    src/ring_buffer.cpp
     src/segment_storage.cpp
 )
 
@@ -76,8 +75,6 @@ add_executable(inputstreamhlstest
     src/helpers.cpp
     src/downloader/file_downloader.cpp
     test/helpers.cpp
-    src/ring_buffer.cpp
-    test/ring_buffer_test.cpp
     test/global.cpp
     test/segment_storage_test.cpp
     src/segment_storage.cpp
