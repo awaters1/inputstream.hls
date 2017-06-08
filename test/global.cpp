@@ -51,6 +51,10 @@ void IPSH_free_demux_packet_stub(void* HANDLE, void* CB, DemuxPacket* pPacket) {
   delete pPacket;
 }
 
+int dlclose (void *__handle) {
+
+}
+
 class IPSH_Proxy : public CHelper_libKODI_inputstream {
 public:
   IPSH_Proxy() {
