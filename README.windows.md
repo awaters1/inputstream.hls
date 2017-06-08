@@ -1,16 +1,24 @@
-# Setup on windows
+# Setup Software
 
-1. Download and install MinGW
-2. Make sure C:\MinGW\bin is in your PATH
+1. Download visual studio c++ build tools 2015 (http://landinghub.visualstudio.com/visual-cpp-build-tools)
+2. Download git for windows (https://git-scm.com/download/win)
+3. Download cmake (https://cmake.org/download/)
+4. Download the Kodi source as a zip from github
 
-1. Download and install CMAKE (https://cmake.org/download/)
-2. git clone or download the zip of the repository
-3. In CMake's GUI choose the source folder as the one that contains this readme
-4. Choose something like build as the build directory
+# Setup Addon
 
+1. Create the inputstream.hls directory in the addons dir  xbmc-Krypton\project\cmake\addons\addons
+2. Within that directory create a file inputstream.hls.txt with the contents
+```inputstream.hls https://github.com/awaters1/inputstream.hls master```
+3. Also create a file platforms.txt with the contents
+```all```
 
-1. Download kodi source
+# Build Addon
 
-# References
-1. https://forum.kodi.tv/showthread.php?tid=219166 (Develop PVR addons with new cmake build system)
-2. http://kodi.wiki/view/HOW-TO:Compile_Kodi_for_Windows
+1. Open the Visual C++ 2015 x86 native build tools command prompt
+2. Within the Kodi source directory navigate to tools/buildsteps/win32/
+3. Run the batch file make-addons.bat inputstream.hls
+
+This will clone the repository and its dependencies and continue to run the build.  It should
+put the final artifacts into xbmc-Krypton/project/Win32BuildSetup/BUILD_WIN32/addons/inputstream.hls. 
+Copy that directory into the Kodi installation directory and enable within Kodi itself
