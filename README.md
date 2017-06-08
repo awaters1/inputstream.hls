@@ -26,9 +26,6 @@ AES block level decrypting is implemented through Bento
 When using inputstream.hls the first time, the selection of stream quality / stream resolution is done with a guess of 4MBit/s. This default value will be updated at the time you watch your first movie by measuring the download speed of the media streams.  
 Always you start a new video, the average bandwidth of the previous media watched will be taken to calculate the initial stream representation from the set of existing qualities.  
 If this leads to problems in your environment, you can override / adjust this value using Min. bandwidth in the inputstream.mpd settings dialog. Setting Min. bandwidth e.g. to 10.000.000, the media selection will never be done with a bandwidth value below this value.  
-There is a new Max. resolution select field in the inputstream.mpd settings dialog.
-Auto will select the best resolution matching to your videoplayer display rect without any limits.
-
 
 ##### TODO's:
  
