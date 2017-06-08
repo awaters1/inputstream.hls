@@ -23,7 +23,8 @@ build_script:
       # download kodi
       git clone -q --branch="$env:KODI_BRANCH" --depth=1 https://github.com/xbmc/xbmc.git
       $env:KODI = "$env:ROOT\xbmc"
-      cp -R $env:ROOT\kodi\ $env:KODI\project\cmake\addons\addons\
+      $env:ADDON = "$env:ROOT\$env:APPVEYOR_PROJECT_NAME"
+      cp -R $env:ADDON\kodi\ $env:KODI\project\cmake\addons\addons\
       # create build directory
       md -force "$env:ROOT\build"
       pushd "$env:ROOT\build"
