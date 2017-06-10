@@ -382,7 +382,7 @@ DemuxContainer Demux::Read(bool remove_packet)
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
 
   if (duration > 10000) {
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
+    // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
   }
   return packet;
 }
