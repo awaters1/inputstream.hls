@@ -354,7 +354,7 @@ DemuxContainer Demux::Read(bool remove_packet)
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   if (readPacketBuffer.empty()) {
     std::unique_lock<std::mutex> lock(demux_mutex);
-    read_demux_cv.wait_for(lock, std::chrono::milliseconds(100), [&] {
+    read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
       return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
     });
     readPacketBuffer.swap(writePacketBuffer);
@@ -380,7 +380,7 @@ DemuxContainer Demux::Read(bool remove_packet)
   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
 
-  if (duration > 100) {
+  if (duration > 10000) {
     xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
   }
   return packet;

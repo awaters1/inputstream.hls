@@ -28,7 +28,7 @@
 
 class Stream;
 
-const size_t MAX_SEGMENTS = 1;
+const size_t MAX_SEGMENTS = 2;
 const size_t READ_TIMEOUT_MS = 60000;
 
 struct DataHelper {
