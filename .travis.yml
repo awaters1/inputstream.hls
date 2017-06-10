@@ -7,6 +7,7 @@ env:
 # amd64 toolchain (used as a base for non-sudo compilation, which is faster) 
 include: &toolchain_amd64
   sudo: false
+  dist: trusty
   addons:
     apt:
       sources:
@@ -98,12 +99,12 @@ before_script:
 script: make package-addons
 before_deploy:
 - cd "$TRAVIS_BUILD_DIR/zips" 
-- mv ${app_id}-*.zip "${app_id}-$TRAVIS_OS_NAME.zip"
+- mv ${app_id}-*.zip "${app_id}-$TRAVIS_OS_NAME-$ARCH.zip"
 deploy:
   provider: releases
   api_key:
     secure: gVWe3kNqk27tKkBK6ddu+OU3riLU/PFYrEHUaPhkMPc2WLd7z/E1YHi49IOLukIw15tWOR/qghJOeP/xY9C2zugGo9rwmybyvWrIPAzqljeBz0e3KtmJn6LbXYoPz0HY9ezV4Qvtcm5eHgWkLD1yAsh7w8HLiDDRSpT8o0BYyqEvwD+j1MJnpTNJFr4G+z8raMmUxoVvF20we9HMHhaQxm0zf6I83eY7sIdEwIC90GU5bXXLrw0iGNkG/YVodJi49rBtXD6c6w/OfK9iRDMhJpZpiiplEWHbfOSQS4iSYkRdFGQiu6DcgWg8IFVwR+IoCAu/9vhcZu2QZ3QeCRMhYC19JgpWKNC7dhyXHRxcjFXWsRPgIdNHmUoDmrorfzvYDhoqnNThyiEyFzHlP9HaIrJtwRiMBDgb9DlzIv98OqkMeVpKsE6L2cufhHZyqHgXvyfmPbctyBRJE5CFoPOfbwtqVfT253f5g6PkWXkKw7am42pWnpRzojrnHvuZlHYBnqa6sdBx6tMjHH+Lu4amVWeZ/RAvfd9G4PTvMC0HJgvAhJPqX0RS57hwo1UWPEYLkLIXcRdDda2LGvq9tnvWy7nmaYG11IczXfFgs6PrjJ0wXiwXBtx58WWyftgiDhX5ebcbKA7Z+XANe52Hl5EXFkWc1t6TMSaUvPhEyw5uYPA=
-  file: "$TRAVIS_BUILD_DIR/zips/${app_id}-$TRAVIS_OS_NAME.zip"
+  file: "$TRAVIS_BUILD_DIR/zips/${app_id}-$TRAVIS_OS_NAME-$ARCH.zip"
   skip_cleanup: true
   on:
     repo: awaters1/inputstream.hls
