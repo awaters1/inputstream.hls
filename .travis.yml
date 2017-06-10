@@ -2,26 +2,92 @@ language: cpp
 env:
   global:
   - app_id=inputstream.hls
+  
+# https://github.com/headmelted/vscode/blob/a57e613e9e7d2fdb3917502cb98bbd1eaef8c058/.travis.yml
+# amd64 toolchain (used as a base for non-sudo compilation, which is faster) 
+include: &toolchain_amd64
+  sudo: false
+  addons:
+    apt:
+      sources:
+        - ubuntu-toolchain-r-test
+      packages:
+        - g++-6
+        - g++-6-multilib
+        
+# OSX amd64 toolchain
+include: &toolchain_osx_amd64
+  <<: *toolchain_amd64
+  env:
+    - LABEL=amd64_osx
+    - ARCH=amd64
+    - GPP_COMPILER=g++
+    - GCC_COMPILER=gcc
+        
+# linux amd64 toolchain
+include: &toolchain_linux_amd64
+  <<: *toolchain_amd64
+  env:
+    - LABEL=amd64_linux
+    - ARCH=amd64
+    - GPP_COMPILER=g++-6
+    - GCC_COMPILER=gcc-6
+        
+# cross toolchain (used as a base for multiarch cross-compilation configurations below) 
+include: &toolchain_linux_cross
+  dist: trusty
+  sudo: required # for dpkg --add-architecture locking
+  
+# armhf toolchain
+include: &toolchain_linux_armhf
+  <<: *toolchain_linux_cross
+  env:
+    - LABEL=armhf_linux
+    - CROSS_TOOLCHAIN=true
+    - ARCH=armhf
+    - GNU_TRIPLET=arm-linux-gnueabihf
+    - GNU_MULTILIB_TRIPLET=arm-linux-gnueabihf
+    - GPP_COMPILER=arm-linux-gnueabihf-g++
+    - GCC_COMPILER=arm-linux-gnueabihf-gcc
+  
+# arm64 toolchain
+include: &toolchain_linux_arm64
+  <<: *toolchain_linux_cross
+  env:
+    - LABEL=arm64_linux
+    - CROSS_TOOLCHAIN=true
+    - ARCH=arm64
+    - GNU_TRIPLET=aarch64-linux-gnu
+    - GNU_MULTILIB_TRIPLET=arm-linux-gnueabihf
+    - GPP_COMPILER=aarch64-linux-gnu-g++
+    - GCC_COMPILER=aarch64-linux-gnu-gcc
+
 matrix:
   include:
-  - os: linux
-    dist: trusty
-    sudo: required
-    compiler: gcc
-    addons:
-      apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        packages:
-        - g++-6
-    env:
-    - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
   - os: osx
-    osx_image: xcode7.3
+    <<: *toolchain_osx_amd64
+  - os: linux
+    <<: *toolchain_linux_amd64
+  - os: linux
+    <<: *toolchain_linux_armhf
+  - os: linux
+    <<: *toolchain_linux_arm64
+
 before_install:
-- eval "${MATRIX_EVAL}"
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew update        ; fi
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew install cmake ; fi
+  - export CXX="${GPP_COMPILER}" CC="${GCC_COMPILER}";
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew update        ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cmake || brew install cmake ; fi
+  - if [[ "${CROSS_TOOLCHAIN}" == "true" ]]; then
+      sudo rm -rf /etc/apt/sources.list.d/**;
+      sudo rm /etc/apt/sources.list; 
+      echo "deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu xenial main universe multiverse restricted" | sudo tee /etc/apt/sources.list;
+      echo "deb [arch=${ARCH}] http://ports.ubuntu.com/ubuntu-ports xenial main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list;
+      echo "deb-src http://archive.ubuntu.com/ubuntu xenial main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list;
+      sudo dpkg --add-architecture ${ARCH};
+      sudo apt-get update -yq;
+      sudo apt-get install -y gcc-${GNU_TRIPLET} g++-${GNU_TRIPLET} pkg-config-${GNU_TRIPLET} crossbuild-essential-${ARCH} g++-multilib-${GNU_MULTILIB_TRIPLET} gcc-multilib-${GNU_MULTILIB_TRIPLET} dpkg-dev libgcc1 libgcc1:${ARCH} libc6 libc6:${ARCH} libc6-dev:${ARCH} 
+    fi
+
 before_script:
 - cd $TRAVIS_BUILD_DIR/..
 - git clone --depth=1 https://github.com/xbmc/xbmc.git -b Krypton
