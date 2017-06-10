@@ -215,6 +215,7 @@ void reload_playlist(Stream *stream, Downloader  *downloader) {
        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
      }
      hls::MediaPlaylist new_media_playlist;
+     new_media_playlist.set_url(stream->get_playlist_url());
      new_media_playlist.load_contents(playlist_contents);
      stream->merge(new_media_playlist);
   }
