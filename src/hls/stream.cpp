@@ -73,11 +73,11 @@ void Stream::go_to_next_segment() {
 
 uint64_t Stream::get_total_duration() {
   std::lock_guard<std::mutex> lock(data_mutex);
-  uint64_t total_time = 0;
+  double total_time = 0;
   for(auto it = segments.begin(); it != segments.end(); ++it) {
     total_time += it->duration;
   }
-  return total_time;
+  return (uint64_t) total_time * 1000;
 }
 
 hls::Segment Stream::find_segment_at_time(double time_in_seconds) {

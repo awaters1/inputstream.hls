@@ -340,7 +340,7 @@ extern "C" {
   {
     if (!hls_session)
       return -1;
-    return static_cast<int>(hls_session->get_total_time() * 1000);
+    return static_cast<int>(hls_session->get_total_time());
   }
 
   int GetTime()
