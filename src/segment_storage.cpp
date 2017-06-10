@@ -117,7 +117,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
     download_cv.notify_all();
     std::unique_lock<std::mutex> lock(data_lock);
     data_cv.wait_for(lock, std::chrono::milliseconds(500));
-    if (quit_processing) {
+    if (quit_processing || no_more_data) {
       return segment;
     }
     lock.unlock();
@@ -281,6 +281,9 @@ void SegmentStorage::download_next_segment() {
       end_segment(segment);
       stream->go_to_next_segment();
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
+    } else if (!stream->is_live()) {
+        no_more_data = true;
+        break;
     }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");

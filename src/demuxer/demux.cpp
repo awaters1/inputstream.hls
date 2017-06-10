@@ -360,18 +360,19 @@ DemuxContainer Demux::Read(bool remove_packet)
     readPacketBuffer.swap(writePacketBuffer);
 //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
   }
-  if (quit_processing) {
-    DemuxContainer container;
-    return container;
-  }
   if (readPacketBuffer.size() / (double) MAX_DEMUX_PACKETS < 0.5) {
     demux_cv.notify_all();
   }
   if (readPacketBuffer.empty()) {
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
-    DemuxContainer container;
-    container.demux_packet = ipsh->AllocateDemuxPacket(0);
-    return container;
+    if (quit_processing) {
+      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
+      return DemuxContainer();
+    } else {
+      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
+      DemuxContainer container;
+      container.demux_packet = ipsh->AllocateDemuxPacket(0);
+      return container;
+    }
   }
   DemuxContainer packet = readPacketBuffer.front();
   if (remove_packet) {
