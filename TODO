@@ -1,3 +1,6 @@
+Android addon.xml doesn't have correct library_android or platform android
+Also it may be difficult to install them
+
 1. When coming back from a commercial it doesn't always start playing
 2. Make it so we don't switch streams so aggresively based on the bandwidth amount
 
