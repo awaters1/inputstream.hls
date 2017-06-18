@@ -190,10 +190,24 @@ extern "C" {
     }
     xbmc->Log(ADDON::LOG_DEBUG, "Initial bandwidth: %f ", bandwidth);
 
+    int min_bandwidth(0);
+    xbmc->GetSetting("MINBANDWIDTH", (char*)&min_bandwidth);
+    min_bandwidth = min_bandwidth * 1000;
+    xbmc->Log(ADDON::LOG_DEBUG, "MINBANDWIDTH selected: %d ", min_bandwidth);
+    int max_bandwidth(0);
+    xbmc->GetSetting("MAXBANDWIDTH", (char*)&max_bandwidth);
+    max_bandwidth = max_bandwidth * 1000;
+    xbmc->Log(ADDON::LOG_DEBUG, "MAXBANDWIDTH selected: %d ", max_bandwidth);
+    int buf(0);
+    xbmc->GetSetting("STREAMSELECTION", (char*)&buf);
+    xbmc->Log(ADDON::LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
+    bool manual_streams = buf != 0;
+
     KodiMasterPlaylist master_playlist;
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
-    hls_session = new KodiSession(master_playlist, bandwidth, props.m_profileFolder);
+    hls_session = new KodiSession(master_playlist, bandwidth, props.m_profileFolder,
+        min_bandwidth, max_bandwidth, manual_streams);
 
     return true;
   }

@@ -351,6 +351,7 @@ void Demux::Abort()
 
 DemuxContainer Demux::Read(bool remove_packet)
 {
+  // TODO: Need to do something better to prevent stutters
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   if (readPacketBuffer.empty()) {
     std::unique_lock<std::mutex> lock(demux_mutex);

@@ -28,8 +28,9 @@ class KodiMasterPlaylist : public hls::MasterPlaylist {
 
 class KodiSession : public hls::Session {
 public:
-  KodiSession(KodiMasterPlaylist master_playlist, double bandwidth, std::string profile_path) :
-    hls::Session(master_playlist, new KodiDownloader(bandwidth)),
+  KodiSession(KodiMasterPlaylist master_playlist, double bandwidth, std::string profile_path,
+      int min_bandwidth, int max_bandwidth, bool manual_streams) :
+    hls::Session(master_playlist, new KodiDownloader(bandwidth), min_bandwidth, max_bandwidth, manual_streams),
     profile_path(profile_path) { };
   ~KodiSession();
 protected:

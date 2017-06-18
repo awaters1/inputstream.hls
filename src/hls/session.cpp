@@ -128,19 +128,29 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d current: %d",
         stall_counter, active_stream->get_demux()->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence,
         bandwith_of_current_stream);
-    if (average_bandwidth <= (bandwith_of_current_stream * .9)) {
+    if (average_bandwidth <= (bandwith_of_current_stream * .80)) {
       switch_up = false;
       bandwith_of_current_stream = 0;
     }
   }
+  if (average_bandwidth < min_bandwidth) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Setting average bandwidth to %d", min_bandwidth);
+    average_bandwidth = min_bandwidth;
+  }
+  if (average_bandwidth > max_bandwidth && max_bandwidth != 0) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Setting average bandwidth to %d", max_bandwidth);
+    average_bandwidth = max_bandwidth;
+  }
   std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
   auto next_active_playlist = media_playlists.end();
   for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
-    if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
+    if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth && it->bandwidth >= min_bandwidth &&
+         (it->bandwidth <= max_bandwidth || max_bandwidth == 0)) {
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Up) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
-    } else if (!switch_up && it->bandwidth >= bandwith_of_current_stream && it->bandwidth < average_bandwidth) {
+    } else if (!switch_up && it->bandwidth >= bandwith_of_current_stream && it->bandwidth < average_bandwidth && it->bandwidth >= min_bandwidth &&
+        (it->bandwidth <= max_bandwidth || max_bandwidth == 0)) {
       // Switch down
        bandwith_of_current_stream = it->bandwidth;
        next_active_playlist = it;
@@ -149,7 +159,7 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   }
 
   if (active_stream && next_active_playlist != media_playlists.end() &&
-      *next_active_playlist != active_stream->get_stream()->get_playlist()) {
+      *next_active_playlist != active_stream->get_stream()->get_playlist() && !manual_streams) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %d %s", next_active_playlist->bandwidth, next_active_playlist->get_url().c_str());
     if (future_stream && *next_active_playlist == future_stream->get_stream()->get_playlist()) {
       // Ignore switch to the current playlist
@@ -167,6 +177,8 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
   } else if (next_active_playlist != media_playlists.end() && *next_active_playlist == active_stream->get_stream()->get_playlist() && future_stream){
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Cancelling playlist switch because it is the current one");
       delete future_stream.get();
+  } else {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Not switching playlist manual: %d, min: %d, max: %d", manual_streams, min_bandwidth, max_bandwidth);
   }
 }
 
@@ -238,7 +250,11 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   return false;
 }
 
-hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader) :
+hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
+    int min_bandwidth, int max_bandwidth, bool manual_streams) :
+    min_bandwidth(min_bandwidth),
+    max_bandwidth(max_bandwidth),
+    manual_streams(manual_streams),
     master_playlist(master_playlist),
     active_stream(nullptr),
     future_stream(nullptr),

@@ -31,7 +31,7 @@ namespace hls {
 
   class Session {
   public:
-    Session(MasterPlaylist master_playlist, Downloader *downloader);
+    Session(MasterPlaylist master_playlist, Downloader *downloader, int min_bandwidth, int max_bandwidth, bool manual_streams);
     virtual ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;
@@ -51,6 +51,10 @@ namespace hls {
     // Downloader has to be deleted last
     std::unique_ptr<Downloader> downloader;
   private:
+    int min_bandwidth;
+    int max_bandwidth;
+    bool manual_streams;
+  private:
     void switch_streams(uint32_t media_sequence);
     uint32_t last_switch_sequence;
 
@@ -66,13 +70,6 @@ namespace hls {
 
     DemuxContainer current_pkt;
 
-    typedef struct {
-      double start_pts;
-      double start_dts;
-      double last_pts;
-      double last_dts;
-    } START_POS_ITEM;
-    std::map<uint64_t, START_POS_ITEM> start_map;
     double m_startpts;          ///< start PTS for the program chain
     double m_startdts;          ///< start DTS for the program chain
     uint64_t last_total_time;
