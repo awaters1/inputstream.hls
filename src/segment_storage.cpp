@@ -25,7 +25,6 @@ no_more_data(false) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   download_cv.notify_all();
-  reload_thread = std::thread(&SegmentStorage::reload_playlist_thread, this);
 }
 
 bool SegmentStorage::can_download_segment() {
@@ -91,11 +90,6 @@ size_t SegmentStorage::get_size() {
   return size;
 }
 
-bool SegmentStorage::has_data(uint64_t pos, size_t size) {
-  std::lock_guard<std::mutex> lock(data_lock);
-  return pos >= offset && ((pos - offset) + size) <= (get_size());
-}
-
 hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read) {
   std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
   size_t desired_size = size;
@@ -116,7 +110,7 @@ hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const de
     // xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Waiting for data to be downloaded, pos %d size %d bytes_read %d", __FUNCTION__,pos, size, bytes_read);
     download_cv.notify_all();
     std::unique_lock<std::mutex> lock(data_lock);
-    data_cv.wait_for(lock, std::chrono::milliseconds(500));
+    data_cv.wait_for(lock, std::chrono::milliseconds(100));
     if (quit_processing || no_more_data) {
       return segment;
     }
@@ -207,31 +201,8 @@ hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * con
   return first_segment;
 }
 
-void reload_playlist(Stream *stream, Downloader  *downloader) {
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloading playlist");
-  if (stream->is_live() || stream->empty()) {
-     std::string playlist_contents = downloader->download(stream->get_playlist_url());
-     if (playlist_contents.empty()) {
-       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-     }
-     hls::MediaPlaylist new_media_playlist;
-     new_media_playlist.set_url(stream->get_playlist_url());
-     new_media_playlist.load_contents(playlist_contents);
-     stream->merge(new_media_playlist);
-  }
-}
-
 void SegmentStorage::download_next_segment() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of segments");
-  if (!stream->has_download_item()) {
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Have to reload playlist to get segment");
-    reload_playlist(stream, downloader);
-    stream->reset_download_itr();
-    if (!stream->has_download_item()) {
-       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment starting at beginning");
-    }
-  }
-
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(data_lock);
     download_cv.wait(lock, [&] {
@@ -289,26 +260,6 @@ void SegmentStorage::download_next_segment() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting download thread");
 }
 
-void SegmentStorage::reload_playlist_thread() {
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting reload of threads");
-
-  while(!quit_processing) {
-    double target_duration = stream->get_playlist().get_segment_target_duration() / 2.0;
-    target_duration = std::max(target_duration, 4.0);
-    std::unique_lock<std::mutex> lock(data_lock);
-    reload_cv.wait_for(lock, std::chrono::milliseconds((int) target_duration * 1000), [&] {
-      return quit_processing;
-    });
-
-    if (quit_processing || !stream->is_live()) {
-      break;
-    }
-    lock.unlock();
-    reload_playlist(stream, downloader);
-  }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
-}
-
 void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
   if (data_helper.encrypted) {
     auto aes_key_it = aes_uri_to_key.find(data_helper.aes_uri);
@@ -337,7 +288,6 @@ SegmentStorage::~SegmentStorage() {
   download_cv.notify_all();
   data_cv.notify_all();
   download_thread.join();
-  reload_thread.join();
 }
 
 

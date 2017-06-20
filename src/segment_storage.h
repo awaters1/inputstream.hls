@@ -43,7 +43,6 @@ class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, Stream *stream);
   ~SegmentStorage();
-  bool has_data(uint64_t pos, size_t size);
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same
@@ -55,7 +54,6 @@ private:
   size_t get_size();
   bool can_download_segment();
   void download_next_segment();
-  void reload_playlist_thread();
   void process_data(DataHelper &data_helper, std::string data);
 private:
   uint64_t offset;
@@ -68,6 +66,8 @@ private:
   Downloader *downloader;
   Stream *stream;
 
+  // TODO: This should be shared outside of this to reuse during
+  // stream switching
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   // Download thread
@@ -75,7 +75,4 @@ private:
   std::thread download_thread;
   std::mutex data_lock;
   std::condition_variable data_cv;
-
-  std::condition_variable reload_cv;
-  std::thread reload_thread;
 };

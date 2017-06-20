@@ -11,6 +11,7 @@
 #include "HLS.h"
 #include "../segment_storage.h"
 #include "../demuxer/demux.h"
+#include "playlist_reloader.h"
 
 // Limit to 3000 segments in a playlist
 // would be about 200.0 minutes
@@ -18,18 +19,11 @@ const int SEGMENT_LIST_LIMIT = 3000;
 
 class Stream {
 public:
-  Stream(hls::MediaPlaylist &playlist, uint32_t media_sequence);
+  Stream(ActivePlaylist &playlist, uint32_t media_sequence);
   Stream(const Stream& other) = delete;
   void operator=(const Stream& other) = delete;
   ~Stream();
-  hls::MediaPlaylist &get_playlist() { return playlist; };
-  std::string get_playlist_url() { return playlist.get_url(); };
-  hls::MediaPlaylist &get_updated_playlist() {
-    std::lock_guard<std::mutex> lock(data_mutex);
-    playlist.live = live;
-    playlist.set_segments(segments);
-    return playlist;
-  }
+  ActivePlaylist &get_playlist() { return playlist; };
   void wait_for_playlist(std::promise<void> promise);
 public:
   bool is_live();
@@ -42,10 +36,8 @@ public:
   uint64_t get_total_duration();
   hls::Segment find_segment_at_time(double time_in_seconds);
 private:
-  hls::MediaPlaylist &playlist;
+  ActivePlaylist &playlist;
   uint32_t media_sequence;
-  std::list<hls::Segment> segments;
-  bool live;
   std::list<hls::Segment>::const_iterator download_itr;
   std::mutex data_mutex;
   bool set_promise;
@@ -54,7 +46,7 @@ private:
 
 class StreamContainer {
 public:
-  StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
+  StreamContainer(ActivePlaylist &playlist, Downloader *downloader, uint32_t media_sequence);
   void operator=(const StreamContainer& other) = delete;
   StreamContainer(const StreamContainer& other) = delete;
   Demux *get_demux() { return demux.get(); };

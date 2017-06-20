@@ -6,10 +6,9 @@
 #include "stream.h"
 #define LOGTAG                  "[Stream] "
 
-Stream::Stream(hls::MediaPlaylist &playlist, uint32_t media_sequence) :
+Stream::Stream(ActivePlaylist &playlist, uint32_t media_sequence) :
 playlist(playlist),
 media_sequence(media_sequence),
-segments(playlist.get_segments().begin(), playlist.get_segments().end()),
 live(playlist.live),
 download_itr(segments.end()),
 set_promise(false) {
@@ -20,7 +19,7 @@ Stream::~Stream() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct stream", __FUNCTION__);
 }
 
-StreamContainer::StreamContainer(hls::MediaPlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
+StreamContainer::StreamContainer(ActivePlaylist &playlist, Downloader *downloader, uint32_t media_sequence) :
 stream(new Stream(playlist, media_sequence)),
 segment_storage(new SegmentStorage(downloader, stream.get())),
 demux(new Demux(segment_storage.get()))
@@ -99,48 +98,6 @@ hls::Segment Stream::find_segment_at_time(double time_in_seconds) {
 
 
 void Stream::merge(hls::MediaPlaylist &other_playlist) {
-  std::lock_guard<std::mutex> lock(data_mutex);
-  live = other_playlist.live;
-  auto other_segments = other_playlist.get_segments();
-  if (segments.empty()) {
-    segments.insert(segments.end(), other_segments.begin(), other_segments.end());
-  } else {
-    bool reset = false;
-    if (download_itr == segments.end()) {
-      reset = true;
-      download_itr = --segments.end();
-    }
-    uint32_t added_segments(0);
-    uint32_t last_added_sequence(0);
-    uint32_t last_media_sequence(segments.back().media_sequence);
-    double time_in_playlist_offset = segments.back().time_in_playlist + segments.back().duration;
-    double time_in_playlist = 0;
-    for(auto it = other_segments.begin(); it != other_segments.end(); ++it) {
-       if (it->media_sequence > last_media_sequence) {
-         it->time_in_playlist = time_in_playlist + time_in_playlist_offset;
-         time_in_playlist += it->duration;
-         segments.push_back(*it);
-         last_added_sequence = it->media_sequence;
-         if (added_segments < 10) {
-           xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-         }
-       }
-    }
-    if (reset) {
-      ++download_itr;
-    }
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-    if (download_itr != segments.end()) {
-      while((download_itr->media_sequence - segments.front().media_sequence) >= SEGMENT_LIST_LIMIT && live) {
-        hls::Segment front = segments.front();
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Erasing segment %d", front.media_sequence);
-        segments.pop_front();
-      }
-    }
-  }
-  if (!segments.empty() && set_promise) {
-    segment_promise.set_value();
-    set_promise = false;
-  }
+
 }
 
