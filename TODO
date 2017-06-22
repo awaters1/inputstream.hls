@@ -1,3 +1,10 @@
+segment_storage - download thread
+playlist_reloader - one thread for the active variant, one thread
+for the other variants
+
+
+
+
 Android addon.xml doesn't have correct library_android or platform android
 Also it may be difficult to install them
 
