@@ -21,6 +21,7 @@ public:
   Stream();
 private:
   void reload_thread();
+  void reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader);
 private:
   Downloader *downloader;
   std::thread reload_thread;
@@ -38,10 +39,14 @@ private:
 class VariantStream {
 public:
   hls::MediaPlaylist playlist;
+  // TODO: Init to segments.begin();
   std::list<Segment>::const_iterator last_segment_itr;
 };
 
 class Segment {
+public:
+  Segment(size_t num_variant_streams);
+public:
   double duration;
   double time_in_playlist;
   uint32_t media_sequence;

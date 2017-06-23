@@ -71,18 +71,36 @@ PlaylistReloader::~PlaylistReloader() {
   reload_cv.notify_all();
 }
 
+Segment::Segment(size_t num_variant_streams) :
+    details(num_variant_streams) {
 
-// Each playlist should be loaded at least once
-void reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader) {
+}
+
+void Stream::reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloading playlist %d", variant_stream->playlist.bandwidth);
-  std::string playlist_contents = downloader->download(playlist.get_playlist_url());
+  std::string url = variant_stream->playlist.get_url();
+  std::string playlist_contents = downloader->download(url);
   if (!playlist_contents.empty()) {
    hls::MediaPlaylist new_media_playlist;
-   new_media_playlist.set_url(playlist.get_playlist_url());
+   new_media_playlist.set_url(url);
    new_media_playlist.load_contents(playlist_contents);
-   playlist.merge(new_media_playlist);
+   {
+     std::lock_guard<std::mutex> lock(data_mutex);
+     std::vector<hls::Segment> playlist_segments = new_media_playlist.get_segments();
+     // TODO: Need to merge the new segments with the existing segment
+     for(auto segments_itr : playlist_segments) {
+         if (segments.empty()) {
+           segments.push_back(Segment(*segments_itr));
+         } else {
+           if (variant_stream.last_segment_itr == segments.end()) {
+             variant_stream.last_segment_itr = segments.end()--;
+           }
+           if (variant_stream.last_segment_itr->media_sequence )
+         }
+     }
+   }
   } else {
-   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", playlist.get_playlist_url());
+   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url);
   }
 }
 
@@ -110,6 +128,7 @@ void Stream::reload_thread(bool is_active) {
     if (current_variant_stream == variants.end()) {
       all_loaded_once = true;
       current_variant_stream = variants.begin();
+      // TODO: Prume very old segments here
     }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
