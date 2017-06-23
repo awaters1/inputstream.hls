@@ -11,15 +11,32 @@
 #include <vector>
 
 #include "HLS.h"
+#include "../globals.h"
+#include "../downloader/downloader.h"
+
+const int RELOAD_DELAY_MS = 500;
 
 class Stream {
-  size_t current_variant_index;
+public:
+  Stream();
+private:
+  void reload_thread();
+private:
+  Downloader *downloader;
+  std::thread reload_thread;
+  std::mutex data_mutex;
+  std::condition_variable reload_cv;
+  std::atomic_bool quit_processing;
+private:
+  bool live;
+  bool all_loaded_once;
   std::vector<VariantStream> variants;
   std::list<Segment> segments;
   std::list<Segment>::const_iterator current_segment_itr;
 };
 
 class VariantStream {
+public:
   hls::MediaPlaylist playlist;
   std::list<Segment>::const_iterator last_segment_itr;
 };

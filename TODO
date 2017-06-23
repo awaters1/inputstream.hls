@@ -1,6 +1,8 @@
 segment_storage - download thread
 playlist_reloader - one thread for the active variant, one thread
 for the other variants
+session rus the demuxer and the demuxer stops at each segement, if for example the variant stream changes
+we create a new demuxer
 
 
 
