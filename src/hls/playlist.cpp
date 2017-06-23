@@ -10,68 +10,7 @@
 
 #define LOGTAG "[Playlist] "
 
-void ActivePlaylist::merge(hls::MediaPlaylist other_playlist) {
-  std::lock_guard<std::mutex> lock(data_mutex);
-  live = other_playlist.live;
-  auto other_segments = other_playlist.get_segments();
-  if (segments.empty()) {
-    segments.insert(segments.end(), other_segments.begin(), other_segments.end());
-  } else {
-    bool reset = false;
-    if (download_itr == segments.end()) {
-      reset = true;
-      download_itr = --segments.end();
-    }
-    uint32_t added_segments(0);
-    uint32_t last_added_sequence(0);
-    uint32_t last_media_sequence(segments.back().media_sequence);
-    double time_in_playlist_offset = segments.back().time_in_playlist + segments.back().duration;
-    double time_in_playlist = 0;
-    for(auto it = other_segments.begin(); it != other_segments.end(); ++it) {
-       if (it->media_sequence > last_media_sequence) {
-         it->time_in_playlist = time_in_playlist + time_in_playlist_offset;
-         time_in_playlist += it->duration;
-         segments.push_back(*it);
-         last_added_sequence = it->media_sequence;
-         if (added_segments < 10) {
-           xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-         }
-       }
-    }
-    if (reset) {
-      ++download_itr;
-    }
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Added segment sequence %d", last_added_sequence);
-    if (download_itr != segments.end()) {
-      while((download_itr->media_sequence - segments.front().media_sequence) >= SEGMENT_LIST_LIMIT && live) {
-        hls::Segment front = segments.front();
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Erasing segment %d", front.media_sequence);
-        segments.pop_front();
-      }
-    }
-  }
-  if (!segments.empty() && set_promise) {
-    segment_promise.set_value();
-    set_promise = false;
-  }
-}
-
-PlaylistReloader::PlaylistReloader(Downloader *downloader) :
-    downloader(downloader),
-    quit_processing(false) {
-  active_reload_thread = std::thread(&PlaylistReloader::reload_thread, this, true);
-  background_reload_thread = std::thread(&PlaylistReloader::reload_thread, this, false);
-}
-
-PlaylistReloader::~PlaylistReloader() {
-  {
-    std::lock_guard<std::mutex> lock(data_mutex);
-    quit_processing = true;
-  }
-  reload_cv.notify_all();
-}
-
-Segment::Segment(size_t num_variant_streams) :
+Segment::Segment(hls::Segment segment, size_t num_variant_streams) :
     details(num_variant_streams) {
 
 }
@@ -87,15 +26,21 @@ void Stream::reload_playlist(std::vector<VariantStream>::iterator variant_stream
    {
      std::lock_guard<std::mutex> lock(data_mutex);
      std::vector<hls::Segment> playlist_segments = new_media_playlist.get_segments();
-     // TODO: Need to merge the new segments with the existing segment
-     for(auto segments_itr : playlist_segments) {
+     for(auto& segment : playlist_segments) {
          if (segments.empty()) {
-           segments.push_back(Segment(*segments_itr));
+           segments.push_back(Segment(segment));
+           variant_stream->last_segment_itr = segments.begin();
          } else {
-           if (variant_stream.last_segment_itr == segments.end()) {
-             variant_stream.last_segment_itr = segments.end()--;
+           while (variant_stream->last_segment_itr != segments.end() &&
+               segment.media_sequence <= variant_stream->last_segment_itr->media_sequence) {
+             ++variant_stream->last_segment_itr;
            }
-           if (variant_stream.last_segment_itr->media_sequence )
+           if (variant_stream->last_segment_itr == segments.end()) {
+             segments.push_back(Segment(segment));
+             variant_stream->last_segment_itr = segments.begin();
+           } else {
+             variant_stream->last_segment_itr->add_variant_segment(segment);
+           }
          }
      }
    }
@@ -104,10 +49,19 @@ void Stream::reload_playlist(std::vector<VariantStream>::iterator variant_stream
   }
 }
 
-Stream::Stream() :
+Stream::Stream(Downloader *downloader, hls::MasterPlaylist master_playlist) :
+    downloader(downloader),
     live(true),
     all_loaded_once(false) {
 
+}
+
+Stream::~Stream() {
+  {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    quit_processing = true;
+  }
+  reload_cv.notify_all();
 }
 
 void Stream::reload_thread(bool is_active) {
@@ -128,7 +82,7 @@ void Stream::reload_thread(bool is_active) {
     if (current_variant_stream == variants.end()) {
       all_loaded_once = true;
       current_variant_stream = variants.begin();
-      // TODO: Prume very old segments here
+      // TODO: Prune very old segments here
     }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");

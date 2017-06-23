@@ -24,10 +24,9 @@
 #include "HLS.h"
 #include "../downloader/downloader.h"
 #include "../demuxer/demux.h"
-#include "stream.h"
+#include "../segment_storage.h"
 
 namespace hls {
-  const int SEGMENTS_BEFORE_SWITCH = 5;
 
   class Session {
   public:
@@ -55,19 +54,10 @@ namespace hls {
     int max_bandwidth;
     bool manual_streams;
   private:
-    void switch_streams(uint32_t media_sequence);
-    uint32_t last_switch_sequence;
-
-    uint32_t stall_counter;
-
-
     MasterPlaylist master_playlist;
+    SegmentStorage segment_storage;
 
-    std::unique_ptr<StreamContainer> active_stream;
-    // For when we want to switch streams
-    std::unique_ptr<StreamContainer> future_stream;
-    bool switch_demux;
-
+    bool quit_processing;
     DemuxContainer current_pkt;
 
     double m_startpts;          ///< start PTS for the program chain

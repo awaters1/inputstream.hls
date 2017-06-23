@@ -28,7 +28,7 @@
 
 class Stream;
 
-const size_t MAX_SEGMENTS = 2;
+const size_t MAX_SEGMENTS =  6;
 const size_t READ_TIMEOUT_MS = 60000;
 
 struct DataHelper {
@@ -41,7 +41,7 @@ struct DataHelper {
 
 class SegmentStorage {
 public:
-  SegmentStorage(Downloader *downloader, Stream *stream);
+  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:

@@ -11,7 +11,6 @@
 #include "HLS.h"
 #include "../segment_storage.h"
 #include "../demuxer/demux.h"
-#include "playlist_reloader.h"
 
 // Limit to 3000 segments in a playlist
 // would be about 200.0 minutes

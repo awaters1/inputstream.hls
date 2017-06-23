@@ -102,6 +102,20 @@ void hls::Session::read_next_pkt() {
   }
 }
 
+void hls::Session::demux_thread() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
+  while(!quit_processing) {
+    std::promise<SegmentReader> reader_promise;
+    std::future<SegmentReader> reader_future = reader_promise.get_future();
+    segment_storage.get_next_segment_reader(std::move(reader_promise));
+    // TODO: Have like a 60 second timeout to get the next segment
+    reader_future.wait();
+    SegmentReader reader = reader_future.get();
+    // TODO: Be able to detect end of playlist
+  }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Ending demux thread");
+}
+
 hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   FileMediaPlaylist media_playlist;
   media_playlist.open(url.c_str());

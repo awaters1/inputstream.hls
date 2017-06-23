@@ -1,3 +1,13 @@
+Session -> runs demuxer thread
+-> Uses a promise to communicate with segment_storage for when a segment is ready
+-> Demuxes a whole segment at a time, segment_storage returns a segment reader
+
+SegmentStorage -> runs reload thread and download thread
+-> Downloads segments when they come in
+-> Does stream switchinhg
+-> Reloads playlists
+
+
 segment_storage - download thread
 playlist_reloader - one thread for the active variant, one thread
 for the other variants
