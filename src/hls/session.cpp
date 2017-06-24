@@ -104,6 +104,7 @@ void hls::Session::read_next_pkt() {
 
 void hls::Session::demux_thread() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
+  std::unique_ptr<Demux> demuxer;
   while(!quit_processing) {
     std::promise<SegmentReader> reader_promise;
     std::future<SegmentReader> reader_future = reader_promise.get_future();
@@ -117,6 +118,59 @@ void hls::Session::demux_thread() {
     }
     // With the reader either create demux or use the existing demux
     // and demux the data coming in from the segment reader
+    // TODO: Set this if we need a new demuxer, if for
+    // example the segment we about to demux is from a separate
+    // variant stream than the last segment
+    bool requires_new_demuxer = false;
+    if (!demuxer || requires_new_demuxer) {
+      demuxer = std::make_unique<Demux>();
+    }
+    demuxer->set_reader(reader);
+    DemuxStatus status = DemuxStatus.FILLED_BUFFER;
+    std::vector<DemuxContainer> demux_packets;
+    // TODO: Need a way to interrupt this? when stopping
+    while(status = demuxer->Process(demux_packets)) {
+        // TODO: Lock the session packets and copy
+        // the contents of demux_packets into it
+        // TODO: Need to do something better to prevent stutters
+         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+         if (readPacketBuffer.empty()) {
+           std::unique_lock<std::mutex> lock(demux_mutex);
+           read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
+             return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
+           });
+           readPacketBuffer.swap(writePacketBuffer);
+       //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
+         }
+         if (readPacketBuffer.size() / (double) MAX_DEMUX_PACKETS < 0.5) {
+           demux_cv.notify_all();
+         }
+         if (readPacketBuffer.empty()) {
+           if (quit_processing) {
+             xbmc->Log(LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
+             return DemuxContainer();
+           } else {
+             xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
+             DemuxContainer container;
+             container.demux_packet = ipsh->AllocateDemuxPacket(0);
+             return container;
+           }
+         }
+         DemuxContainer packet = readPacketBuffer.front();
+         if (remove_packet) {
+             readPacketBuffer.pop_front();
+         }
+         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+         auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+         if (duration > 10000) {
+           // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
+         }
+         return packet;
+    }
+    if (status != DemuxStatus.SEGMENT_DONE) {
+        // TODO: Handle potential error
+    }
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Ending demux thread");
 }
@@ -201,6 +255,10 @@ void hls::Session::switch_streams(uint32_t media_sequence) {
 //  }
 }
 
+// TODO: Need to figure out how to get these now that
+// the demux isnt available outside of the other thread
+// perhaps just store it in session and when the demux has it
+// we update it in the session?
 INPUTSTREAM_IDS hls::Session::get_streams() {
   // Load the first segment of the active playlactive_segmentist to obtain the streams
   // from the mpeg2ts

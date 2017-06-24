@@ -68,7 +68,7 @@ void DemuxLog(int level, char *msg)
   }
 }
 
-Demux::Demux(SegmentStorage *segment_storage)
+Demux::Demux()
   : m_channel(1)
   , m_av_buf_size(AV_BUFFER_SIZE)
   , m_av_pos(0)
@@ -85,7 +85,6 @@ Demux::Demux(SegmentStorage *segment_storage)
   , processed_discontinuity(true)
   , awaiting_initial_setup(false)
   , include_discontinuity(false)
-  , m_av_contents(segment_storage)
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demux", __FUNCTION__);
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -220,7 +219,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-bool Demux::Process()
+DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);
   if (!m_AVContext)
@@ -323,73 +322,18 @@ INPUTSTREAM_IDS Demux::GetStreamIds()
     });
   }
 
-  std::lock_guard<std::mutex> lock(demux_mutex);
   return m_streamIds;
 }
 
 INPUTSTREAM_INFO* Demux::GetStreams()
 {
-  std::lock_guard<std::mutex> lock(demux_mutex);
   return m_streams;
-}
-
-void Demux::Flush(void)
-{
-  std::lock_guard<std::mutex> lock(demux_mutex);
-  for(auto it = writePacketBuffer.begin(); it != writePacketBuffer.end(); ++it) {
-    ipsh->FreeDemuxPacket(it->demux_packet);
-  }
-  writePacketBuffer.clear();
 }
 
 void Demux::Abort()
 {
   Flush();
-  std::lock_guard<std::mutex> lock(demux_mutex);
   m_streamIds.m_streamCount = 0;
-}
-
-DemuxContainer Demux::Read(bool remove_packet)
-{
-  // TODO: Need to do something better to prevent stutters
-  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-  if (readPacketBuffer.empty()) {
-    std::unique_lock<std::mutex> lock(demux_mutex);
-    read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
-      return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
-    });
-    readPacketBuffer.swap(writePacketBuffer);
-//      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
-  }
-  if (readPacketBuffer.size() / (double) MAX_DEMUX_PACKETS < 0.5) {
-    demux_cv.notify_all();
-  }
-  if (readPacketBuffer.empty()) {
-    if (quit_processing) {
-      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
-      return DemuxContainer();
-    } else {
-      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
-      DemuxContainer container;
-      container.demux_packet = ipsh->AllocateDemuxPacket(0);
-      return container;
-    }
-  }
-  DemuxContainer packet = readPacketBuffer.front();
-  if (remove_packet) {
-      readPacketBuffer.pop_front();
-  }
-  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-
-  if (duration > 10000) {
-    // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
-  }
-  return packet;
-}
-
-uint32_t Demux::get_current_media_sequence() {
-  return Read(false).segment.media_sequence;
 }
 
 bool Demux::get_stream_data(TSDemux::STREAM_PKT* pkt)
@@ -440,8 +384,6 @@ static void recode_language(const char* muxLanguage, char* strLanguage)
 
 void Demux::populate_pvr_streams()
 {
-  std::lock_guard<std::mutex> lock(demux_mutex);
-
   uint16_t mainPid = 0xffff;
   int mainType = XBMC_CODEC_TYPE_UNKNOWN;
   const std::vector<TSDemux::ElementaryStream*> es_streams = m_AVContext->GetStreams();
@@ -524,8 +466,6 @@ bool Demux::update_pvr_stream(uint16_t pid)
   xbmc_codec_t codec = CODEC->GetCodecByName(codec_name);
   if (g_bExtraDebug)
     xbmc->Log(LOG_DEBUG, LOGTAG "%s: update info PES %.4x %s", __FUNCTION__, es->pid, codec_name);
-
-  std::lock_guard<std::mutex> lock(demux_mutex);
 
   // find stream index for pid
   for (unsigned i = 0; i < m_streamIds.m_streamCount; i++)
@@ -627,28 +567,3 @@ DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)
   }
   return dxp;
 }
-
-void Demux::push_stream_data(DemuxContainer dxp) {
-  std::lock_guard<std::mutex> lock(demux_mutex);
-  writePacketBuffer.push_back(dxp);
-  read_demux_cv.notify_all();
-}
-
-void Demux::process_demux_thread() {
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demuxer thread", __FUNCTION__);
-  while(true) {
-   std::unique_lock<std::mutex> lock(demux_mutex);
-   demux_cv.wait(lock, [this] {
-     return quit_processing || (writePacketBuffer.size() / (double) MAX_DEMUX_PACKETS) < 0.5;
-   });
-
-   if (quit_processing) {
-     break;
-   }
-   lock.unlock();
-
-   Process();
-  }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting demux thread");
-}
-

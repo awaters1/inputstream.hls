@@ -37,16 +37,20 @@
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
 #include "../ring_buffer.h"
-#include "../segment_storage.h"
+#include "../SegmentReader.h"
 
 #define AV_BUFFER_SIZE          131072
 
-const int MAX_DEMUX_PACKETS = 500;
+enum DemuxStatus {
+  SEGMENT_DONE,
+  ERROR,
+  FILLED_BUFFER
+};
 
 class Demux : public TSDemux::TSDemuxer
 {
 public:
-  Demux(SegmentStorage *segment_storage);
+  Demux();
   ~Demux();
 
   INPUTSTREAM_IDS GetStreamIds();
@@ -54,25 +58,18 @@ public:
   void Flush();
   void Abort();
   DemuxContainer Read(bool remove_packet = true);
-
-  double get_percentage_packet_buffer_full() { return writePacketBuffer.size() / double(MAX_DEMUX_PACKETS); };
   uint32_t get_current_media_sequence();
+  DemuxStatus Process(std::vector<DemuxContainer> &demux_packets);
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
-  bool Process();
   void update_timing_data(DemuxContainer &demux_container);
 private:
   uint16_t m_channel;
-  std::deque<DemuxContainer> writePacketBuffer; // Needs to be locked
-  std::deque<DemuxContainer> readPacketBuffer; // Only read in Read()
-  std::mutex demux_mutex;
   INPUTSTREAM_IDS m_streamIds;
   INPUTSTREAM_INFO m_streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 
   bool get_stream_data(TSDemux::STREAM_PKT* pkt);
-  void reset_posmap();
 
-  // PVR interfaces
   bool processed_discontinuity;
   std::mutex initial_setup_mutex;
   std::condition_variable initial_setup_cv;
@@ -104,9 +101,4 @@ private:
   bool m_isStreamDone;
   bool m_segmentChanged;
   bool include_discontinuity;
-
-  std::condition_variable read_demux_cv;
-  std::condition_variable demux_cv;
-  std::thread demux_thread;
-  std::atomic_bool quit_processing;
 };
