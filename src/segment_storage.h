@@ -43,6 +43,7 @@ class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
+  void get_next_segment_reader(std::promise<SegmentReader> promise);
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same

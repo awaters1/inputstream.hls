@@ -110,8 +110,13 @@ void hls::Session::demux_thread() {
     segment_storage.get_next_segment_reader(std::move(reader_promise));
     // TODO: Have like a 60 second timeout to get the next segment
     reader_future.wait();
-    SegmentReader reader = reader_future.get();
-    // TODO: Be able to detect end of playlist
+    try {
+      SegmentReader reader = reader_future.get();
+    } catch(...) {
+      // TODO: Assume end of playlist
+    }
+    // With the reader either create demux or use the existing demux
+    // and demux the data coming in from the segment reader
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Ending demux thread");
 }
