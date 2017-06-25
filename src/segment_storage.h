@@ -78,6 +78,7 @@ private:
   bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
+  bool has_download_item();
 private:
   uint64_t offset;
   uint32_t read_segment_data_index;

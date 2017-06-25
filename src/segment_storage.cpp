@@ -201,6 +201,11 @@ hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * con
   return first_segment;
 }
 
+bool SegmentStorage::has_download_item() {
+  std::lock_guard<std::mutex> lock(data_lock);
+  return current_segment_itr != segments.end();
+}
+
 void SegmentStorage::download_next_segment() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of segments");
   while(!quit_processing) {
@@ -214,8 +219,8 @@ void SegmentStorage::download_next_segment() {
     }
     lock.unlock();
 
-    if (stream->has_download_item()) {
-      hls::Segment segment = stream->get_current_segment();
+    if (has_download_item()) {
+      hls::Segment segment = current_segment_itr->details.at(0);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
       DataHelper data_helper;
@@ -250,9 +255,9 @@ void SegmentStorage::download_next_segment() {
         this->process_data(data_helper, contents);
       }
       end_segment(segment);
-      stream->go_to_next_segment();
+      ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
-    } else if (!stream->is_live()) {
+    } else if (!live) {
         no_more_data = true;
         break;
     }
@@ -321,6 +326,8 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
            }
          }
      }
+     // TODO: Check if current_segment_itr is at the end, if it is
+     // we have to set it to the index of the newest element added
    }
   } else {
    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url);
