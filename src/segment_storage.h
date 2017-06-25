@@ -23,7 +23,6 @@
 #include <atomic>
 #include <mutex>
 #include "hls/HLS.h"
-#include "hls/segment_data.h"
 #include "downloader/downloader.h"
 #include "hls/SegmentReader.h"
 
@@ -69,9 +68,9 @@ public:
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same
-  bool start_segment(hls::Segment segment);
-  void write_segment(hls::Segment segment, std::string data);
-  void end_segment(hls::Segment segment);
+  bool start_segment(hls::Segment segment, double time_in_playlist);
+  void write_segment(std::string data);
+  void end_segment();
 private:
   hls::Segment read_impl(uint64_t pos, size_t &size, uint8_t * const destination);
   size_t get_size();
@@ -83,8 +82,7 @@ private:
   uint64_t offset;
   uint32_t read_segment_data_index;
   uint32_t write_segment_data_index;
-  std::vector<SegmentData> segment_data;
-  std::vector<std::mutex> segment_locks;
+  std::vector<std::unique_ptr<SegmentReader>> segment_data;
   bool quit_processing;
   bool no_more_data;
   Downloader *downloader;

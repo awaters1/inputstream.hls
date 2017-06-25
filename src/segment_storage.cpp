@@ -16,7 +16,6 @@ offset(0),
 read_segment_data_index(0),
 write_segment_data_index(0),
 segment_data(MAX_SEGMENTS),
-segment_locks(MAX_SEGMENTS),
 downloader(downloader),
 quit_processing(false),
 no_more_data(false),
@@ -28,56 +27,36 @@ all_loaded_once(false) {
 }
 
 bool SegmentStorage::can_download_segment() {
-  // Don't need to lock data_lock because it is locked by the download thread
-  std::lock_guard<std::mutex> segment_lock(segment_locks.at(write_segment_data_index));
-  SegmentData &current_segment_data = segment_data.at(write_segment_data_index);
-  if (current_segment_data.can_overwrite == false) {
-    return false;
-  }
-  return true;
+  // Called from a locked method
+  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(write_segment_data_index);
+  return current_segment_reader && current_segment_reader->get_can_overwrite();
 }
 
-bool SegmentStorage::start_segment(hls::Segment segment) {
+bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist) {
   std::lock_guard<std::mutex> lock(data_lock);
-  std::lock_guard<std::mutex> segment_lock(segment_locks.at(write_segment_data_index));
-  SegmentData &current_segment_data = segment_data.at(write_segment_data_index);
-  if (current_segment_data.can_overwrite == false) {
-    return false;
-  } else if (current_segment_data.segment.valid && write_segment_data_index == read_segment_data_index) {
+  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(write_segment_data_index);
+  if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
+      return false;
+  }
+  if (current_segment_reader && write_segment_data_index == read_segment_data_index) {
     // We are overwriting an existing element so increment read pointer
     read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   }
-  offset += current_segment_data.contents.length();
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %d", __FUNCTION__,
-      segment.media_sequence, offset);
-  current_segment_data.start_offset = offset;
-  current_segment_data.segment = segment;
-  current_segment_data.contents.clear();
-  current_segment_data.can_overwrite = false;
-  current_segment_data.finished = false;
+      segment.media_sequence);
+  segment_data[write_segment_data_index] =
+      std::make_unique<SegmentReader>(segment, time_in_playlist);
   return true;
 }
 
-void SegmentStorage::write_segment(hls::Segment segment, std::string data) {
-  std::lock_guard<std::mutex> lock(segment_locks.at(write_segment_data_index));
-  if (segment_data.at(write_segment_data_index).segment == segment) {
-    segment_data.at(write_segment_data_index).contents += data;
-    segment_data.at(write_segment_data_index).can_overwrite = false;
-    // xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Wrote %d bytes, %d total bytes", __FUNCTION__, data.length(),
-    //    segment_data.at(write_segment_data_index).contents.length());
-    data_cv.notify_all();
-  }
+void SegmentStorage::write_segment(std::string data) {
+  segment_data.at(write_segment_data_index).write_data(data);
 }
 
-void SegmentStorage::end_segment(hls::Segment segment) {
-  std::lock_guard<std::mutex> lock(segment_locks.at(write_segment_data_index));
-  if (segment_data.at(write_segment_data_index).segment == segment) {
-    segment_data.at(write_segment_data_index).finished = true;
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s End segment %d at %d with %d bytes", __FUNCTION__,
-        segment.media_sequence, offset, segment_data.at(write_segment_data_index).contents.length());
-    write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
-    data_cv.notify_all();
-  }
+void SegmentStorage::end_segment() {
+  segment_data.at(write_segment_data_index).end_data();
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s End segment", __FUNCTION__);
+  write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
 }
 
 size_t SegmentStorage::get_size() {
@@ -88,117 +67,6 @@ size_t SegmentStorage::get_size() {
     size += s.contents.length();
   }
   return size;
-}
-
-hls::Segment SegmentStorage::read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read) {
-  std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-  size_t desired_size = size;
-  size_t data_read = 0;
-  hls::Segment segment = read_impl(pos, size, destination);
-  if (size >= min_read) {
-    return segment;
-  }
-  {
-    std::lock_guard<std::mutex> lock(data_lock);
-    if (size < min_read && no_more_data) {
-      return segment;
-    }
-  }
-  data_read += size;
-  // Size == 0
-  while(data_read < min_read) {
-    // xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Waiting for data to be downloaded, pos %d size %d bytes_read %d", __FUNCTION__,pos, size, bytes_read);
-    download_cv.notify_all();
-    std::unique_lock<std::mutex> lock(data_lock);
-    data_cv.wait_for(lock, std::chrono::milliseconds(100));
-    if (quit_processing || no_more_data) {
-      return segment;
-    }
-    lock.unlock();
-    size = desired_size - data_read;
-    segment = read_impl(pos + data_read, size, destination + data_read);
-    data_read += size;
-    std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
-    if (duration >= READ_TIMEOUT_MS) {
-        xbmc->Log(ADDON::LOG_ERROR, LOGTAG "%s Read timeout", __FUNCTION__);
-        break;
-    }
-  }
-  size = data_read;
-  if (!segment.valid) {
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s segment is invalid", __FUNCTION__);
-  }
-  return segment;
-}
-
-hls::Segment SegmentStorage::read_impl(uint64_t pos, size_t &size, uint8_t * const destination) {
-  std::lock_guard<std::mutex> lock(data_lock);
-  uint64_t destination_offset = 0;
-  uint32_t current_read_segment_index = read_segment_data_index;
-  uint64_t next_offset = offset;
-  hls::Segment first_segment;
-  uint64_t data_read = 0;
-  uint64_t wanted_data = size;
-  while(size > 0) {
-    uint64_t relative_offset;
-    if (pos >= next_offset) {
-      relative_offset = pos - next_offset;
-    } else {
-      relative_offset = 0; // start at beginning of segment
-    }
-    std::lock_guard<std::mutex> segment_lock(segment_locks.at(current_read_segment_index));
-    SegmentData &current_segment = segment_data.at(current_read_segment_index);
-    if (!current_segment.segment.valid) {
-      break;
-    }
-    bool go_to_next_segment = false;
-    if (relative_offset < current_segment.contents.length()) {
-      if (!first_segment.valid) {
-        first_segment = current_segment.segment;
-      }
-      size_t data_left_in_segment = current_segment.contents.length() - relative_offset;
-      size_t data_to_read_from_segment;
-      if (data_left_in_segment < size) {
-        data_to_read_from_segment = data_left_in_segment;
-        next_offset += current_segment.contents.length();
-      } else {
-        data_to_read_from_segment = size;
-      }
-      std::memcpy(destination + destination_offset,
-          current_segment.contents.c_str() + relative_offset, data_to_read_from_segment);
-      destination_offset += data_to_read_from_segment;
-      size -= data_to_read_from_segment;
-      data_read += data_to_read_from_segment;
-    } else if (current_segment.finished) {
-      // We read all of the data in this segment so it is safe to overwrite
-      if (!current_segment.can_overwrite) {
-        // data_lock is locked up top
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Triggering download", __FUNCTION__);
-        current_segment.can_overwrite = true;
-        download_cv.notify_all();
-      }
-      next_offset += current_segment.contents.length();
-    } else {
-      // The segment we are reading from isn't finished so we cannot read anymore
-      break;
-    }
-    current_read_segment_index = (current_read_segment_index + 1)% MAX_SEGMENTS;
-    if (current_read_segment_index == read_segment_data_index) {
-      // We looped around
-      break;
-    }
-  }
-  if (data_read < wanted_data) {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Not enough data read pos: %d, data read %d data wanted %d", __FUNCTION__, pos, data_read, wanted_data);
-  } else {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Read %d bytes at %d", __FUNCTION__, data_read, pos);
-  }
-  size = data_read;
-  if (!first_segment.valid) {
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s First segment is invalid", __FUNCTION__);
-  }
-  return first_segment;
 }
 
 bool SegmentStorage::has_download_item() {
@@ -281,7 +149,7 @@ void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
     // Prepare the iv for the next segment
     data_helper.aes_iv = next_iv;
   }
-  write_segment(data_helper.segment, data);
+  write_segment(data);
 }
 
 

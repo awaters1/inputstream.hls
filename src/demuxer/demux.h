@@ -29,7 +29,6 @@
 
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
-#include "../hls/segment_data.h"
 #include "../hls/SegmentReader.h"
 
 #define AV_BUFFER_SIZE          131072
