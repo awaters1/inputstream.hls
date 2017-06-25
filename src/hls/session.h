@@ -20,6 +20,7 @@
 #include <vector>
 #include <future>
 #include <thread>
+#include <deque>
 
 #include "HLS.h"
 #include "../downloader/downloader.h"
@@ -50,6 +51,15 @@ namespace hls {
     // Downloader has to be deleted last
     std::unique_ptr<Downloader> downloader;
   private:
+    void demux_thread();
+    std::mutex demux_mutex;
+    std::condition_variable read_demux_cv;
+    std::deque<DemuxContainer> read_packet_buffer;
+    std::deque<DemuxContainer> write_packet_buffer;
+    bool quit_processing;
+    INPUTSTREAM_IDS m_streamIds;
+    INPUTSTREAM_INFO *m_streams;
+  private:
     int min_bandwidth;
     int max_bandwidth;
     bool manual_streams;
@@ -57,7 +67,6 @@ namespace hls {
     MasterPlaylist master_playlist;
     SegmentStorage segment_storage;
 
-    bool quit_processing;
     DemuxContainer current_pkt;
 
     double m_startpts;          ///< start PTS for the program chain

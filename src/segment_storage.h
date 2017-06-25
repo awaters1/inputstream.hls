@@ -25,9 +25,9 @@
 #include "hls/HLS.h"
 #include "hls/segment_data.h"
 #include "downloader/downloader.h"
+#include "hls/SegmentReader.h"
 
-class Stream;
-
+const int RELOAD_DELAY_MS = 500;
 const size_t MAX_SEGMENTS =  6;
 const size_t READ_TIMEOUT_MS = 60000;
 
@@ -38,12 +38,34 @@ struct DataHelper {
   hls::Segment segment;
 };
 
+class DownloadSegment {
+public:
+  DownloadSegment(double time_in_playlist, hls::Segment segment, size_t index, size_t num_variant_streams);
+  void add_variant_segment(hls::Segment segment, size_t index);
+  double get_end_time() {
+    return time_in_playlist + duration;
+  };
+public:
+  double duration;
+  double time_in_playlist;
+  uint32_t media_sequence;
+
+  std::vector<hls::Segment> details;
+};
+
+class VariantStream {
+public:
+  hls::MediaPlaylist playlist;
+  // TODO: Init to segments.begin();
+  // Points to the last added segment
+  std::list<DownloadSegment>::iterator last_segment_itr;
+};
 
 class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
-  void get_next_segment_reader(std::promise<SegmentReader> promise);
+  void get_next_segment_reader(std::promise<SegmentReader*> promise);
   hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same
@@ -65,10 +87,7 @@ private:
   bool quit_processing;
   bool no_more_data;
   Downloader *downloader;
-  Stream *stream;
 
-  // TODO: This should be shared outside of this to reuse during
-  // stream switching
   std::unordered_map<std::string, std::string> aes_uri_to_key;
 
   // Download thread
@@ -76,4 +95,16 @@ private:
   std::thread download_thread;
   std::mutex data_lock;
   std::condition_variable data_cv;
+
+private:
+  void reload_playlist_thread();
+  void reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader);
+  bool live;
+  bool all_loaded_once;
+  std::vector<VariantStream> variants;
+  std::list<DownloadSegment> segments;
+  std::list<DownloadSegment>::const_iterator current_segment_itr;
+  // Reload thread
+  std::thread reload_thread;
+  std::condition_variable reload_cv;
 };

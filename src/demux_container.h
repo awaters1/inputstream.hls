@@ -20,14 +20,14 @@
 
 class DemuxContainer {
 public:
-  DemuxContainer() : demux_packet(0), pcr(0),
+  DemuxContainer() : demux_packet(0),
   segment_changed(false),
   discontinuity(false),
-  current_time(0) {};
+  current_time(0),
+  time_in_playlist(0) {};
   DemuxPacket *demux_packet;
-  uint64_t pcr;
-  hls::Segment segment;
   bool segment_changed;
   int32_t current_time;
+  double time_in_playlist;
   bool discontinuity;
 };

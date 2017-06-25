@@ -8,20 +8,20 @@
 #include "segment_storage.h"
 #include "downloader/file_downloader.h"
 #include "hls/decrypter.h"
-#include "hls/stream.h"
 
 #define LOGTAG                  "[SegmentStorage] "
 
-SegmentStorage::SegmentStorage(Downloader *downloader, Stream *stream) :
+SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist) :
 offset(0),
 read_segment_data_index(0),
 write_segment_data_index(0),
 segment_data(MAX_SEGMENTS),
 segment_locks(MAX_SEGMENTS),
 downloader(downloader),
-stream(stream),
 quit_processing(false),
-no_more_data(false) {
+no_more_data(false),
+live(true),
+all_loaded_once(false) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   download_cv.notify_all();
@@ -279,6 +279,79 @@ void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
   write_segment(data_helper.segment, data);
 }
 
+
+DownloadSegment::DownloadSegment(double time_in_playlist, hls::Segment segment, size_t index, size_t num_variant_streams) :
+    duration(segment.duration),
+    time_in_playlist(time_in_playlist),
+    media_sequence(segment.media_sequence),
+    details(num_variant_streams) {
+  add_variant_segment(segment, index);
+}
+
+void DownloadSegment::add_variant_segment(hls::Segment segment, size_t index) {
+  details[index] = segment;
+}
+
+void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader) {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloading playlist %d", variant_stream->playlist.bandwidth);
+  std::string url = variant_stream->playlist.get_url();
+  std::string playlist_contents = downloader->download(url);
+  if (!playlist_contents.empty()) {
+   hls::MediaPlaylist new_media_playlist;
+   new_media_playlist.set_url(url);
+   new_media_playlist.load_contents(playlist_contents);
+   size_t variant_stream_index = variant_stream - variants.begin();
+   {
+     std::lock_guard<std::mutex> lock(data_lock);
+     std::vector<hls::Segment> playlist_segments = new_media_playlist.get_segments();
+     for(auto& segment : playlist_segments) {
+         if (segments.empty()) {
+           segments.push_back(DownloadSegment(0.0, segment, variant_stream_index, variants.size()));
+           variant_stream->last_segment_itr = segments.begin();
+         } else {
+           while (variant_stream->last_segment_itr != segments.end() &&
+               segment.media_sequence <= variant_stream->last_segment_itr->media_sequence) {
+             ++variant_stream->last_segment_itr;
+           }
+           if (variant_stream->last_segment_itr == segments.end()) {
+             segments.push_back(DownloadSegment(segments.back().get_end_time(), segment, variant_stream_index, variants.size()));
+             variant_stream->last_segment_itr = segments.begin();
+           } else {
+             variant_stream->last_segment_itr->add_variant_segment(segment, variant_stream_index);
+           }
+         }
+     }
+   }
+  } else {
+   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url);
+  }
+}
+
+void SegmentStorage::reload_playlist_thread() {
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting reload thread");
+  std::vector<VariantStream>::iterator current_variant_stream = variants.begin();
+  while(!quit_processing && (!all_loaded_once || live)) {
+    std::unique_lock<std::mutex> lock(data_lock);
+    reload_cv.wait_for(lock, std::chrono::milliseconds(RELOAD_DELAY_MS), [&] {
+      return quit_processing;
+    });
+
+    if (quit_processing) {
+      break;
+    }
+    lock.unlock();
+    reload_playlist(current_variant_stream, downloader);
+    ++current_variant_stream;
+    if (current_variant_stream == variants.end()) {
+      all_loaded_once = true;
+      current_variant_stream = variants.begin();
+      // TODO: Prune very old segments here
+    }
+  }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
+}
+
+
 SegmentStorage::~SegmentStorage() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Deconstruct segment storage", __FUNCTION__);
   {
@@ -287,7 +360,9 @@ SegmentStorage::~SegmentStorage() {
   }
   download_cv.notify_all();
   data_cv.notify_all();
+  reload_cv.notify_all();
   download_thread.join();
+  reload_thread.join();
 }
 
 

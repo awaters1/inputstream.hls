@@ -58,7 +58,6 @@ namespace hls
   public:
     Segment();
     double duration;
-    double time_in_playlist; // when the segment is in the playlist
     std::string description;
     uint32_t media_sequence;
     std::string aes_uri;

@@ -25,8 +25,7 @@ encrypted(false),
 byte_length(0),
 byte_offset(0),
 valid(false),
-discontinuity(false),
-time_in_playlist(0)
+discontinuity(false)
 {
 
 }
@@ -138,9 +137,6 @@ bool hls::MediaPlaylist::write_data(std::string line) {
       segment.valid = true;
       segment.media_sequence = current_media_sequence++;
       segment.duration = std::stod(attributes[0]);
-      if (!segments.empty()) {
-        segment.time_in_playlist = (segments.back().time_in_playlist + segments.back().duration);
-      }
       if (aes_iv.empty()) {
         segment.aes_iv = std::to_string(segment.media_sequence);
       } else {

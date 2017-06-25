@@ -46,7 +46,7 @@ DemuxContainer hls::Session::get_current_pkt() {
     }
     if (m_startpts == DVD_NOPTS_VALUE && pkt->pts != DVD_NOPTS_VALUE &&
         m_startdts == DVD_NOPTS_VALUE && pkt->dts != DVD_NOPTS_VALUE) {
-      double desired_pts = current_pkt.segment.time_in_playlist * DVD_TIME_BASE;
+      double desired_pts = current_pkt.time_in_playlist * DVD_TIME_BASE;
       double diff = pkt->pts - desired_pts;
       m_startpts = diff;
       m_startdts = diff;
@@ -64,55 +64,51 @@ DemuxContainer hls::Session::get_current_pkt() {
 }
 
 void hls::Session::read_next_pkt() {
-  if (active_stream) {
-    current_pkt = active_stream->get_demux()->Read();
-    if (current_pkt.segment_changed) {
-      // So we decide to switch in one segment, then the next segment we switch, this gives the demuxer
-      // one segment's worth of time to prepare packets
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Changed to segment %d", current_pkt.segment.media_sequence);
-      if (switch_demux && future_stream) {
-        // Should only switch if future_demux is at the next segment we are looking for
-        if (future_stream->get_demux()->get_current_media_sequence() == current_pkt.segment.media_sequence) {
-          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switched stream at segment %d", current_pkt.segment.media_sequence);
-          active_stream.swap(future_stream);
-          delete future_stream.release();
-          ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-          current_pkt = active_stream->get_demux()->Read();
-          switch_demux = false;
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+   if (read_packet_buffer.empty()) {
+     std::unique_lock<std::mutex> lock(demux_mutex);
+     read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
+       return quit_processing || !write_packet_buffer.empty();
+     });
+     read_packet_buffer.swap(write_packet_buffer);
+ //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
+   }
+   if (read_packet_buffer.empty()) {
+     if (quit_processing) {
+       xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
+       current_pkt = DemuxContainer();
+       return;
+     } else {
+       xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
+       DemuxContainer container;
+       container.demux_packet = ipsh->AllocateDemuxPacket(0);
+       current_pkt = container;
+       return;
+     }
+   }
+   DemuxContainer packet = read_packet_buffer.front();
+   read_packet_buffer.pop_front();
+   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+   auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
 
-          last_switch_sequence = current_pkt.segment.media_sequence;
-        } else {
-            xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Delaying stream switch at %d waiting for %d",
-                      current_pkt.segment.media_sequence, future_stream->get_demux()->get_current_media_sequence());
-            if (current_pkt.segment.media_sequence > future_stream->get_demux()->get_current_media_sequence()) {
-              xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Cancelling switch");
-              delete future_stream.release();
-            }
-            switch_streams(current_pkt.segment.media_sequence + 1);
-            switch_demux = !(future_stream == nullptr);
-        }
-      } else {
-        switch_streams(current_pkt.segment.media_sequence + 1);
-        switch_demux = !(future_stream == nullptr);
-      }
-    }
-  } else {
-    xbmc->Log(ADDON::LOG_ERROR, LOGTAG "No active demux, unable to get data");
-    current_pkt = DemuxContainer();
-  }
+   if (duration > 10000) {
+     // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
+   }
+   current_pkt = packet;
 }
 
 void hls::Session::demux_thread() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
   std::unique_ptr<Demux> demuxer;
   while(!quit_processing) {
-    std::promise<SegmentReader> reader_promise;
-    std::future<SegmentReader> reader_future = reader_promise.get_future();
+    std::promise<SegmentReader*> reader_promise;
+    std::future<SegmentReader*> reader_future = reader_promise.get_future();
     segment_storage.get_next_segment_reader(std::move(reader_promise));
     // TODO: Have like a 60 second timeout to get the next segment
     reader_future.wait();
+    SegmentReader *reader;
     try {
-      SegmentReader reader = reader_future.get();
+      reader = reader_future.get();
     } catch(...) {
       // TODO: Assume end of playlist
     }
@@ -125,50 +121,21 @@ void hls::Session::demux_thread() {
     if (!demuxer || requires_new_demuxer) {
       demuxer = std::make_unique<Demux>();
     }
-    demuxer->set_reader(reader);
-    DemuxStatus status = DemuxStatus.FILLED_BUFFER;
+    demuxer->set_segment_reader(reader);
+    DemuxStatus status = DemuxStatus::FILLED_BUFFER;
     std::vector<DemuxContainer> demux_packets;
     // TODO: Need a way to interrupt this? when stopping
-    while(status = demuxer->Process(demux_packets)) {
+    while(((status = demuxer->Process(demux_packets)) != DemuxStatus::ERROR) && status != DemuxStatus::SEGMENT_DONE) {
         // TODO: Lock the session packets and copy
         // the contents of demux_packets into it
         // TODO: Need to do something better to prevent stutters
-         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-         if (readPacketBuffer.empty()) {
-           std::unique_lock<std::mutex> lock(demux_mutex);
-           read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
-             return quit_processing || writePacketBuffer.size() == MAX_DEMUX_PACKETS;
-           });
-           readPacketBuffer.swap(writePacketBuffer);
-       //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
-         }
-         if (readPacketBuffer.size() / (double) MAX_DEMUX_PACKETS < 0.5) {
-           demux_cv.notify_all();
-         }
-         if (readPacketBuffer.empty()) {
-           if (quit_processing) {
-             xbmc->Log(LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
-             return DemuxContainer();
-           } else {
-             xbmc->Log(LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
-             DemuxContainer container;
-             container.demux_packet = ipsh->AllocateDemuxPacket(0);
-             return container;
-           }
-         }
-         DemuxContainer packet = readPacketBuffer.front();
-         if (remove_packet) {
-             readPacketBuffer.pop_front();
-         }
-         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-         auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-
-         if (duration > 10000) {
-           // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
-         }
-         return packet;
+      if (status == DemuxStatus::STREAM_SETUP_COMPLETE) {
+        std::lock_guard<std::mutex> lock(demux_mutex);
+        m_streamIds = demuxer->GetStreamIds();
+        m_streams = demuxer->GetStreams();
+      }
     }
-    if (status != DemuxStatus.SEGMENT_DONE) {
+    if (status != DemuxStatus::SEGMENT_DONE) {
         // TODO: Handle potential error
     }
   }
@@ -181,149 +148,66 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   return media_playlist;
 }
 
-
-// Switch streams up and down based on
-// 1. current bandwidth
-// 2. If we able to keep our buffer full in active_segment_controller
-// 3. If we stalled at all in get next segment
-void hls::Session::switch_streams(uint32_t media_sequence) {
-//  if ((media_sequence != 0 && media_sequence < last_switch_sequence + SEGMENTS_BEFORE_SWITCH)) {
-//    // Skip stream switch if we are in the middle of one
-//    return;
-//  }
-//  // Bits per second
-//  uint32_t bandwith_of_current_stream = 0;
-//  double average_bandwidth = downloader->get_average_bandwidth();
-//  bool switch_up = true;
-//  if (active_stream) {
-//    bandwith_of_current_stream = active_stream->get_stream()->get_playlist().get_bandwidth();
-//    // TODO: Also update this to detect stalls in the demux waiting for packets
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switch Stream stalls: %d buffer: %f bandwidth: %f media sequence: %d current: %d",
-//        stall_counter, active_stream->get_demux()->get_percentage_packet_buffer_full(), average_bandwidth, media_sequence,
-//        bandwith_of_current_stream);
-//    if (average_bandwidth <= (bandwith_of_current_stream * .80)) {
-//      switch_up = false;
-//      bandwith_of_current_stream = 0;
-//    }
-//  }
-//  if (average_bandwidth < min_bandwidth) {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Setting average bandwidth to %d", min_bandwidth);
-//    average_bandwidth = min_bandwidth;
-//  }
-//  if (average_bandwidth > max_bandwidth && max_bandwidth != 0) {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Setting average bandwidth to %d", max_bandwidth);
-//    average_bandwidth = max_bandwidth;
-//  }
-//  std::vector<MediaPlaylist> &media_playlists = master_playlist.get_media_playlists();
-//  auto next_active_playlist = media_playlists.end();
-//  for(auto it = media_playlists.begin(); it != media_playlists.end(); ++it) {
-//    if (switch_up && it->bandwidth > bandwith_of_current_stream && it->bandwidth < average_bandwidth && it->bandwidth >= min_bandwidth &&
-//         (it->bandwidth <= max_bandwidth || max_bandwidth == 0)) {
-//       bandwith_of_current_stream = it->bandwidth;
-//       next_active_playlist = it;
-//       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Up) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
-//    } else if (!switch_up && it->bandwidth >= bandwith_of_current_stream && it->bandwidth < average_bandwidth && it->bandwidth >= min_bandwidth &&
-//        (it->bandwidth <= max_bandwidth || max_bandwidth == 0)) {
-//      // Switch down
-//       bandwith_of_current_stream = it->bandwidth;
-//       next_active_playlist = it;
-//       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "(Down) Variant stream bandwidth: %d url: %s", it->bandwidth, it->get_url().c_str());
-//    }
-//  }
-//
-//  if (active_stream && next_active_playlist != media_playlists.end() &&
-//      *next_active_playlist != active_stream->get_stream()->get_playlist() && !manual_streams) {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching to playlist %d %s", next_active_playlist->bandwidth, next_active_playlist->get_url().c_str());
-//    if (future_stream && *next_active_playlist == future_stream->get_stream()->get_playlist()) {
-//      // Ignore switch to the current playlist
-//    } else {
-//      if (next_active_playlist->live) {
-//        next_active_playlist->clear_segments();
-//      }
-//      future_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), media_sequence));
-//    }
-//  } else if (!active_stream) {
-//    if (next_active_playlist == media_playlists.end()) {
-//      next_active_playlist = media_playlists.begin();
-//    }
-//    active_stream = std::unique_ptr<StreamContainer>(new StreamContainer(*next_active_playlist, downloader.get(), 0));
-//  } else if (next_active_playlist != media_playlists.end() && *next_active_playlist == active_stream->get_stream()->get_playlist() && future_stream){
-//      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Cancelling playlist switch because it is the current one");
-//      delete future_stream.get();
-//  } else {
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Not switching playlist manual: %d, min: %d, max: %d", manual_streams, min_bandwidth, max_bandwidth);
-//  }
-}
-
-// TODO: Need to figure out how to get these now that
-// the demux isnt available outside of the other thread
-// perhaps just store it in session and when the demux has it
-// we update it in the session?
 INPUTSTREAM_IDS hls::Session::get_streams() {
-  // Load the first segment of the active playlactive_segmentist to obtain the streams
-  // from the mpeg2ts
-  if (!active_stream) {
-    INPUTSTREAM_IDS ids = INPUTSTREAM_IDS();
-    ids.m_streamCount = 0;
-    return ids;
-  }
-  return active_stream->get_demux()->GetStreamIds();
+  std::lock_guard<std::mutex> lock(demux_mutex);
+  return m_streamIds;
 }
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
+  std::lock_guard<std::mutex> lock(demux_mutex);
   for(size_t i = 0; i < get_streams().m_streamCount; ++i) {
-    if (active_stream->get_demux()->GetStreams()[i].m_pID == stream_id) {
-      return active_stream->get_demux()->GetStreams()[i];
+    if (m_streams[i].m_pID == stream_id) {
+      return m_streams[i];
     }
   }
   return INPUTSTREAM_INFO();
 }
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
-  if (active_stream) {
-    // time is in MSEC
-    double desired = time / 1000.0;
-
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
-    if (active_stream->get_stream()->empty()) {
-      std::promise<void> promise;
-      std::future<void> future = promise.get_future();
-      active_stream->get_stream()->wait_for_playlist(std::move(promise));
-      future.wait();
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Playlist is ready", __FUNCTION__);
-    }
-
-    if (active_stream->get_stream()->empty()) {
-        return false;
-    }
-
-
-    hls::Segment seek_to = active_stream->get_stream()->find_segment_at_time(desired);
-    double new_time = seek_to.time_in_playlist;
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
-
-    ActivePlaylist &active_playlist = active_stream->get_stream()->get_playlist();
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Using playlist %s", active_playlist.get_playlist_url().c_str());
-    active_stream = std::unique_ptr<StreamContainer>(
-        new StreamContainer(active_playlist, downloader.get(), seek_to.media_sequence));
-
-
-    if (current_pkt.demux_packet) {
-      ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-      current_pkt.demux_packet = 0;
-    }
-
-    m_startdts = m_startpts = DVD_NOPTS_VALUE;
-
-    *startpts = (new_time * DVD_TIME_BASE);
-
-    // Cancel any stream switches
-    switch_demux = false;
-    if (future_stream) {
-      delete future_stream.release();
-    }
-    return true;
-  }
+//  if (active_stream) {
+//    // time is in MSEC
+//    double desired = time / 1000.0;
+//
+//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
+//    if (active_stream->get_stream()->empty()) {
+//      std::promise<void> promise;
+//      std::future<void> future = promise.get_future();
+//      active_stream->get_stream()->wait_for_playlist(std::move(promise));
+//      future.wait();
+//      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Playlist is ready", __FUNCTION__);
+//    }
+//
+//    if (active_stream->get_stream()->empty()) {
+//        return false;
+//    }
+//
+//
+//    hls::Segment seek_to = active_stream->get_stream()->find_segment_at_time(desired);
+//    double new_time = seek_to.time_in_playlist;
+//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
+//
+//    ActivePlaylist &active_playlist = active_stream->get_stream()->get_playlist();
+//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Using playlist %s", active_playlist.get_playlist_url().c_str());
+//    active_stream = std::unique_ptr<StreamContainer>(
+//        new StreamContainer(active_playlist, downloader.get(), seek_to.media_sequence));
+//
+//
+//    if (current_pkt.demux_packet) {
+//      ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+//      current_pkt.demux_packet = 0;
+//    }
+//
+//    m_startdts = m_startpts = DVD_NOPTS_VALUE;
+//
+//    *startpts = (new_time * DVD_TIME_BASE);
+//
+//    // Cancel any stream switches
+//    switch_demux = false;
+//    if (future_stream) {
+//      delete future_stream.release();
+//    }
+//    return true;
+//  }
   return false;
 }
 
@@ -333,26 +217,22 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     max_bandwidth(max_bandwidth),
     manual_streams(manual_streams),
     master_playlist(master_playlist),
-    active_stream(nullptr),
-    future_stream(nullptr),
     downloader(downloader),
-    switch_demux(false),
     m_startpts(DVD_NOPTS_VALUE),
     m_startdts(DVD_NOPTS_VALUE),
     last_total_time(0),
     last_current_time(0),
-    last_switch_sequence(0),
-    stall_counter(0) {
-  switch_streams(0);
+    segment_storage(downloader, master_playlist){
 }
 
 uint64_t hls::Session::get_total_time() {
-  uint64_t current_total_time = active_stream->get_stream()->get_total_duration();
-  if (current_total_time == 0) {
-    return last_total_time;
-  }
-  last_total_time = current_total_time;
-  return current_total_time;
+//  uint64_t current_total_time = active_stream->get_stream()->get_total_duration();
+//  if (current_total_time == 0) {
+//    return last_total_time;
+//  }
+//  last_total_time = current_total_time;
+//  return current_total_time;
+  return 0;
 }
 
 void hls::Session::demux_abort() {
@@ -368,12 +248,12 @@ void hls::Session::demux_abort() {
 }
 
 void hls::Session::demux_flush() {
-  if (active_stream) {
-    active_stream->get_demux()->Flush();
-  }
-  if (future_stream) {
-    future_stream->get_demux()->Flush();
-  }
+//  if (active_stream) {
+//    active_stream->get_demux()->Flush();
+//  }
+//  if (future_stream) {
+//    future_stream->get_demux()->Flush();
+//  }
 }
 
 hls::Session::~Session() {

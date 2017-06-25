@@ -23,28 +23,24 @@
 
 #include "tsDemuxer.h"
 
-#include <p8-platform/threads/threads.h>
-#include <p8-platform/threads/mutex.h>
-#include <p8-platform/util/buffer.h>
-
-#include <future>
-#include <thread>
-
 #include <map>
 #include <set>
+#include <vector>
 
 #include "kodi_inputstream_types.h"
 #include "../demux_container.h"
 #include "../hls/segment_data.h"
-#include "../ring_buffer.h"
-#include "../SegmentReader.h"
+#include "../hls/SegmentReader.h"
 
 #define AV_BUFFER_SIZE          131072
 
+const int DEMUX_BUFFER_SIZE = 250;
+
 enum DemuxStatus {
   SEGMENT_DONE,
+  FILLED_BUFFER,
   ERROR,
-  FILLED_BUFFER
+  STREAM_SETUP_COMPLETE
 };
 
 class Demux : public TSDemux::TSDemuxer
@@ -59,6 +55,7 @@ public:
   void Abort();
   DemuxContainer Read(bool remove_packet = true);
   uint32_t get_current_media_sequence();
+  void set_segment_reader(SegmentReader *segment_reader);
   DemuxStatus Process(std::vector<DemuxContainer> &demux_packets);
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -71,14 +68,11 @@ private:
   bool get_stream_data(TSDemux::STREAM_PKT* pkt);
 
   bool processed_discontinuity;
-  std::mutex initial_setup_mutex;
-  std::condition_variable initial_setup_cv;
-  std::atomic_bool awaiting_initial_setup;
+  bool awaiting_initial_setup;
   void populate_pvr_streams();
   bool update_pvr_stream(uint16_t pid);
-  void push_stream_change();
+  void push_stream_change(std::vector<DemuxContainer> &packets);
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
-  void push_stream_data(DemuxContainer dxp);
   void process_demux_thread();
   bool should_process_demux();
 
@@ -96,8 +90,7 @@ private:
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   std::set<uint16_t> m_nosetup;
 
-  SegmentStorage *m_av_contents;
-  hls::Segment current_segment;
+  SegmentReader *segment_reader;
   bool m_isStreamDone;
   bool m_segmentChanged;
   bool include_discontinuity;

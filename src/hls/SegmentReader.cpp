@@ -4,12 +4,12 @@
 
 #include "SegmentReader.h"
 
-SegmentReader::SegmentReader() {
-  // TODO Auto-generated constructor stub
+SegmentReader::SegmentReader(double time_in_playlist) :
+time_in_playlist(time_in_playlist) {
 
 }
 
 SegmentReader::~SegmentReader() {
-  // TODO Auto-generated destructor stub
+
 }
 
