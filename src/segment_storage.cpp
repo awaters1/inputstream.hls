@@ -21,6 +21,7 @@ quit_processing(false),
 no_more_data(false),
 live(true),
 all_loaded_once(false) {
+  // TODO: Decompose the master_playlist into the variant streams
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   reload_thread = std::thread(&SegmentStorage::reload_playlist_thread, this);
