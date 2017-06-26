@@ -79,6 +79,7 @@ private:
   uint32_t read_segment_data_index;
   uint32_t write_segment_data_index;
   std::vector<std::unique_ptr<SegmentReader>> segment_data;
+  std::promise<SegmentReader*> segment_reader_promise;
   bool quit_processing;
   bool no_more_data;
   Downloader *downloader;

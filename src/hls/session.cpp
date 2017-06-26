@@ -109,8 +109,9 @@ void hls::Session::demux_process() {
     SegmentReader *reader;
     try {
       reader = reader_future.get();
-    } catch(...) {
+    } catch(std::exception &e) {
       // TODO: Assume end of playlist
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exception %s", e.what());
     }
     // With the reader either create demux or use the existing demux
     // and demux the data coming in from the segment reader

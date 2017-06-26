@@ -23,6 +23,7 @@ live(true),
 all_loaded_once(false) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
+  reload_thread = std::thread(&SegmentStorage::reload_playlist_thread, this);
   download_cv.notify_all();
 }
 
@@ -66,6 +67,8 @@ void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promis
   if (current_segment_reader) {
     promise.set_value(current_segment_reader.get());
     ++read_segment_data_index;
+  } else {
+    segment_reader_promise = std::move(promise);
   }
   // TODO: If we don't have the reader we have to save the promise somewhere
 }
@@ -219,6 +222,7 @@ void SegmentStorage::reload_playlist_thread() {
       current_variant_stream = variants.begin();
       // TODO: Prune very old segments here
     }
+    download_cv.notify_all();
   }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exiting reload thread");
 }
