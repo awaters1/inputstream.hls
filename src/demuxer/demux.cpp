@@ -307,7 +307,6 @@ INPUTSTREAM_INFO* Demux::GetStreams()
 
 void Demux::Abort()
 {
-  Flush();
   m_streamIds.m_streamCount = 0;
 }
 

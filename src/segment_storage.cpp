@@ -38,10 +38,6 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
   if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
       return false;
   }
-  if (current_segment_reader && write_segment_data_index == read_segment_data_index) {
-    // We are overwriting an existing element so increment read pointer
-    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
-  }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %d", __FUNCTION__,
       segment.media_sequence);
   segment_data[write_segment_data_index] =
@@ -50,28 +46,28 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
 }
 
 void SegmentStorage::write_segment(std::string data) {
-  segment_data.at(write_segment_data_index).write_data(data);
+  segment_data.at(write_segment_data_index)->write_data(data);
 }
 
 void SegmentStorage::end_segment() {
-  segment_data.at(write_segment_data_index).end_data();
+  segment_data.at(write_segment_data_index)->end_data();
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s End segment", __FUNCTION__);
   write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
-}
-
-size_t SegmentStorage::get_size() {
-  size_t size(0);
-  for(size_t i = 0; i < segment_data.size(); ++i) {
-    std::lock_guard<std::mutex> lock(segment_locks.at(i));
-    SegmentData &s = segment_data.at(i);
-    size += s.contents.length();
-  }
-  return size;
 }
 
 bool SegmentStorage::has_download_item() {
   std::lock_guard<std::mutex> lock(data_lock);
   return current_segment_itr != segments.end();
+}
+
+void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promise) {
+  std::lock_guard<std::mutex> lock(data_lock);
+  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
+  if (current_segment_reader) {
+    promise.set_value(current_segment_reader.get());
+    ++read_segment_data_index;
+  }
+  // TODO: If we don't have the reader we have to save the promise somewhere
 }
 
 void SegmentStorage::download_next_segment() {
@@ -88,6 +84,7 @@ void SegmentStorage::download_next_segment() {
     lock.unlock();
 
     if (has_download_item()) {
+      // TODO: Choose correct variant stream to get the segment from
       hls::Segment segment = current_segment_itr->details.at(0);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
@@ -97,7 +94,7 @@ void SegmentStorage::download_next_segment() {
       data_helper.encrypted = segment.encrypted;
       data_helper.segment = segment;
 
-      bool continue_download = start_segment(segment);
+      bool continue_download = start_segment(segment, current_segment_itr->time_in_playlist);
       if (!continue_download) {
         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
         continue;
@@ -122,7 +119,7 @@ void SegmentStorage::download_next_segment() {
         std::string contents = file_downloader.download(url);
         this->process_data(data_helper, contents);
       }
-      end_segment(segment);
+      end_segment();
       ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
     } else if (!live) {

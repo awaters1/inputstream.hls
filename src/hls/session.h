@@ -51,7 +51,8 @@ namespace hls {
     // Downloader has to be deleted last
     std::unique_ptr<Downloader> downloader;
   private:
-    void demux_thread();
+    void demux_process();
+    std::thread demux_thread;
     std::mutex demux_mutex;
     std::condition_variable read_demux_cv;
     std::deque<DemuxContainer> read_packet_buffer;

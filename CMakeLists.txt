@@ -35,6 +35,7 @@ set(HLS_SOURCES
     src/demuxer/ES_Teletext.cpp
     src/demuxer/tsDemuxer.cpp
     src/segment_storage.cpp
+    src/hls/SegmentReader.cpp
 )
 
 # Tests https://crascit.com/2015/07/25/cmake-gtest/
@@ -90,6 +91,7 @@ add_executable(inputstreamhlstest
     src/demuxer/ES_Subtitle.cpp
     src/demuxer/ES_Teletext.cpp
     src/demuxer/tsDemuxer.cpp
+    src/hls/SegmentReader.cpp
     )
 target_link_libraries(inputstreamhlstest gmock_main bento4)
 add_test(NAME inputstreamhlstest COMMAND inputstreamhlstest)

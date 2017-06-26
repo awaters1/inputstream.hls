@@ -50,7 +50,6 @@ public:
 
   INPUTSTREAM_IDS GetStreamIds();
   INPUTSTREAM_INFO* GetStreams();
-  void Flush();
   void Abort();
   DemuxContainer Read(bool remove_packet = true);
   uint32_t get_current_media_sequence();

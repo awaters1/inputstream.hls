@@ -97,7 +97,7 @@ void hls::Session::read_next_pkt() {
    current_pkt = packet;
 }
 
-void hls::Session::demux_thread() {
+void hls::Session::demux_process() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
   std::unique_ptr<Demux> demuxer;
   while(!quit_processing) {
@@ -223,6 +223,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_total_time(0),
     last_current_time(0),
     segment_storage(downloader, master_playlist){
+  demux_thread = std::thread(&Session::demux_process, this);
 }
 
 uint64_t hls::Session::get_total_time() {

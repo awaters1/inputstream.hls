@@ -28,7 +28,6 @@
 
 const int RELOAD_DELAY_MS = 500;
 const size_t MAX_SEGMENTS =  6;
-const size_t READ_TIMEOUT_MS = 60000;
 
 struct DataHelper {
   std::string aes_uri;
@@ -65,15 +64,12 @@ public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
   void get_next_segment_reader(std::promise<SegmentReader*> promise);
-  hls::Segment read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
 public:
   // These three are all executed from another thread that stays the same
   bool start_segment(hls::Segment segment, double time_in_playlist);
   void write_segment(std::string data);
   void end_segment();
 private:
-  hls::Segment read_impl(uint64_t pos, size_t &size, uint8_t * const destination);
-  size_t get_size();
   bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
