@@ -24,7 +24,8 @@ downloader(downloader),
 quit_processing(false),
 no_more_data(false),
 live(true),
-all_loaded_once(false) {
+all_loaded_once(false),
+valid_promise(false) {
   for(auto &media_playlist : master_playlist.get_media_playlists()) {
     VariantStream stream(media_playlist);
     stream.last_segment_itr = segments.begin();
@@ -54,8 +55,9 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
       segment.media_sequence);
   segment_data[write_segment_data_index] =
       std::make_unique<SegmentReader>(segment, time_in_playlist);
-  if (write_segment_data_index == read_segment_data_index) {
+  if (write_segment_data_index == read_segment_data_index && valid_promise) {
     segment_reader_promise.set_value(segment_data.at(read_segment_data_index).get());
+    valid_promise = false;
   }
   return true;
 }
@@ -82,6 +84,7 @@ void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promis
     promise.set_value(current_segment_reader.get());
     ++read_segment_data_index;
   } else {
+    valid_promise = true;
     segment_reader_promise = std::move(promise);
   }
   // TODO: If we don't have the reader we have to save the promise somewhere
