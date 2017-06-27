@@ -89,6 +89,10 @@ void SegmentReader::read(uint64_t pos, size_t &size, uint8_t * const destination
 
 void SegmentReader::read_impl(uint64_t pos, size_t &size, uint8_t * const destination) {
   std::lock_guard<std::mutex> lock(data_mutex);
+  if (pos > contents.length()) {
+    size = 0;
+    return;
+  }
   if (pos + size > contents.length()) {
     size = contents.length() - pos;
   }

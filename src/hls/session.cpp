@@ -214,6 +214,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     int min_bandwidth, int max_bandwidth, bool manual_streams) :
+    quit_processing(false),
     min_bandwidth(min_bandwidth),
     max_bandwidth(max_bandwidth),
     manual_streams(manual_streams),
@@ -262,4 +263,9 @@ hls::Session::~Session() {
   if (current_pkt.demux_packet) {
     ipsh->FreeDemuxPacket(current_pkt.demux_packet);
   }
+  {
+    std::lock_guard<std::mutex> lock (demux_mutex);
+    quit_processing = true;
+  }
+  demux_thread.join();
 }

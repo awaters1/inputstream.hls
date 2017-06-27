@@ -53,6 +53,7 @@ public:
 
 class VariantStream {
 public:
+  VariantStream(hls::MediaPlaylist playlist);
   hls::MediaPlaylist playlist;
   // TODO: Init to segments.begin();
   // Points to the last added segment

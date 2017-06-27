@@ -11,6 +11,10 @@
 
 #define LOGTAG                  "[SegmentStorage] "
 
+VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
+
+}
+
 SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist) :
 offset(0),
 read_segment_data_index(0),
@@ -21,7 +25,13 @@ quit_processing(false),
 no_more_data(false),
 live(true),
 all_loaded_once(false) {
-  // TODO: Decompose the master_playlist into the variant streams
+  for(auto &media_playlist : master_playlist.get_media_playlists()) {
+    VariantStream stream(media_playlist);
+    stream.last_segment_itr = segments.begin();
+    variants.push_back(stream);
+
+  }
+  current_segment_itr = segments.end();
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   reload_thread = std::thread(&SegmentStorage::reload_playlist_thread, this);
@@ -31,7 +41,7 @@ all_loaded_once(false) {
 bool SegmentStorage::can_download_segment() {
   // Called from a locked method
   std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(write_segment_data_index);
-  return current_segment_reader && current_segment_reader->get_can_overwrite();
+  return !current_segment_reader || current_segment_reader->get_can_overwrite();
 }
 
 bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist) {
@@ -40,10 +50,13 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
   if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
       return false;
   }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %d", __FUNCTION__,
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d", __FUNCTION__,
       segment.media_sequence);
   segment_data[write_segment_data_index] =
       std::make_unique<SegmentReader>(segment, time_in_playlist);
+  if (write_segment_data_index == read_segment_data_index) {
+    segment_reader_promise.set_value(segment_data.at(read_segment_data_index).get());
+  }
   return true;
 }
 
@@ -85,10 +98,12 @@ void SegmentStorage::download_next_segment() {
     if (quit_processing || no_more_data) {
       break;
     }
+
     lock.unlock();
 
     if (has_download_item()) {
       // TODO: Choose correct variant stream to get the segment from
+      lock.lock();
       hls::Segment segment = current_segment_itr->details.at(0);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
@@ -97,8 +112,10 @@ void SegmentStorage::download_next_segment() {
       data_helper.aes_uri = segment.aes_uri;
       data_helper.encrypted = segment.encrypted;
       data_helper.segment = segment;
+      double time_in_playlist = current_segment_itr->time_in_playlist;
 
-      bool continue_download = start_segment(segment, current_segment_itr->time_in_playlist);
+      lock.unlock();
+      bool continue_download = start_segment(segment, time_in_playlist);
       if (!continue_download) {
         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
         continue;
@@ -124,6 +141,7 @@ void SegmentStorage::download_next_segment() {
         this->process_data(data_helper, contents);
       }
       end_segment();
+      lock.lock();
       ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
     } else if (!live) {
@@ -181,6 +199,7 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
      for(auto& segment : playlist_segments) {
          if (segments.empty()) {
            segments.push_back(DownloadSegment(0.0, segment, variant_stream_index, variants.size()));
+           current_segment_itr = segments.begin();
            variant_stream->last_segment_itr = segments.begin();
          } else {
            while (variant_stream->last_segment_itr != segments.end() &&
@@ -189,15 +208,18 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
            }
            if (variant_stream->last_segment_itr == segments.end()) {
              segments.push_back(DownloadSegment(segments.back().get_end_time(), segment, variant_stream_index, variants.size()));
+             if (current_segment_itr == segments.end()) {
+               current_segment_itr = --segments.end();
+             }
              variant_stream->last_segment_itr = segments.begin();
            } else {
              variant_stream->last_segment_itr->add_variant_segment(segment, variant_stream_index);
            }
          }
      }
-     // TODO: Check if current_segment_itr is at the end, if it is
-     // we have to set it to the index of the newest element added
    }
+   // TODO: Should only notify if we have loaded all of the playlists
+   download_cv.notify_all();
   } else {
    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url);
   }
