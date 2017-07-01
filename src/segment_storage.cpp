@@ -74,7 +74,7 @@ void SegmentStorage::end_segment() {
 
 bool SegmentStorage::has_download_item() {
   std::lock_guard<std::mutex> lock(data_lock);
-  return current_segment_itr != segments.end();
+  return current_segment_itr != segments.end() && current_segment_itr->details.at(0).valid;
 }
 
 void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promise) {
@@ -82,7 +82,7 @@ void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promis
   std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
   if (current_segment_reader) {
     promise.set_value(current_segment_reader.get());
-    ++read_segment_data_index;
+    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   } else {
     valid_promise = true;
     segment_reader_promise = std::move(promise);
@@ -205,16 +205,24 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
            current_segment_itr = segments.begin();
            variant_stream->last_segment_itr = segments.begin();
          } else {
-           while (variant_stream->last_segment_itr != segments.end() &&
-               segment.media_sequence <= variant_stream->last_segment_itr->media_sequence) {
-             ++variant_stream->last_segment_itr;
-           }
            if (variant_stream->last_segment_itr == segments.end()) {
-             segments.push_back(DownloadSegment(segments.back().get_end_time(), segment, variant_stream_index, variants.size()));
+               variant_stream->last_segment_itr = segments.begin();
+           }
+           while (variant_stream->last_segment_itr != segments.begin() &&
+               segment.media_sequence < variant_stream->last_segment_itr->media_sequence) {
+             --variant_stream->last_segment_itr;
+           }
+           while (variant_stream->last_segment_itr != segments.end() &&
+                segment.media_sequence > variant_stream->last_segment_itr->media_sequence) {
+              ++variant_stream->last_segment_itr;
+           }
+           if (variant_stream->last_segment_itr == segments.end() ||
+               variant_stream->last_segment_itr->media_sequence != segment.media_sequence) {
+               variant_stream->last_segment_itr = segments.insert(variant_stream->last_segment_itr,
+                             DownloadSegment(segments.back().get_end_time(), segment, variant_stream_index, variants.size()));
              if (current_segment_itr == segments.end()) {
                current_segment_itr = --segments.end();
              }
-             variant_stream->last_segment_itr = segments.begin();
            } else {
              variant_stream->last_segment_itr->add_variant_segment(segment, variant_stream_index);
            }

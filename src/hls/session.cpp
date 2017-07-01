@@ -125,6 +125,10 @@ void hls::Session::demux_process() {
     demuxer->set_segment_reader(reader);
     DemuxStatus status = DemuxStatus::FILLED_BUFFER;
     std::vector<DemuxContainer> demux_packets;
+    // TODO: This thread has a
+    // terminate called after throwing an instance of 'std::out_of_range'
+    // what():  vector::_M_range_check: __n (which is 6) >= this->size() (which is 6)
+
     // TODO: Need a way to interrupt this? when stopping
     while(((status = demuxer->Process(demux_packets)) != DemuxStatus::ERROR) && status != DemuxStatus::SEGMENT_DONE) {
         // TODO: Lock the session packets and copy
