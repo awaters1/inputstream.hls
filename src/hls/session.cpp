@@ -160,7 +160,7 @@ INPUTSTREAM_IDS hls::Session::get_streams() {
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  for(size_t i = 0; i < get_streams().m_streamCount; ++i) {
+  for(size_t i = 0; i < m_streamIds.m_streamCount; ++i) {
     if (m_streams[i].m_pID == stream_id) {
       return m_streams[i];
     }
