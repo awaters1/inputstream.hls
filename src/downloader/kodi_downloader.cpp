@@ -39,9 +39,6 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
   void* file = xbmc->CURLCreate(url.c_str());
   if (!file)
     func("");
-  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
-  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
-  xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
   if (byte_length) {
       char rangebuf[128];
       sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, uint64_t(byte_offset),
@@ -49,7 +46,8 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
       xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangebuf);
   }
 
-  xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
+  // xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
+  xbmc->CURLOpen(file, 0);
 
   // read the file
   char *buf = (char*)malloc(4*1024);

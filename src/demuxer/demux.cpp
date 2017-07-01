@@ -128,6 +128,7 @@ Demux::~Demux()
 
 void Demux::set_segment_reader(SegmentReader *segment_reader) {
   m_AVContext->GoPosition(0);
+  m_av_pos = 0;
   this->segment_reader = segment_reader;
   hls::Segment segment = segment_reader->get_segment();
   m_segmentChanged = true;

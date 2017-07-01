@@ -26,7 +26,7 @@
 #include "downloader/downloader.h"
 #include "hls/SegmentReader.h"
 
-const int RELOAD_DELAY_MS = 500;
+const int RELOAD_DELAY_MS = 4000;
 const size_t MAX_SEGMENTS =  6;
 
 struct DataHelper {
