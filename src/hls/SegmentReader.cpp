@@ -97,6 +97,10 @@ void SegmentReader::read_impl(uint64_t pos, size_t &size, uint8_t * const destin
     size = contents.length() - pos;
   }
   std::memcpy(destination, contents.c_str() + pos, size);
-  can_overwrite = finished;
+  can_overwrite = finished && (pos + size) >= contents.length();
+  if (can_overwrite) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Read all data pos %d size %d length %d", __FUNCTION__,
+        pos, size, contents.length());
+  }
 }
 

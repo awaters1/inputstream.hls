@@ -51,8 +51,8 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
   if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
       return false;
   }
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d", __FUNCTION__,
-      segment.media_sequence);
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %f", __FUNCTION__,
+      segment.media_sequence, time_in_playlist);
   segment_data[write_segment_data_index] =
       std::make_unique<SegmentReader>(segment, time_in_playlist);
   if (write_segment_data_index == read_segment_data_index && valid_promise) {
@@ -80,14 +80,14 @@ bool SegmentStorage::has_download_item() {
 void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promise) {
   std::lock_guard<std::mutex> lock(data_lock);
   std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
-  if (current_segment_reader) {
+  if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
     promise.set_value(current_segment_reader.get());
     read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   } else {
     valid_promise = true;
     segment_reader_promise = std::move(promise);
+    download_cv.notify_all();
   }
-  // TODO: If we don't have the reader we have to save the promise somewhere
 }
 
 void SegmentStorage::download_next_segment() {
@@ -232,7 +232,7 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
    // TODO: Should only notify if we have loaded all of the playlists
    download_cv.notify_all();
   } else {
-   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url);
+   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url.c_str());
   }
 }
 

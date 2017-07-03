@@ -155,7 +155,7 @@ void Demux::set_segment_reader(SegmentReader *segment_reader) {
       processed_discontinuity = true;
     }
   }
-  xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d Time: %d", __FUNCTION__, m_av_pos,
+  xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d Time: %f", __FUNCTION__, m_av_pos,
                 segment.media_sequence, segment_reader->get_time_in_playlist());
 }
 
@@ -184,6 +184,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   size_t dataread = m_av_rbe - m_av_rbs;
   if (dataread >= n)
     return m_av_rbs;
+  // xbmc->Log(LOG_DEBUG, LOGTAG "%s Attempting to read pos %d size %d", __FUNCTION__, pos, n);
   dataread = 0;
 //  xbmc->Log(LOG_DEBUG, LOGTAG "%s: Starting read at %d", __FUNCTION__, pos);
   // flush old data to free up space at the end
@@ -213,6 +214,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
 DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 {
+  std::vector<DemuxContainer> temp_demux_packets;
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);
   if (!m_AVContext)
   {
@@ -259,7 +261,15 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
           m_segmentChanged = false;
           include_discontinuity = false;
         }
-        demux_packets.push_back(demux_container);
+        if (awaiting_initial_setup) {
+          temp_demux_packets.push_back(demux_container);
+        } else {
+          if (!temp_demux_packets.empty()) {
+            demux_packets.insert(demux_packets.end(), temp_demux_packets.begin(), temp_demux_packets.end());
+            temp_demux_packets.clear();
+          }
+          demux_packets.push_back(demux_container);
+        }
       }
     }
     if (m_AVContext->HasPIDPayload())
@@ -290,6 +300,7 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
     }
 
   }
+  // TODO: Need to be able to detect end of segmend and an actually error
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
   return ret >= 0 ? DemuxStatus::SEGMENT_DONE : DemuxStatus::ERROR;
 }

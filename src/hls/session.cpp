@@ -71,7 +71,9 @@ void hls::Session::read_next_pkt() {
        return quit_processing || !write_packet_buffer.empty();
      });
      read_packet_buffer.swap(write_packet_buffer);
- //      xbmc->Log(LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, readPacketBuffer.size());
+     if (read_packet_buffer.size() > 0) {
+       xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, read_packet_buffer.size());
+     }
    }
    if (read_packet_buffer.empty()) {
      if (quit_processing) {
@@ -79,7 +81,7 @@ void hls::Session::read_next_pkt() {
        current_pkt = DemuxContainer();
        return;
      } else {
-       xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
+       // xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
        DemuxContainer container;
        container.demux_packet = ipsh->AllocateDemuxPacket(0);
        current_pkt = container;
@@ -130,15 +132,23 @@ void hls::Session::demux_process() {
     // what():  vector::_M_range_check: __n (which is 6) >= this->size() (which is 6)
 
     // TODO: Need a way to interrupt this? when stopping
-    while(((status = demuxer->Process(demux_packets)) != DemuxStatus::ERROR) && status != DemuxStatus::SEGMENT_DONE) {
+    while(status != DemuxStatus::SEGMENT_DONE && status != DemuxStatus::ERROR) {
         // TODO: Lock the session packets and copy
         // the contents of demux_packets into it
         // TODO: Need to do something better to prevent stutters
+      status = demuxer->Process(demux_packets);
       if (status == DemuxStatus::STREAM_SETUP_COMPLETE) {
         std::lock_guard<std::mutex> lock(demux_mutex);
         m_streamIds = demuxer->GetStreamIds();
         m_streams = demuxer->GetStreams();
       }
+      {
+         std::unique_lock<std::mutex> lock(demux_mutex);
+         write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
+         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
+             write_packet_buffer.size());
+         demux_packets.clear();
+       }
     }
     if (status != DemuxStatus::SEGMENT_DONE) {
         // TODO: Handle potential error
@@ -229,6 +239,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_total_time(0),
     last_current_time(0),
     segment_storage(downloader, master_playlist){
+  m_streamIds.m_streamCount = 0;
   demux_thread = std::thread(&Session::demux_process, this);
 }
 
