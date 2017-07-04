@@ -103,12 +103,12 @@ void hls::Session::demux_process() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
   std::unique_ptr<Demux> demuxer;
   while(!quit_processing) {
-    std::promise<SegmentReader*> reader_promise;
-    std::future<SegmentReader*> reader_future = reader_promise.get_future();
+    std::promise<std::unique_ptr<SegmentReader>> reader_promise;
+    std::future<std::unique_ptr<SegmentReader>> reader_future = reader_promise.get_future();
     segment_storage.get_next_segment_reader(std::move(reader_promise));
     // TODO: Have like a 60 second timeout to get the next segment
     reader_future.wait();
-    SegmentReader *reader;
+    std::unique_ptr<SegmentReader> reader;
     try {
       reader = reader_future.get();
     } catch(std::exception &e) {
@@ -124,7 +124,7 @@ void hls::Session::demux_process() {
     if (!demuxer || requires_new_demuxer) {
       demuxer = std::make_unique<Demux>();
     }
-    demuxer->set_segment_reader(reader);
+    demuxer->set_segment_reader(std::move(reader));
     DemuxStatus status = DemuxStatus::FILLED_BUFFER;
     std::vector<DemuxContainer> demux_packets;
     // TODO: This thread has a

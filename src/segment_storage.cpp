@@ -16,10 +16,6 @@ VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
 }
 
 SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist) :
-offset(0),
-read_segment_data_index(0),
-write_segment_data_index(0),
-segment_data(MAX_SEGMENTS),
 downloader(downloader),
 quit_processing(false),
 no_more_data(false),
@@ -41,39 +37,25 @@ valid_promise(false) {
 
 bool SegmentStorage::can_download_segment() {
   // Called from a locked method
-  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(write_segment_data_index);
-  return !current_segment_reader || current_segment_reader->get_can_overwrite();
+  return segment_data.size() < MAX_SEGMENTS;
 }
 
-bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist) {
+SegmentReader * SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist) {
   std::lock_guard<std::mutex> lock(data_lock);
-  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(write_segment_data_index);
-  if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
-      return false;
-  }
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %f", __FUNCTION__,
       segment.media_sequence, time_in_playlist);
-  segment_data[write_segment_data_index] =
-      std::make_unique<SegmentReader>(segment, time_in_playlist);
-  if (write_segment_data_index == read_segment_data_index && valid_promise) {
-      std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Start Segment Read index: %d media sequence: %d", read_segment_data_index,
-                    current_segment_reader->get_segment().media_sequence);
-    segment_reader_promise.set_value(current_segment_reader.get());
-    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
+  std::unique_ptr<SegmentReader> segment_reader = std::make_unique<SegmentReader>(segment, time_in_playlist);
+  SegmentReader *raw_segment_reader = segment_reader.get();
+  if (valid_promise) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Start Segment media sequence: %d",
+                    segment_reader->get_segment().media_sequence);
+    segment_reader_promise.set_value(std::move(segment_reader));
     valid_promise = false;
+  } else {
+    segment_data.push_back(std::move(segment_reader));
   }
-  return true;
-}
+  return raw_segment_reader;
 
-void SegmentStorage::write_segment(std::string data) {
-  segment_data.at(write_segment_data_index)->write_data(data);
-}
-
-void SegmentStorage::end_segment() {
-  segment_data.at(write_segment_data_index)->end_data();
-  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s End segment", __FUNCTION__);
-  write_segment_data_index = (write_segment_data_index + 1) % MAX_SEGMENTS;
 }
 
 bool SegmentStorage::has_download_item() {
@@ -81,14 +63,14 @@ bool SegmentStorage::has_download_item() {
   return current_segment_itr != segments.end() && current_segment_itr->details.at(0).valid;
 }
 
-void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promise) {
+void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise) {
   std::lock_guard<std::mutex> lock(data_lock);
-  std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
-  if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
-    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Get next Read index: %d media sequence: %d", read_segment_data_index,
-              current_segment_reader->get_segment().media_sequence);
-    promise.set_value(current_segment_reader.get());
-    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
+  if (!segment_data.empty()) {
+    std::unique_ptr<SegmentReader> segment_reader = std::move(segment_data.front());
+    segment_data.pop_front();
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Get next media sequence: %d",
+              segment_reader->get_segment().media_sequence);
+    promise.set_value(std::move(segment_reader));
   } else {
     valid_promise = true;
     segment_reader_promise = std::move(promise);
@@ -120,15 +102,11 @@ void SegmentStorage::download_next_segment() {
       data_helper.aes_iv = segment.aes_iv;
       data_helper.aes_uri = segment.aes_uri;
       data_helper.encrypted = segment.encrypted;
-      data_helper.segment = segment;
       double time_in_playlist = current_segment_itr->time_in_playlist;
 
       lock.unlock();
-      bool continue_download = start_segment(segment, time_in_playlist);
-      if (!continue_download) {
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Demuxer says not to download");
-        continue;
-      }
+      SegmentReader *segment_reader = start_segment(segment, time_in_playlist);
+      data_helper.segment_reader = segment_reader;
       std::string url = segment.get_url();
       if (url.find("http") != std::string::npos) {
         downloader->download(url, segment.byte_offset, segment.byte_length,
@@ -149,7 +127,7 @@ void SegmentStorage::download_next_segment() {
         std::string contents = file_downloader.download(url);
         this->process_data(data_helper, contents);
       }
-      end_segment();
+      segment_reader->end_data();
       lock.lock();
       ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
@@ -177,7 +155,7 @@ void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
     // Prepare the iv for the next segment
     data_helper.aes_iv = next_iv;
   }
-  write_segment(data);
+  data_helper.segment_reader->write_data(data);
 }
 
 

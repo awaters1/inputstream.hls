@@ -33,7 +33,7 @@ struct DataHelper {
   std::string aes_uri;
   std::string aes_iv;
   bool encrypted;
-  hls::Segment segment;
+  SegmentReader *segment_reader;
 };
 
 class DownloadSegment {
@@ -64,24 +64,19 @@ class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
-  void get_next_segment_reader(std::promise<SegmentReader*> promise);
+  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise);
 public:
   // These three are all executed from another thread that stays the same
-  bool start_segment(hls::Segment segment, double time_in_playlist);
-  void write_segment(std::string data);
-  void end_segment();
+  SegmentReader * start_segment(hls::Segment segment, double time_in_playlist);
 private:
   bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
   bool has_download_item();
 private:
-  uint64_t offset;
-  uint32_t read_segment_data_index;
-  uint32_t write_segment_data_index;
-  std::vector<std::unique_ptr<SegmentReader>> segment_data;
+  std::list<std::unique_ptr<SegmentReader>> segment_data;
   bool valid_promise;
-  std::promise<SegmentReader*> segment_reader_promise;
+  std::promise<std::unique_ptr<SegmentReader>> segment_reader_promise;
   bool quit_processing;
   bool no_more_data;
   Downloader *downloader;

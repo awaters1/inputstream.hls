@@ -122,10 +122,9 @@ Demux::~Demux()
   }
 }
 
-void Demux::set_segment_reader(SegmentReader *segment_reader) {
+void Demux::set_segment_reader(std::unique_ptr<SegmentReader> segment_reader) {
   m_AVContext->GoPosition(0);
   m_av_pos = 0;
-  this->segment_reader = segment_reader;
   hls::Segment segment = segment_reader->get_segment();
   if (m_segmentReadTime == -1) {
       m_segmentReadTime = segment_reader->get_time_in_playlist() * DVD_TIME_BASE;
@@ -147,6 +146,7 @@ void Demux::set_segment_reader(SegmentReader *segment_reader) {
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d Time: %f", __FUNCTION__, m_av_pos,
                 segment.media_sequence, segment_reader->get_time_in_playlist());
+  this->segment_reader = std::move(segment_reader);
 }
 
 /*
