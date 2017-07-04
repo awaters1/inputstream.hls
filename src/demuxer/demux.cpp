@@ -76,13 +76,9 @@ Demux::Demux()
   , m_av_rbe(NULL)
   , m_AVContext(NULL)
   , m_mainStreamPID(0xffff)
-  , m_isStreamDone(false)
-  , m_segmentChanged(false)
   , m_readTime(-1)
   , m_segmentReadTime(-1)
-  , processed_discontinuity(true)
   , include_discontinuity(false)
-  , awaiting_initial_setup(false)
   , segment_reader(nullptr)
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demux", __FUNCTION__);
@@ -131,7 +127,6 @@ void Demux::set_segment_reader(SegmentReader *segment_reader) {
   m_av_pos = 0;
   this->segment_reader = segment_reader;
   hls::Segment segment = segment_reader->get_segment();
-  m_segmentChanged = true;
   if (m_segmentReadTime == -1) {
       m_segmentReadTime = segment_reader->get_time_in_playlist() * DVD_TIME_BASE;
       xbmc->Log(LOG_DEBUG, LOGTAG "%s Setting segment read time: %d", __FUNCTION__, m_segmentReadTime);
@@ -141,19 +136,14 @@ void Demux::set_segment_reader(SegmentReader *segment_reader) {
     m_segmentReadTime += (segment.duration * DVD_TIME_BASE);
   }
   if (segment.discontinuity) {
-    processed_discontinuity = false;
     include_discontinuity = true;
     xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);
 
-    if (!processed_discontinuity) {
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
-      awaiting_initial_setup = true;
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
-      m_AVContext->StreamDiscontinuity();
-      m_AVContext->Reset();
-      m_AVContext->ResetPackets();
-      processed_discontinuity = true;
-    }
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing discontinuity", __FUNCTION__);
+    xbmc->Log(LOG_DEBUG, LOGTAG "%s: resetting AV context", __FUNCTION__);
+    m_AVContext->StreamDiscontinuity();
+    m_AVContext->Reset();
+    m_AVContext->ResetPackets();
   }
   xbmc->Log(LOG_DEBUG, LOGTAG "%s Pos: %d Current Segment: %d Time: %f", __FUNCTION__, m_av_pos,
                 segment.media_sequence, segment_reader->get_time_in_playlist());
@@ -198,9 +188,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
   segment_reader->read(m_av_pos + dataread, len, m_av_rbe, n);
   // xbmc->Log(LOG_DEBUG, LOGTAG "%s Read at %d for %d bytes", __FUNCTION__, pos, len);
-  if (len == 0) {
-    m_isStreamDone = true;
-  }
+
 
   m_av_rbe += len;
   dataread += len;
@@ -214,7 +202,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
 
 DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 {
-  std::vector<DemuxContainer> temp_demux_packets;
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);
   if (!m_AVContext)
   {
@@ -223,6 +210,7 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
   }
 
   bool return_stream_setup = false;
+  bool added_stream_change = false;
   int ret = 0;
 
   while (true)
@@ -244,32 +232,19 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
           // and start playing while the other stream is attempting setup, so we updated the streams
           // and then when they are done updating we return from process to notify the caller
           update_pvr_stream(pkt.pid);
-          if (awaiting_initial_setup) {
-            if (m_nosetup.empty()) {
-              awaiting_initial_setup = false;
-              return_stream_setup = true;
-            }
-          } else {
-            push_stream_change(demux_packets);
+          if (m_nosetup.empty()) {
+            return_stream_setup = true;
+          }
+          if (!added_stream_change) {
+            demux_packets.push_back(get_stream_change());
+            added_stream_change = true;
           }
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
         DemuxContainer demux_container;
         demux_container.demux_packet = dxp;
         update_timing_data(demux_container);
-        if (m_segmentChanged) {
-          m_segmentChanged = false;
-          include_discontinuity = false;
-        }
-        if (awaiting_initial_setup) {
-          temp_demux_packets.push_back(demux_container);
-        } else {
-          if (!temp_demux_packets.empty()) {
-            demux_packets.insert(demux_packets.end(), temp_demux_packets.begin(), temp_demux_packets.end());
-            temp_demux_packets.clear();
-          }
-          demux_packets.push_back(demux_container);
-        }
+        demux_packets.push_back(demux_container);
       }
     }
     if (m_AVContext->HasPIDPayload())
@@ -278,9 +253,11 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       if (ret == TSDemux::AVCONTEXT_PROGRAM_CHANGE)
       {
         xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing stream change", __FUNCTION__);
-        awaiting_initial_setup = true;
         populate_pvr_streams();
-        push_stream_change(demux_packets);
+        if (!added_stream_change) {
+          demux_packets.push_back(get_stream_change());
+          added_stream_change = true;
+        }
       }
     }
 
@@ -307,10 +284,6 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 
 INPUTSTREAM_IDS Demux::GetStreamIds()
 {
-  if (awaiting_initial_setup) {
-    xbmc->Log(LOG_NOTICE, LOGTAG "%s: incomplete setup for streamids", __FUNCTION__);
-  }
-
   return m_streamIds;
 }
 
@@ -511,12 +484,11 @@ void Demux::update_timing_data(DemuxContainer &demux_container) {
   if (demux_container.demux_packet->iStreamId == m_mainStreamPID) {
     m_readTime += demux_container.demux_packet->duration;
   }
-  demux_container.segment_changed = m_segmentChanged;
   demux_container.discontinuity = include_discontinuity;
   demux_container.time_in_playlist = segment_reader->get_time_in_playlist();
 }
 
-void Demux::push_stream_change(std::vector<DemuxContainer> &packets)
+DemuxContainer Demux::get_stream_change()
 {
   DemuxPacket* dxp  = ipsh->AllocateDemuxPacket(0);
   dxp->iStreamId    = DMX_SPECIALID_STREAMCHANGE;
@@ -525,8 +497,8 @@ void Demux::push_stream_change(std::vector<DemuxContainer> &packets)
   demux_container.demux_packet = dxp;
   update_timing_data(demux_container);
 
-  packets.push_back(demux_container);
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);
+  return demux_container;
 }
 
 DemuxPacket* Demux::stream_pvr_data(TSDemux::STREAM_PKT* pkt)

@@ -1,4 +1,6 @@
-Have to get rid of packets from stream 258
+1. Sometimes parts of different comercials intertwine, may be due to temp_demux_packets
+2. need to fix stopping
+3. clean up mem leaks
 
 Session -> runs demuxer thread
 -> Uses a promise to communicate with segment_storage for when a segment is ready

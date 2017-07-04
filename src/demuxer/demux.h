@@ -65,11 +65,9 @@ private:
 
   bool get_stream_data(TSDemux::STREAM_PKT* pkt);
 
-  bool processed_discontinuity;
-  bool awaiting_initial_setup;
   void populate_pvr_streams();
   bool update_pvr_stream(uint16_t pid);
-  void push_stream_change(std::vector<DemuxContainer> &packets);
+  DemuxContainer get_stream_change();
   DemuxPacket* stream_pvr_data(TSDemux::STREAM_PKT* pkt);
   void process_demux_thread();
   bool should_process_demux();
@@ -89,7 +87,5 @@ private:
   std::set<uint16_t> m_nosetup;
 
   SegmentReader *segment_reader;
-  bool m_isStreamDone;
-  bool m_segmentChanged;
   bool include_discontinuity;
 };
