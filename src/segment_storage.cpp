@@ -40,11 +40,11 @@ bool SegmentStorage::can_download_segment() {
   return segment_data.size() < MAX_SEGMENTS;
 }
 
-SegmentReader * SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist) {
+SegmentReader * SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream) {
   std::lock_guard<std::mutex> lock(data_lock);
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %f", __FUNCTION__,
       segment.media_sequence, time_in_playlist);
-  std::unique_ptr<SegmentReader> segment_reader = std::make_unique<SegmentReader>(segment, time_in_playlist);
+  std::unique_ptr<SegmentReader> segment_reader = std::make_unique<SegmentReader>(segment, time_in_playlist, chosen_variant_stream);
   SegmentReader *raw_segment_reader = segment_reader.get();
   if (valid_promise) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Start Segment media sequence: %d",
@@ -58,9 +58,9 @@ SegmentReader * SegmentStorage::start_segment(hls::Segment segment, double time_
 
 }
 
-bool SegmentStorage::has_download_item() {
+bool SegmentStorage::has_download_item(uint32_t chosen_variant_stream) {
   std::lock_guard<std::mutex> lock(data_lock);
-  return current_segment_itr != segments.end() && current_segment_itr->details.at(0).valid;
+  return current_segment_itr != segments.end() && current_segment_itr->details.at(chosen_variant_stream).valid;
 }
 
 void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise) {
@@ -80,6 +80,7 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<Segmen
 
 void SegmentStorage::download_next_segment() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of segments");
+  uint32_t counter = 0;
   while(!quit_processing) {
     std::unique_lock<std::mutex> lock(data_lock);
     download_cv.wait(lock, [&] {
@@ -92,10 +93,14 @@ void SegmentStorage::download_next_segment() {
 
     lock.unlock();
 
-    if (has_download_item()) {
-      // TODO: Choose correct variant stream to get the segment from
+    // TODO: Choose correct variant stream to get the segment from
+    // uint32_t chosen_variant_stream = counter > 10 ? 3 : 0; // rand() % variants.size();
+    uint32_t chosen_variant_stream = counter > 3 ? rand() % 4 : 0;
+
+    if (has_download_item(chosen_variant_stream)) {
+      ++counter;
       lock.lock();
-      hls::Segment segment = current_segment_itr->details.at(0);
+      hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
       DataHelper data_helper;
@@ -105,7 +110,7 @@ void SegmentStorage::download_next_segment() {
       double time_in_playlist = current_segment_itr->time_in_playlist;
 
       lock.unlock();
-      SegmentReader *segment_reader = start_segment(segment, time_in_playlist);
+      SegmentReader *segment_reader = start_segment(segment, time_in_playlist, chosen_variant_stream);
       data_helper.segment_reader = segment_reader;
       std::string url = segment.get_url();
       if (url.find("http") != std::string::npos) {

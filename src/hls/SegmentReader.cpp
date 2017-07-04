@@ -9,11 +9,12 @@
 
 #define LOGTAG                  "[SegmentReader] "
 
-SegmentReader::SegmentReader(hls::Segment segment, double time_in_playlist) :
+SegmentReader::SegmentReader(hls::Segment segment, double time_in_playlist, uint32_t variant_stream_index) :
 segment(segment),
 time_in_playlist(time_in_playlist),
 can_overwrite(false),
-finished(false) {
+finished(false),
+variant_stream_index(variant_stream_index) {
 
 }
 
@@ -36,15 +37,19 @@ bool SegmentReader::is_finished() {
 }
 
 void SegmentReader::write_data(std::string data) {
-  std::lock_guard<std::mutex> lock(data_mutex);
-  contents += data;
-  can_overwrite = false;
+  {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    contents += data;
+    can_overwrite = false;
+  }
   data_cv.notify_all();
 }
 
 void SegmentReader::end_data() {
-  std::lock_guard<std::mutex> lock(data_mutex);
-  finished = true;
+  {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    finished = true;
+  }
   data_cv.notify_all();
 }
 

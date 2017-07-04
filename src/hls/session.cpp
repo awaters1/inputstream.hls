@@ -102,6 +102,7 @@ void hls::Session::read_next_pkt() {
 void hls::Session::demux_process() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting demux thread");
   std::unique_ptr<Demux> demuxer;
+  uint32_t last_variant_stream = -1;
   while(!quit_processing) {
     std::promise<std::unique_ptr<SegmentReader>> reader_promise;
     std::future<std::unique_ptr<SegmentReader>> reader_future = reader_promise.get_future();
@@ -117,11 +118,10 @@ void hls::Session::demux_process() {
     }
     // With the reader either create demux or use the existing demux
     // and demux the data coming in from the segment reader
-    // TODO: Set this if we need a new demuxer, if for
-    // example the segment we about to demux is from a separate
-    // variant stream than the last segment
-    bool requires_new_demuxer = false;
+    bool requires_new_demuxer = last_variant_stream != reader->get_variant_stream_index();
+    last_variant_stream = reader->get_variant_stream_index();
     if (!demuxer || requires_new_demuxer) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Making a new demuxer");
       demuxer = std::make_unique<Demux>();
     }
     demuxer->set_segment_reader(std::move(reader));

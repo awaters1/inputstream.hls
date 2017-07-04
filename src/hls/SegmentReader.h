@@ -11,7 +11,7 @@ const size_t READ_TIMEOUT_MS = 60000;
 
 class SegmentReader {
 public:
-  SegmentReader(hls::Segment segment, double time_in_playlist);
+  SegmentReader(hls::Segment segment, double time_in_playlist, uint32_t variant_stream_index);
   virtual ~SegmentReader();
   hls::Segment get_segment();
   double get_time_in_playlist() {
@@ -22,6 +22,7 @@ public:
   void write_data(std::string data);
   void end_data();
   void read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read);
+  uint32_t get_variant_stream_index() { return variant_stream_index; };
 private:
   void read_impl(uint64_t pos, size_t &size, uint8_t * const destination);
 private:
@@ -32,4 +33,5 @@ private:
   std::string contents;
   bool can_overwrite;
   bool finished;
+  uint32_t variant_stream_index;
 };

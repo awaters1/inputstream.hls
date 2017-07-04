@@ -65,13 +65,12 @@ public:
   ~SegmentStorage();
   void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise);
 public:
-  // These three are all executed from another thread that stays the same
-  SegmentReader * start_segment(hls::Segment segment, double time_in_playlist);
+  SegmentReader * start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
 private:
   bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
-  bool has_download_item();
+  bool has_download_item(uint32_t chosen_variant_stream);
 private:
   std::list<std::unique_ptr<SegmentReader>> segment_data;
   bool valid_promise;
