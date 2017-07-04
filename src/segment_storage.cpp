@@ -56,7 +56,11 @@ bool SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist
   segment_data[write_segment_data_index] =
       std::make_unique<SegmentReader>(segment, time_in_playlist);
   if (write_segment_data_index == read_segment_data_index && valid_promise) {
-    segment_reader_promise.set_value(segment_data.at(read_segment_data_index).get());
+      std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Start Segment Read index: %d media sequence: %d", read_segment_data_index,
+                    current_segment_reader->get_segment().media_sequence);
+    segment_reader_promise.set_value(current_segment_reader.get());
+    read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
     valid_promise = false;
   }
   return true;
@@ -81,6 +85,8 @@ void SegmentStorage::get_next_segment_reader(std::promise<SegmentReader*> promis
   std::lock_guard<std::mutex> lock(data_lock);
   std::unique_ptr<SegmentReader> &current_segment_reader = segment_data.at(read_segment_data_index);
   if (current_segment_reader && !current_segment_reader->get_can_overwrite()) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Get next Read index: %d media sequence: %d", read_segment_data_index,
+              current_segment_reader->get_segment().media_sequence);
     promise.set_value(current_segment_reader.get());
     read_segment_data_index = (read_segment_data_index + 1) % MAX_SEGMENTS;
   } else {
