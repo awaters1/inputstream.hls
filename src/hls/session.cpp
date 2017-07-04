@@ -96,6 +96,13 @@ void hls::Session::read_next_pkt() {
    if (duration > 10000) {
      // xbmc->Log(LOG_NOTICE, LOGTAG "%s: Read Duration %d, packets %d", __FUNCTION__, duration, readPacketBuffer.size());
    }
+   if (read_packet_buffer.empty()) {
+     read_start_time = 0;
+     read_end_time = 0;
+   } else {
+     read_start_time = read_packet_buffer.front().current_time;
+     read_end_time = read_packet_buffer.back().current_time;
+   }
    current_pkt = packet;
 }
 
@@ -106,7 +113,25 @@ void hls::Session::demux_process() {
   while(!quit_processing) {
     std::promise<std::unique_ptr<SegmentReader>> reader_promise;
     std::future<std::unique_ptr<SegmentReader>> reader_future = reader_promise.get_future();
-    segment_storage.get_next_segment_reader(std::move(reader_promise));
+    double seconds_in_buffers = 0;
+    uint64_t write_start_time = 0;
+    uint64_t write_end_time = 0;
+    {
+      std::lock_guard<std::mutex> lock(demux_mutex);
+      if (!write_packet_buffer.empty()) {
+        write_start_time = write_packet_buffer.front().current_time;
+        write_end_time = write_packet_buffer.back().current_time;
+      }
+    }
+    uint64_t total_time = 0;
+    if (read_start_time == read_end_time) {
+      total_time = write_end_time - write_start_time;
+    } else if (write_end_time == write_start_time) {
+      total_time = read_end_time - read_start_time;
+    } else {
+      total_time = write_end_time - read_start_time;
+    }
+    segment_storage.get_next_segment_reader(std::move(reader_promise), total_time);
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
     try {
@@ -132,8 +157,8 @@ void hls::Session::demux_process() {
       status = demuxer->Process(demux_packets);
       if (status == DemuxStatus::STREAM_SETUP_COMPLETE) {
         std::lock_guard<std::mutex> lock(demux_mutex);
-        m_streamIds = demuxer->GetStreamIds();
-        m_streams = demuxer->GetStreams();
+        stream_ids.push_back(demuxer->GetStreamIds());
+        streams.push_back(demuxer->GetStreams());
       }
       {
          std::unique_lock<std::mutex> lock(demux_mutex);
@@ -161,17 +186,33 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 
 INPUTSTREAM_IDS hls::Session::get_streams() {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  return m_streamIds;
+  if (stream_ids.empty()) {
+    INPUTSTREAM_IDS empty;
+    empty.m_streamCount = 0;
+    return empty;
+  }
+  INPUTSTREAM_IDS ids = stream_ids.front();
+  stream_ids.pop_front();
+  streams_read = 0;
+  last_stream_count = ids.m_streamCount;
+  return ids;
 }
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  for(size_t i = 0; i < m_streamIds.m_streamCount; ++i) {
-    if (m_streams[i].m_pID == stream_id) {
-      return m_streams[i];
+  INPUTSTREAM_INFO info;
+  if (!streams.empty()) {
+    INPUTSTREAM_INFO *streams_info = streams.front();
+    for(size_t i = 0; i < last_stream_count; ++i) {
+      if (streams_info[i].m_pID == stream_id) {
+        info = streams_info[i];
+      }
+    }
+    if (streams_read == last_stream_count) {
+      streams.pop_front();
     }
   }
-  return INPUTSTREAM_INFO();
+  return info;
 }
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
@@ -235,7 +276,6 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_total_time(0),
     last_current_time(0),
     segment_storage(downloader, master_playlist){
-  m_streamIds.m_streamCount = 0;
   demux_thread = std::thread(&Session::demux_process, this);
 }
 

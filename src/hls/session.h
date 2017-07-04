@@ -21,6 +21,8 @@
 #include <future>
 #include <thread>
 #include <deque>
+#include <atomic>
+#include <cstdint>
 
 #include "HLS.h"
 #include "../downloader/downloader.h"
@@ -60,8 +62,12 @@ namespace hls {
     std::deque<DemuxContainer> read_packet_buffer;
     std::deque<DemuxContainer> write_packet_buffer;
     bool quit_processing;
-    INPUTSTREAM_IDS m_streamIds;
-    INPUTSTREAM_INFO *m_streams;
+    std::list<INPUTSTREAM_IDS> stream_ids;
+    std::list<INPUTSTREAM_INFO*> streams;
+    uint32_t last_stream_count;
+    uint32_t streams_read;
+    std::atomic<uint64_t> read_start_time;
+    std::atomic<uint64_t> read_end_time;
   private:
     int min_bandwidth;
     int max_bandwidth;

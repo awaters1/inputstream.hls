@@ -10,6 +10,7 @@
 #include "hls/decrypter.h"
 
 #define LOGTAG                  "[SegmentStorage] "
+#define STREAM_LOGTAG                  "[StreamSwitch] "
 
 VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
 
@@ -63,8 +64,10 @@ bool SegmentStorage::has_download_item(uint32_t chosen_variant_stream) {
   return current_segment_itr != segments.end() && current_segment_itr->details.at(chosen_variant_stream).valid;
 }
 
-void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise) {
+void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise,
+    uint64_t time_in_buffer) {
   std::lock_guard<std::mutex> lock(data_lock);
+  this->time_in_buffer = time_in_buffer;
   if (!segment_data.empty()) {
     std::unique_ptr<SegmentReader> segment_reader = std::move(segment_data.front());
     segment_data.pop_front();
@@ -91,28 +94,42 @@ void SegmentStorage::download_next_segment() {
       break;
     }
 
+    if (current_segment_itr == segments.end()) {
+      continue;
+    }
+
+    // Create new stage
+    Stage next_stage;
+    next_stage.buffer_level_ms = time_in_buffer;
+    next_stage.bandwidth_kpbs = stage.bandwidth_kpbs;
+    next_stage.previous_quality = stage.current_quality;
+
     lock.unlock();
 
     // TODO: Choose correct variant stream to get the segment from
     // uint32_t chosen_variant_stream = counter > 10 ? 3 : 0; // rand() % variants.size();
-    uint32_t chosen_variant_stream = counter > 3 ? rand() % 4 : 0;
+    uint32_t chosen_variant_stream = 0;
 
     if (has_download_item(chosen_variant_stream)) {
+      stage = next_stage;
       ++counter;
       lock.lock();
       hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
+      stage.current_quality = variants.at(chosen_variant_stream).playlist.bandwidth;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
       DataHelper data_helper;
       data_helper.aes_iv = segment.aes_iv;
       data_helper.aes_uri = segment.aes_uri;
       data_helper.encrypted = segment.encrypted;
+      data_helper.total_bytes = 0;
       double time_in_playlist = current_segment_itr->time_in_playlist;
 
       lock.unlock();
       SegmentReader *segment_reader = start_segment(segment, time_in_playlist, chosen_variant_stream);
       data_helper.segment_reader = segment_reader;
       std::string url = segment.get_url();
+      std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
       if (url.find("http") != std::string::npos) {
         downloader->download(url, segment.byte_offset, segment.byte_length,
             [&](std::string data) -> bool {
@@ -133,6 +150,12 @@ void SegmentStorage::download_next_segment() {
         this->process_data(data_helper, contents);
       }
       segment_reader->end_data();
+      std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+      stage.download_time_ms = duration;
+      stage.bandwidth_kpbs = (data_helper.total_bytes * 1024 * 8) / (duration * 1000);
+      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "Stage: buf: %f kpbs: %f prev_qual: %f curr_qual: %f dl_ms: %f",
+          stage.buffer_level_ms, stage.bandwidth_kpbs, stage.previous_quality, stage.current_quality, stage.download_time_ms);
       lock.lock();
       ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
@@ -161,6 +184,7 @@ void SegmentStorage::process_data(DataHelper &data_helper, std::string data) {
     data_helper.aes_iv = next_iv;
   }
   data_helper.segment_reader->write_data(data);
+  data_helper.total_bytes += data.length();
 }
 
 

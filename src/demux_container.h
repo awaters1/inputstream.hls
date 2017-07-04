@@ -25,7 +25,7 @@ public:
   current_time(0),
   time_in_playlist(0) {};
   DemuxPacket *demux_packet;
-  int32_t current_time;
+  uint64_t current_time;
   double time_in_playlist;
   bool discontinuity;
 };

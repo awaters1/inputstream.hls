@@ -34,6 +34,7 @@ struct DataHelper {
   std::string aes_iv;
   bool encrypted;
   SegmentReader *segment_reader;
+  size_t total_bytes;
 };
 
 class DownloadSegment {
@@ -59,11 +60,21 @@ public:
   std::list<DownloadSegment>::iterator last_segment_itr;
 };
 
+class Stage {
+public:
+  Stage() : buffer_level_ms(0), bandwidth_kpbs(0), previous_quality(0), current_quality(0), download_time_ms(0) {};
+  double buffer_level_ms;
+  double bandwidth_kpbs;
+  double previous_quality;
+  double current_quality;
+  double download_time_ms; // filled in after the stage is done
+};
+
 class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
-  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise);
+  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise, uint64_t time_in_buffer);
 public:
   SegmentReader * start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
 private:
@@ -98,4 +109,7 @@ private:
   // Reload thread
   std::thread reload_thread;
   std::condition_variable reload_cv;
+private:
+  uint64_t time_in_buffer;
+  Stage stage;
 };
