@@ -55,7 +55,6 @@ class VariantStream {
 public:
   VariantStream(hls::MediaPlaylist playlist);
   hls::MediaPlaylist playlist;
-  // TODO: Init to segments.begin();
   // Points to the last added segment
   std::list<DownloadSegment>::iterator last_segment_itr;
 };

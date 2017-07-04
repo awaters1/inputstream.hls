@@ -106,14 +106,14 @@ void hls::Session::demux_process() {
     std::promise<std::unique_ptr<SegmentReader>> reader_promise;
     std::future<std::unique_ptr<SegmentReader>> reader_future = reader_promise.get_future();
     segment_storage.get_next_segment_reader(std::move(reader_promise));
-    // TODO: Have like a 60 second timeout to get the next segment
-    reader_future.wait();
+    reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
     try {
       reader = reader_future.get();
     } catch(std::exception &e) {
-      // TODO: Assume end of playlist
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exception %s", e.what());
+      quit_processing = true;
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Exception getting segment %s", e.what());
+      break;
     }
     // With the reader either create demux or use the existing demux
     // and demux the data coming in from the segment reader
@@ -127,15 +127,8 @@ void hls::Session::demux_process() {
     demuxer->set_segment_reader(std::move(reader));
     DemuxStatus status = DemuxStatus::FILLED_BUFFER;
     std::vector<DemuxContainer> demux_packets;
-    // TODO: This thread has a
-    // terminate called after throwing an instance of 'std::out_of_range'
-    // what():  vector::_M_range_check: __n (which is 6) >= this->size() (which is 6)
 
-    // TODO: Need a way to interrupt this? when stopping
     while(status != DemuxStatus::SEGMENT_DONE && status != DemuxStatus::ERROR) {
-        // TODO: Lock the session packets and copy
-        // the contents of demux_packets into it
-        // TODO: Need to do something better to prevent stutters
       status = demuxer->Process(demux_packets);
       if (status == DemuxStatus::STREAM_SETUP_COMPLETE) {
         std::lock_guard<std::mutex> lock(demux_mutex);
@@ -148,7 +141,10 @@ void hls::Session::demux_process() {
          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
              write_packet_buffer.size());
          demux_packets.clear();
-       }
+      }
+      if (quit_processing) {
+        break;
+      }
     }
     if (status != DemuxStatus::SEGMENT_DONE) {
         // TODO: Handle potential error
@@ -266,6 +262,7 @@ void hls::Session::demux_abort() {
 }
 
 void hls::Session::demux_flush() {
+  // TODO: Implement
 //  if (active_stream) {
 //    active_stream->get_demux()->Flush();
 //  }

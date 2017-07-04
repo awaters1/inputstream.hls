@@ -213,7 +213,6 @@ void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator varian
          }
      }
    }
-   // TODO: Should only notify if we have loaded all of the playlists
    download_cv.notify_all();
   } else {
    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Playlist %s is empty", url.c_str());

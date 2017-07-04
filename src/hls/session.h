@@ -27,6 +27,8 @@
 #include "../demuxer/demux.h"
 #include "../segment_storage.h"
 
+const int SEGMENT_TIMEOUT_DELAY = 60000;
+
 namespace hls {
 
   class Session {
