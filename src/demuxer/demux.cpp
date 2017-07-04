@@ -245,6 +245,9 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
         demux_container.demux_packet = dxp;
         update_timing_data(demux_container);
         demux_packets.push_back(demux_container);
+        if (include_discontinuity) {
+          include_discontinuity = false;
+        }
       }
     }
     if (m_AVContext->HasPIDPayload())

@@ -64,12 +64,9 @@ void SegmentReader::read(uint64_t pos, size_t &size, uint8_t * const destination
   }
   data_read += size;
   // Size == 0
-  while(data_read < min_read) {
+  while(data_read < min_read && !can_overwrite) {
     std::unique_lock<std::mutex> lock(data_mutex);
     data_cv.wait_for(lock, std::chrono::milliseconds(100));
-    if (finished) {
-      return;
-    }
     lock.unlock();
     size = desired_size - data_read;
     read_impl(pos + data_read, size, destination + data_read);
