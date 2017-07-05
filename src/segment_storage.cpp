@@ -3,6 +3,8 @@
  */
 
 #include <cstring>
+#include <cmath>
+#include <map>
 
 #include "globals.h"
 #include "segment_storage.h"
@@ -81,6 +83,12 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<Segmen
   }
 }
 
+const int BANDWIDTH_BIN = 2000.0;
+
+double quantify_bandwidth(double bandwidth_kbps) {
+  return ((int) bandwidth_kbps / BANDWIDTH_BIN) * BANDWIDTH_BIN;
+}
+
 void SegmentStorage::download_next_segment() {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of segments");
   uint32_t counter = 0;
@@ -101,8 +109,8 @@ void SegmentStorage::download_next_segment() {
     // Create new stage
     Stage next_stage;
     next_stage.buffer_level_ms = time_in_buffer;
-    next_stage.bandwidth_kpbs = stage.bandwidth_kpbs;
-    next_stage.previous_quality = stage.current_quality;
+    next_stage.bandwidth_kbps = stage.bandwidth_kbps;
+    next_stage.previous_quality_bps = stage.current_quality_bps;
 
     lock.unlock();
 
@@ -110,12 +118,42 @@ void SegmentStorage::download_next_segment() {
     // uint32_t chosen_variant_stream = counter > 10 ? 3 : 0; // rand() % variants.size();
     uint32_t chosen_variant_stream = 0;
 
+    double variant_stream_kbps = variants.at(chosen_variant_stream).playlist.bandwidth / (double) 1024;
+
+    double lowest_stream_bps = variants.at(0).playlist.bandwidth;
+    uint32_t lowest_stream_index = 0;
+    for(uint32_t i = 0; i < variants.size(); ++i) {
+      if (variants.at(i).playlist.bandwidth <= lowest_stream_bps) {
+        lowest_stream_bps = variants.at(i).playlist.bandwidth;
+        lowest_stream_index = i;
+      }
+    }
+    double lowest_stream_kbps = lowest_stream_bps / (double) 1024;
+
+    // Reward
+    double current_bandwidth = quantify_bandwidth(stage.bandwidth_kbps);
+    double b_opt_ms = MAX_BUFFER_MS * 2.0 / 3.0;
+    double num = (1.0 + (next_stage.buffer_level_ms / b_opt_ms));
+    double denum = (3.0 - (BANDWIDTH_BIN / lowest_stream_kbps));
+    double r_quality = -1.5 * std::fabs(next_stage.bandwidth_kbps * (num / denum) - variant_stream_kbps);
+    double r_switches = -std::fabs(next_stage.previous_quality_bps / 1024.0 - variant_stream_kbps);
+    double r_freeze = 0;
+    double bw = variant_stream_kbps / current_bandwidth;
+    if (chosen_variant_stream == lowest_stream_index) {
+
+    } else {
+
+    }
+    double r_tot = r_quality + r_switches + r_freeze;
+
     if (has_download_item(chosen_variant_stream)) {
+      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f",
+          r_tot, r_quality, r_switches, r_freeze);
       stage = next_stage;
       ++counter;
       lock.lock();
       hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
-      stage.current_quality = variants.at(chosen_variant_stream).playlist.bandwidth;
+      stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
 
       DataHelper data_helper;
@@ -153,9 +191,10 @@ void SegmentStorage::download_next_segment() {
       std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
       stage.download_time_ms = duration;
-      stage.bandwidth_kpbs = (data_helper.total_bytes * 1024 * 8) / (duration * 1000);
+      stage.bandwidth_kbps = (data_helper.total_bytes * 1024 * 8) / (duration * 1000);
       xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "Stage: buf: %f kpbs: %f prev_qual: %f curr_qual: %f dl_ms: %f",
-          stage.buffer_level_ms, stage.bandwidth_kpbs, stage.previous_quality, stage.current_quality, stage.download_time_ms);
+          stage.buffer_level_ms, stage.bandwidth_kbps, stage.previous_quality_bps,
+          stage.current_quality_bps, stage.download_time_ms);
       lock.lock();
       ++current_segment_itr;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);

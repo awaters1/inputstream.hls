@@ -62,11 +62,12 @@ public:
 
 class Stage {
 public:
-  Stage() : buffer_level_ms(0), bandwidth_kpbs(0), previous_quality(0), current_quality(0), download_time_ms(0) {};
+  Stage() : buffer_level_ms(0), bandwidth_kbps(0),
+    previous_quality_bps(0), current_quality_bps(0), download_time_ms(0) {};
   double buffer_level_ms;
-  double bandwidth_kpbs;
-  double previous_quality;
-  double current_quality;
+  double bandwidth_kbps;
+  double previous_quality_bps;
+  double current_quality_bps;
   double download_time_ms; // filled in after the stage is done
 };
 

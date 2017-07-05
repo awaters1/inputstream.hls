@@ -131,6 +131,10 @@ void hls::Session::demux_process() {
     } else {
       total_time = write_end_time - read_start_time;
     }
+    if (total_time >= MAX_BUFFER_MS) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
+    }
     segment_storage.get_next_segment_reader(std::move(reader_promise), total_time);
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
@@ -275,6 +279,8 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     m_startdts(DVD_NOPTS_VALUE),
     last_total_time(0),
     last_current_time(0),
+    read_start_time(0),
+    read_end_time(0),
     segment_storage(downloader, master_playlist){
   demux_thread = std::thread(&Session::demux_process, this);
 }

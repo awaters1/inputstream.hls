@@ -24,6 +24,9 @@
 #define DVD_NOPTS_VALUE 0xFFF0000000000000
 #define DVD_TIME_BASE 1000000
 
+const int SEGMENT_TIMEOUT_DELAY = 60000;
+const int MAX_BUFFER_MS = 26000;
+
 extern ADDON::CHelper_libXBMC_addon *xbmc;
 extern std::uint16_t kodiDisplayWidth, kodiDisplayHeight;
 extern bool g_bExtraDebug;
