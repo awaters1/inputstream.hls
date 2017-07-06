@@ -1,3 +1,6 @@
+1. Need to fix beginning playing of stream updates not working, I think it is because of the
+2 stream changes in the beginning
+
 2. need to fix stopping
 -> Happens because demux deconstructs the SegmentReader so segment_storage stops working
 4. Due to the way the playlist are loaded not every playlist will get segment 0

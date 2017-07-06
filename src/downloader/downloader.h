@@ -28,4 +28,5 @@ public:
   }
   virtual double get_average_bandwidth() = 0;
   virtual double get_current_bandwidth() = 0;
+  virtual void record_bandwidth(double bandwidth) = 0;
 };

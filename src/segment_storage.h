@@ -63,12 +63,14 @@ public:
 class Stage {
 public:
   Stage() : buffer_level_ms(0), bandwidth_kbps(0),
-    previous_quality_bps(0), current_quality_bps(0), download_time_ms(0) {};
+    previous_quality_bps(0), current_quality_bps(0), download_time_ms(0),
+    variant_stream_index(0) {};
   double buffer_level_ms;
   double bandwidth_kbps;
   double previous_quality_bps;
   double current_quality_bps;
   double download_time_ms; // filled in after the stage is done
+  uint32_t variant_stream_index;
 };
 
 class SegmentStorage {
@@ -86,6 +88,7 @@ private:
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
   bool has_download_item(uint32_t chosen_variant_stream);
+  bool will_have_download_item(uint32_t chosen_variant_stream);
 private:
   std::list<std::unique_ptr<SegmentReader>> segment_data;
   bool valid_promise;
@@ -103,7 +106,7 @@ private:
   std::condition_variable data_cv;
 
 private:
-  DownloadSegment find_segment_at_time(double time_in_seconds);
+  std::list<DownloadSegment>::iterator find_segment_at_time(double time_in_seconds);
   void reload_playlist_thread();
   void reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader);
   bool live;

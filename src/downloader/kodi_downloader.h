@@ -35,6 +35,7 @@ public:
   // Bytes per second
   double get_current_bandwidth();
   double get_average_bandwidth();
+  void record_bandwidth(double bandwidth_kbps);
 private:
   double bandwidth_measurements[BANDWIDTH_BINS];
   uint32_t current_measurement_index;

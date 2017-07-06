@@ -27,4 +27,7 @@ public:
   double get_average_bandwidth() {
     return 100000000;
   }
+  void record_bandwidth(double bandwidth) {
+
+  }
 };
