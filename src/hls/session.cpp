@@ -20,10 +20,6 @@
 
 uint64_t hls::Session::get_current_time() {
   uint64_t current_time = current_pkt.current_time;
-  if (current_time == 0) {
-    return last_current_time;
-  }
-  last_current_time = current_time;
   return current_time;
 }
 
@@ -215,51 +211,31 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
 }
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
-//  if (active_stream) {
-//    // time is in MSEC
-//    double desired = time / 1000.0;
-//
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
-//    if (active_stream->get_stream()->empty()) {
-//      std::promise<void> promise;
-//      std::future<void> future = promise.get_future();
-//      active_stream->get_stream()->wait_for_playlist(std::move(promise));
-//      future.wait();
-//      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Playlist is ready", __FUNCTION__);
-//    }
-//
-//    if (active_stream->get_stream()->empty()) {
-//        return false;
-//    }
-//
-//
-//    hls::Segment seek_to = active_stream->get_stream()->find_segment_at_time(desired);
-//    double new_time = seek_to.time_in_playlist;
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
-//
-//    ActivePlaylist &active_playlist = active_stream->get_stream()->get_playlist();
-//    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Using playlist %s", active_playlist.get_playlist_url().c_str());
-//    active_stream = std::unique_ptr<StreamContainer>(
-//        new StreamContainer(active_playlist, downloader.get(), seek_to.media_sequence));
-//
-//
-//    if (current_pkt.demux_packet) {
-//      ipsh->FreeDemuxPacket(current_pkt.demux_packet);
-//      current_pkt.demux_packet = 0;
-//    }
-//
-//    m_startdts = m_startpts = DVD_NOPTS_VALUE;
-//
-//    *startpts = (new_time * DVD_TIME_BASE);
-//
-//    // Cancel any stream switches
-//    switch_demux = false;
-//    if (future_stream) {
-//      delete future_stream.release();
-//    }
-//    return true;
-//  }
-  return false;
+  // time is in MSEC
+  double desired = time / 1000.0;
+
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: bw:%d desired:%+6.3f", __FUNCTION__, backwards, desired);
+
+  double new_time = segment_storage.seek_time(desired);
+
+  if (new_time < 0) {
+     return false;
+  } else {
+
+    // TODO: Need to restart the demuxer so it doesn't put in
+    // packets from the old segment before the new segment is
+    // started
+
+    if (current_pkt.demux_packet) {
+      ipsh->FreeDemuxPacket(current_pkt.demux_packet);
+      current_pkt.demux_packet = 0;
+    }
+
+    m_startdts = m_startpts = DVD_NOPTS_VALUE;
+
+    *startpts = (new_time * DVD_TIME_BASE);
+    return true;
+  }
 }
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
@@ -272,8 +248,6 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     downloader(downloader),
     m_startpts(DVD_NOPTS_VALUE),
     m_startdts(DVD_NOPTS_VALUE),
-    last_total_time(0),
-    last_current_time(0),
     read_start_time(0),
     read_end_time(0),
     packet_stalls(0),
@@ -285,13 +259,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
 }
 
 uint64_t hls::Session::get_total_time() {
-//  uint64_t current_total_time = active_stream->get_stream()->get_total_duration();
-//  if (current_total_time == 0) {
-//    return last_total_time;
-//  }
-//  last_total_time = current_total_time;
-//  return current_total_time;
-  return 0;
+  return segment_storage.get_total_duration();
 }
 
 void hls::Session::demux_abort() {

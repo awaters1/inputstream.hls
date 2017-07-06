@@ -248,6 +248,56 @@ void DownloadSegment::add_variant_segment(hls::Segment segment, size_t index) {
   details[index] = segment;
 }
 
+uint64_t SegmentStorage::get_total_duration() {
+  std::lock_guard<std::mutex> lock(data_lock);
+  double total_time = 0;
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+    total_time += it->duration;
+  }
+  return (uint64_t) total_time * 1000;
+}
+
+DownloadSegment SegmentStorage::find_segment_at_time(double time_in_seconds) {
+  std::lock_guard<std::mutex> lock(data_lock);
+  double running_total(0);
+  for(auto it = segments.begin(); it != segments.end(); ++it) {
+    if (running_total >= time_in_seconds) {
+      if (it != segments.begin()) {
+        return *(--it);
+      } else {
+        return *(segments.begin());
+      }
+    }
+    running_total += it->duration;
+  }
+  xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Unable to find segment at %f", time_in_seconds);
+  return segments.end();
+}
+
+double SegmentStorage::seek_time(double desired_time) {
+  if (segments.empty()) {
+      // TODO: Wait for playlist
+  }
+
+  std::unique_lock<std::mutex> lock(data_lock);
+  download_cv.wait(lock, [&] {
+    return quit_processing || can_download_segment();
+  });
+
+  DownloadSegment seek_to = find_segment_at_time(desired_time);
+  if (seek_to == segments.end()) {
+    return -1;
+  } else {
+    double new_time = seek_to.time_in_playlist;
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
+    // TODO: Update current segment itr, but have to make sure
+    // that the download thread doesn't prematurely increment it
+    // and have to stop the current download
+
+    return new_time;
+  }
+}
+
 void SegmentStorage::reload_playlist(std::vector<VariantStream>::iterator variant_stream, Downloader  *downloader) {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Reloading playlist %d", variant_stream->playlist.bandwidth);
   std::string url = variant_stream->playlist.get_url();
