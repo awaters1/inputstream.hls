@@ -96,7 +96,7 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<Segmen
 const int BANDWIDTH_BIN = 2000.0;
 
 double quantify_bandwidth(double bandwidth_kbps) {
-  return ((int) bandwidth_kbps / BANDWIDTH_BIN) * BANDWIDTH_BIN;
+  return std::max(500, ((int) bandwidth_kbps / BANDWIDTH_BIN) * BANDWIDTH_BIN);
 }
 
 void SegmentStorage::download_next_segment() {
