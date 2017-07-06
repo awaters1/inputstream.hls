@@ -23,9 +23,13 @@ public:
   DemuxContainer() : demux_packet(0),
   discontinuity(false),
   current_time(0),
-  time_in_playlist(0) {};
+  time_in_playlist(0) {
+    stream_ids.m_streamCount = 0;
+  };
   DemuxPacket *demux_packet;
   uint64_t current_time;
   double time_in_playlist;
   bool discontinuity;
+  INPUTSTREAM_IDS stream_ids;
+  INPUTSTREAM_INFO streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
 };

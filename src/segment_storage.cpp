@@ -24,7 +24,11 @@ quit_processing(false),
 no_more_data(false),
 live(true),
 all_loaded_once(false),
-valid_promise(false) {
+valid_promise(false),
+number_of_freezes(0),
+time_in_buffer(0),
+time_since_last_freeze_ms(1),
+total_freeze_duration_ms(0) {
   for(auto &media_playlist : master_playlist.get_media_playlists()) {
     VariantStream stream(media_playlist);
     stream.last_segment_itr = segments.begin();
@@ -121,7 +125,7 @@ void SegmentStorage::download_next_segment() {
     lock.unlock();
 
     // TODO: Choose correct variant stream to get the segment from
-    uint32_t chosen_variant_stream = counter > 3 ? 3 : 0; // rand() % variants.size();
+    uint32_t chosen_variant_stream = counter > 3 ? 2 : 0; // rand() % variants.size();
 
     double variant_stream_kbps = variants.at(chosen_variant_stream).playlist.bandwidth / (double) 1024;
 

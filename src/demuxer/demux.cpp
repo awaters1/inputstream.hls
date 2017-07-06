@@ -286,16 +286,6 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
   return ret >= 0 ? DemuxStatus::SEGMENT_DONE : DemuxStatus::ERROR;
 }
 
-INPUTSTREAM_IDS Demux::GetStreamIds()
-{
-  return m_streamIds;
-}
-
-INPUTSTREAM_INFO* Demux::GetStreams()
-{
-  return m_streams;
-}
-
 void Demux::Abort()
 {
   m_streamIds.m_streamCount = 0;
@@ -499,6 +489,9 @@ DemuxContainer Demux::get_stream_change()
 
   DemuxContainer demux_container;
   demux_container.demux_packet = dxp;
+  demux_container.stream_ids = m_streamIds;
+  memcpy(demux_container.streams, m_streams,
+         sizeof(INPUTSTREAM_INFO) * INPUTSTREAM_IDS::MAX_STREAM_COUNT);
   update_timing_data(demux_container);
 
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: pushed stream change", __FUNCTION__);

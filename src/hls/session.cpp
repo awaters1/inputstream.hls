@@ -60,6 +60,12 @@ DemuxContainer hls::Session::get_current_pkt() {
     }
   }
 
+  if (pkt && pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
+      stream_ids = current_pkt.stream_ids;
+      memcpy(streams, current_pkt.streams, sizeof(INPUTSTREAM_INFO) *
+             INPUTSTREAM_IDS::MAX_STREAM_COUNT);
+  }
+
   return current_pkt;
 }
 
@@ -168,11 +174,6 @@ void hls::Session::demux_process() {
 
     while(status != DemuxStatus::SEGMENT_DONE && status != DemuxStatus::ERROR) {
       status = demuxer->Process(demux_packets);
-      if (status == DemuxStatus::STREAM_SETUP_COMPLETE) {
-        std::lock_guard<std::mutex> lock(demux_mutex);
-        stream_ids.push_back(demuxer->GetStreamIds());
-        streams.push_back(demuxer->GetStreams());
-      }
       {
          std::unique_lock<std::mutex> lock(demux_mutex);
          write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
@@ -199,33 +200,18 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
 
 INPUTSTREAM_IDS hls::Session::get_streams() {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  if (stream_ids.empty()) {
-    INPUTSTREAM_IDS empty;
-    empty.m_streamCount = 0;
-    return empty;
-  }
-  INPUTSTREAM_IDS ids = stream_ids.front();
-  stream_ids.pop_front();
-  streams_read = 0;
-  last_stream_count = ids.m_streamCount;
-  return ids;
+  return stream_ids;
 }
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  INPUTSTREAM_INFO info;
-  if (!streams.empty()) {
-    INPUTSTREAM_INFO *streams_info = streams.front();
-    for(size_t i = 0; i < last_stream_count; ++i) {
-      if (streams_info[i].m_pID == stream_id) {
-        info = streams_info[i];
-      }
-    }
-    if (streams_read == last_stream_count) {
-      streams.pop_front();
+
+  for(size_t i = 0; i < stream_ids.m_streamCount; ++i) {
+    if (streams[i].m_pID == stream_id) {
+      return streams[i];
     }
   }
-  return info;
+  return INPUTSTREAM_INFO();
 }
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
