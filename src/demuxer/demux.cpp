@@ -200,6 +200,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
+// TODO: This should return the stream info so that we do not have to separately fetch it
 DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);

@@ -75,7 +75,8 @@ class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
-  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise, uint64_t time_in_buffer);
+  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
+      uint32_t total_freeze_duration_ms, uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes);
 public:
   SegmentReader * start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
 private:
@@ -112,5 +113,8 @@ private:
   std::condition_variable reload_cv;
 private:
   uint64_t time_in_buffer;
+  uint32_t total_freeze_duration_ms;
+  uint32_t time_since_last_freeze_ms;
+  uint32_t number_of_freezes;
   Stage stage;
 };

@@ -67,9 +67,15 @@ bool SegmentStorage::has_download_item(uint32_t chosen_variant_stream) {
 }
 
 void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise,
-    uint64_t time_in_buffer) {
+    uint64_t time_in_buffer, uint32_t total_freeze_duration_ms,
+    uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes) {
   std::lock_guard<std::mutex> lock(data_lock);
   this->time_in_buffer = time_in_buffer;
+  this->total_freeze_duration_ms = total_freeze_duration_ms;
+  this->time_since_last_freeze_ms = time_since_last_freeze_ms;
+  this->number_of_freezes = number_of_freezes;
+  xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL freeze duration: %d time_since_last: %d number: %d",
+            total_freeze_duration_ms, time_since_last_freeze_ms, number_of_freezes);
   if (!segment_data.empty()) {
     std::unique_ptr<SegmentReader> segment_reader = std::move(segment_data.front());
     segment_data.pop_front();
@@ -115,8 +121,7 @@ void SegmentStorage::download_next_segment() {
     lock.unlock();
 
     // TODO: Choose correct variant stream to get the segment from
-    // uint32_t chosen_variant_stream = counter > 10 ? 3 : 0; // rand() % variants.size();
-    uint32_t chosen_variant_stream = 0;
+    uint32_t chosen_variant_stream = counter > 3 ? 3 : 0; // rand() % variants.size();
 
     double variant_stream_kbps = variants.at(chosen_variant_stream).playlist.bandwidth / (double) 1024;
 
@@ -140,9 +145,9 @@ void SegmentStorage::download_next_segment() {
     double r_freeze = 0;
     double bw = variant_stream_kbps / current_bandwidth;
     if (chosen_variant_stream == lowest_stream_index) {
-
+      r_freeze = -100 * fabs(bw * (std::exp(total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
     } else {
-
+      r_freeze = -100 * fabs(bw * (std::exp(number_of_freezes + total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
     }
     double r_tot = r_quality + r_switches + r_freeze;
 

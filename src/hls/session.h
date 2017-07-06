@@ -29,6 +29,8 @@
 #include "../demuxer/demux.h"
 #include "../segment_storage.h"
 
+const int PACKET_TIMEOUT_MS = 10;
+const int PACKET_STALLS_PER_FREEZE = 1000 / PACKET_TIMEOUT_MS;
 
 namespace hls {
 
@@ -65,8 +67,13 @@ namespace hls {
     std::list<INPUTSTREAM_INFO*> streams;
     uint32_t last_stream_count;
     uint32_t streams_read;
+  private:
     std::atomic<uint64_t> read_start_time;
     std::atomic<uint64_t> read_end_time;
+    uint32_t packet_stalls;
+    std::atomic<std::chrono::high_resolution_clock::time_point> last_freeze_time;
+    std::atomic<uint32_t> total_freeze_duration_ms;
+    std::atomic<uint32_t> number_of_freezes;
   private:
     int min_bandwidth;
     int max_bandwidth;

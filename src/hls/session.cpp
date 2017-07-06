@@ -67,7 +67,7 @@ void hls::Session::read_next_pkt() {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
    if (read_packet_buffer.empty()) {
      std::unique_lock<std::mutex> lock(demux_mutex);
-     read_demux_cv.wait_for(lock, std::chrono::milliseconds(10), [&] {
+     read_demux_cv.wait_for(lock, std::chrono::milliseconds(PACKET_TIMEOUT_MS), [&] {
        return quit_processing || !write_packet_buffer.empty();
      });
      read_packet_buffer.swap(write_packet_buffer);
@@ -79,15 +79,21 @@ void hls::Session::read_next_pkt() {
      if (quit_processing) {
        xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
        current_pkt = DemuxContainer();
-       return;
      } else {
        // xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Returning empty packet", __FUNCTION__);
        DemuxContainer container;
        container.demux_packet = ipsh->AllocateDemuxPacket(0);
        current_pkt = container;
-       return;
      }
+     ++packet_stalls;
+     return;
    }
+   if (packet_stalls > PACKET_STALLS_PER_FREEZE) {
+     ++number_of_freezes;
+     total_freeze_duration_ms += (packet_stalls - PACKET_STALLS_PER_FREEZE) * PACKET_TIMEOUT_MS;
+     last_freeze_time = std::chrono::high_resolution_clock::now();
+   }
+   packet_stalls = 0;
    DemuxContainer packet = read_packet_buffer.front();
    read_packet_buffer.pop_front();
    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
@@ -135,7 +141,10 @@ void hls::Session::demux_process() {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       continue;
     }
-    segment_storage.get_next_segment_reader(std::move(reader_promise), total_time);
+    std::chrono::high_resolution_clock::time_point end_time = std::chrono::high_resolution_clock::now();
+    auto time_since_last_freeze_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - last_freeze_time.load()).count();
+    segment_storage.get_next_segment_reader(std::move(reader_promise), total_time,
+        total_freeze_duration_ms, time_since_last_freeze_ms, number_of_freezes);
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
     try {
@@ -281,6 +290,10 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_current_time(0),
     read_start_time(0),
     read_end_time(0),
+    packet_stalls(0),
+    last_freeze_time(std::chrono::high_resolution_clock::now()),
+    total_freeze_duration_ms(0),
+    number_of_freezes(0),
     segment_storage(downloader, master_playlist){
   demux_thread = std::thread(&Session::demux_process, this);
 }
