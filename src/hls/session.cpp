@@ -57,9 +57,8 @@ DemuxContainer hls::Session::get_current_pkt() {
   }
 
   if (pkt && pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
-      stream_ids = current_pkt.stream_ids;
-      memcpy(streams, current_pkt.streams, sizeof(INPUTSTREAM_INFO) *
-             INPUTSTREAM_IDS::MAX_STREAM_COUNT);
+      stream_ids.push_back(current_pkt.stream_ids);
+      streams.push_back(current_pkt.streams);
   }
 
   return current_pkt;
@@ -194,21 +193,40 @@ hls::MediaPlaylist hls::Session::download_playlist(std::string url) {
   return media_playlist;
 }
 
+
 INPUTSTREAM_IDS hls::Session::get_streams() {
   std::lock_guard<std::mutex> lock(demux_mutex);
-  return stream_ids;
+  if (stream_ids.empty()) {
+    INPUTSTREAM_IDS empty;
+    empty.m_streamCount = 0;
+    return empty;
+  }
+  INPUTSTREAM_IDS ids = stream_ids.front();
+  stream_ids.pop_front();
+  streams_read = 0;
+  last_stream_count = ids.m_streamCount;
+  return ids;
 }
 
 INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   std::lock_guard<std::mutex> lock(demux_mutex);
-
-  for(size_t i = 0; i < stream_ids.m_streamCount; ++i) {
-    if (streams[i].m_pID == stream_id) {
-      return streams[i];
+  INPUTSTREAM_INFO info;
+  if (!streams.empty()) {
+    INPUTSTREAM_INFO *streams_info = streams.front();
+    for(size_t i = 0; i < last_stream_count; ++i) {
+      if (streams_info[i].m_pID == stream_id) {
+        info = streams_info[i];
+      }
     }
+    if (streams_read == last_stream_count) {
+      streams.pop_front();
+    }
+  } else {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Trying to get missing stream", __FUNCTION__);
   }
-  return INPUTSTREAM_INFO();
+  return info;
 }
+
 
 bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   // time is in MSEC

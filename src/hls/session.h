@@ -63,8 +63,10 @@ namespace hls {
     std::deque<DemuxContainer> read_packet_buffer;
     std::deque<DemuxContainer> write_packet_buffer;
     bool quit_processing;
-    INPUTSTREAM_IDS stream_ids;
-    INPUTSTREAM_INFO streams[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
+    std::list<INPUTSTREAM_IDS> stream_ids;
+    std::list<INPUTSTREAM_INFO*> streams;
+    uint32_t last_stream_count;
+    uint32_t streams_read;
   private:
     std::atomic<uint64_t> read_start_time;
     std::atomic<uint64_t> read_end_time;

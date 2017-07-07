@@ -229,17 +229,16 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         if (pkt.streamChange)
         {
+          // TODO: Tweak stream change messages because at the beginning
+          // of the stream
           // We cannot wait to push the stream change because our data packets will get in for one stream
           // and start playing while the other stream is attempting setup, so we updated the streams
           // and then when they are done updating we return from process to notify the caller
-          update_pvr_stream(pkt.pid);
           if (m_nosetup.empty()) {
-            return_stream_setup = true;
-          }
-          if (!added_stream_change) {
             demux_packets.push_back(get_stream_change());
             added_stream_change = true;
           }
+          update_pvr_stream(pkt.pid);
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
         DemuxContainer demux_container;
@@ -258,10 +257,8 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing stream change", __FUNCTION__);
         populate_pvr_streams();
-        if (!added_stream_change) {
-          demux_packets.push_back(get_stream_change());
-          added_stream_change = true;
-        }
+        demux_packets.push_back(get_stream_change());
+        added_stream_change = true;
       }
     }
 
@@ -273,9 +270,6 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
     else
       m_AVContext->GoNext();
 
-    if (return_stream_setup) {
-      return DemuxStatus::STREAM_SETUP_COMPLETE;
-    }
     if (demux_packets.size() >= DEMUX_BUFFER_SIZE) {
       return DemuxStatus::FILLED_BUFFER;
     }
