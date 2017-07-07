@@ -26,7 +26,7 @@
 #include "downloader/downloader.h"
 #include "hls/SegmentReader.h"
 
-const int RELOAD_DELAY_MS = 500;
+const int RELOAD_DELAY_MS = 1000;
 const size_t MAX_SEGMENTS =  6;
 
 struct DataHelper {
@@ -95,6 +95,7 @@ private:
   std::promise<std::unique_ptr<SegmentReader>> segment_reader_promise;
   bool quit_processing;
   bool no_more_data;
+  bool flush;
   Downloader *downloader;
 
   std::unordered_map<std::string, std::string> aes_uri_to_key;

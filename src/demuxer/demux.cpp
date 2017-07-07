@@ -76,8 +76,7 @@ Demux::Demux()
   , m_av_rbe(NULL)
   , m_AVContext(NULL)
   , m_mainStreamPID(0xffff)
-  , m_readTime(-1)
-  , m_segmentReadTime(-1)
+  , m_readTime(0)
   , include_discontinuity(false)
   , segment_reader(nullptr)
 {
@@ -126,14 +125,7 @@ void Demux::set_segment_reader(std::unique_ptr<SegmentReader> segment_reader) {
   m_AVContext->GoPosition(0);
   m_av_pos = 0;
   hls::Segment segment = segment_reader->get_segment();
-  if (m_segmentReadTime == -1) {
-      m_segmentReadTime = segment_reader->get_time_in_playlist() * DVD_TIME_BASE;
-      xbmc->Log(LOG_DEBUG, LOGTAG "%s Setting segment read time: %d", __FUNCTION__, m_segmentReadTime);
-  }
-  m_readTime = m_segmentReadTime;
-  if (segment.valid) {
-    m_segmentReadTime += (segment.duration * DVD_TIME_BASE);
-  }
+  m_readTime = segment_reader->get_time_in_playlist() * DVD_TIME_BASE;
   if (segment.discontinuity) {
     include_discontinuity = true;
     xbmc->Log(LOG_DEBUG, LOGTAG "%s Segment discontinuity", __FUNCTION__);

@@ -23,6 +23,7 @@ VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
 SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist) :
 downloader(downloader),
 quit_processing(false),
+flush(false),
 no_more_data(false),
 live(true),
 all_loaded_once(false),
@@ -187,7 +188,7 @@ void SegmentStorage::download_next_segment() {
       lock.lock();
       hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
       stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d", segment.media_sequence);
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d at %f", segment.media_sequence, current_segment_itr->time_in_playlist);
 
       DataHelper data_helper;
       data_helper.aes_iv = segment.aes_iv;
@@ -206,7 +207,7 @@ void SegmentStorage::download_next_segment() {
             [&](std::string data) -> bool {
               this->process_data(data_helper, data);
               if (data_lock.try_lock()) {
-                if (quit_processing) {
+                if (quit_processing || flush) {
                   data_lock.unlock();
                   return false;
                 } else {
@@ -230,8 +231,13 @@ void SegmentStorage::download_next_segment() {
           stage.buffer_level_ms, stage.bandwidth_kbps, stage.previous_quality_bps,
           stage.current_quality_bps, stage.download_time_ms);
       lock.lock();
-      ++current_segment_itr;
-      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
+      if (!flush) {
+        ++current_segment_itr;
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
+      } else {
+        flush = false;
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushed download of %d", segment.media_sequence);
+      }
     } else if (!live) {
         no_more_data = true;
         break;
@@ -314,10 +320,12 @@ double SegmentStorage::seek_time(double desired_time) {
   } else {
     double new_time = seek_to->time_in_playlist;
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "seek to %+6.3f", new_time);
-    // TODO: Update current segment itr, but have to make sure
-    // that the download thread doesn't prematurely increment it
-    // and have to stop the current download
-
+    {
+      std::lock_guard<std::mutex> lock(data_lock);
+      flush = true;
+      current_segment_itr = seek_to;
+    }
+    download_cv.notify_all();
     return new_time;
   }
 }

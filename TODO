@@ -1,5 +1,4 @@
-1. Need to fix beginning playing of stream updates not working, I think it is because of the
-2 stream changes in the beginning
+1. Have to fix up seeking, something wrong with the timing, maybe due to discontinuity or something
 
 2. need to fix stopping
 -> Happens because demux deconstructs the SegmentReader so segment_storage stops working

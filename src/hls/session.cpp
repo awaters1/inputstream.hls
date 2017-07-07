@@ -66,6 +66,10 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+  if (flush_read) {
+    flush_read = false;
+    read_packet_buffer.clear();
+  }
    if (read_packet_buffer.empty()) {
      std::unique_lock<std::mutex> lock(demux_mutex);
      read_demux_cv.wait_for(lock, std::chrono::milliseconds(PACKET_TIMEOUT_MS), [&] {
@@ -169,12 +173,18 @@ void hls::Session::demux_process() {
 
     while(status != DemuxStatus::SEGMENT_DONE && status != DemuxStatus::ERROR) {
       status = demuxer->Process(demux_packets);
-      {
+      if (!flush_demux) {
          std::unique_lock<std::mutex> lock(demux_mutex);
          write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
              write_packet_buffer.size());
          demux_packets.clear();
+      } else {
+        flush_demux = false;
+        write_packet_buffer.clear();
+        demux_packets.clear();
+        last_variant_stream = -1;
+        break;
       }
       if (quit_processing) {
         break;
@@ -239,11 +249,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   if (new_time < 0) {
      return false;
   } else {
-
-    // TODO: Need to restart the demuxer so it doesn't put in
-    // packets from the old segment before the new segment is
-    // started
-
+    flush_read = true;
+    flush_demux = true;
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
       current_pkt.demux_packet = 0;
@@ -259,6 +266,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     int min_bandwidth, int max_bandwidth, bool manual_streams) :
     quit_processing(false),
+    flush_demux(false),
+    flush_read(false),
     min_bandwidth(min_bandwidth),
     max_bandwidth(max_bandwidth),
     manual_streams(manual_streams),
