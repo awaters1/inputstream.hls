@@ -66,10 +66,6 @@ DemuxContainer hls::Session::get_current_pkt() {
 
 void hls::Session::read_next_pkt() {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-  if (flush_read) {
-    flush_read = false;
-    read_packet_buffer.clear();
-  }
    if (read_packet_buffer.empty()) {
      std::unique_lock<std::mutex> lock(demux_mutex);
      read_demux_cv.wait_for(lock, std::chrono::milliseconds(PACKET_TIMEOUT_MS), [&] {
@@ -153,6 +149,12 @@ void hls::Session::demux_process() {
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
     try {
+      if (flush_demux) {
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushing demuxer1");
+        flush_demux = false;
+        write_packet_buffer.clear();
+        last_variant_stream = -1;
+      }
       reader = reader_future.get();
     } catch(std::exception &e) {
       quit_processing = true;
@@ -180,6 +182,7 @@ void hls::Session::demux_process() {
              write_packet_buffer.size());
          demux_packets.clear();
       } else {
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushing demuxer2");
         flush_demux = false;
         write_packet_buffer.clear();
         demux_packets.clear();
@@ -249,12 +252,12 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   if (new_time < 0) {
      return false;
   } else {
-    flush_read = true;
     flush_demux = true;
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
       current_pkt.demux_packet = 0;
     }
+    read_packet_buffer.clear();
 
     m_startdts = m_startpts = DVD_NOPTS_VALUE;
 
@@ -267,7 +270,6 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     int min_bandwidth, int max_bandwidth, bool manual_streams) :
     quit_processing(false),
     flush_demux(false),
-    flush_read(false),
     min_bandwidth(min_bandwidth),
     max_bandwidth(max_bandwidth),
     manual_streams(manual_streams),

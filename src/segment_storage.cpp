@@ -235,6 +235,7 @@ void SegmentStorage::download_next_segment() {
         ++current_segment_itr;
         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
       } else {
+        segment_data.clear();
         flush = false;
         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushed download of %d", segment.media_sequence);
       }
