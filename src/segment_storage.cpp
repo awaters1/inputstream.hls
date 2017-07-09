@@ -179,6 +179,8 @@ void SegmentStorage::download_next_segment() {
     }
     double r_tot = r_quality + r_switches + r_freeze;
 
+    // TODO: With reward + Stage we have to run RL
+
     if (has_download_item(chosen_variant_stream)) {
       xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f",
           r_tot, r_quality, r_switches, r_freeze);
@@ -221,8 +223,6 @@ void SegmentStorage::download_next_segment() {
         std::string contents = file_downloader.download(url);
         this->process_data(data_helper, contents);
       }
-      // TODO :This should pass flush off to the demux and then up the chain instead of using
-      // a boolean var in session
       segment_reader->end_data(flush);
       std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
@@ -310,7 +310,8 @@ std::list<DownloadSegment>::iterator SegmentStorage::find_segment_at_time(double
 
 double SegmentStorage::seek_time(double desired_time) {
   if (segments.empty()) {
-      // TODO: Wait for playlist
+      // TODO: Wait for playlist before attempting to seek, this usually
+    // happens resuming from a spot
     std::unique_lock<std::mutex> lock(data_lock);
     download_cv.wait(lock, [&] {
       return quit_processing || can_download_segment();
