@@ -257,6 +257,8 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
       current_pkt.demux_packet = 0;
     }
     read_packet_buffer.clear();
+    read_start_time = 0;
+    read_end_time = 0;
     {
       std::unique_lock<std::mutex> lock(demux_mutex);
       flush_demux = true;
