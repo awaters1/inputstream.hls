@@ -124,8 +124,8 @@ void hls::Session::demux_process() {
   std::unique_ptr<Demux> demuxer;
   uint32_t last_variant_stream = -1;
   while(!quit_processing) {
-    std::promise<std::unique_ptr<SegmentReader>> reader_promise;
-    std::future<std::unique_ptr<SegmentReader>> reader_future = reader_promise.get_future();
+    std::promise<std::shared_ptr<SegmentReader>> reader_promise;
+    std::future<std::shared_ptr<SegmentReader>> reader_future = reader_promise.get_future();
     double seconds_in_buffers = 0;
     uint64_t write_start_time = 0;
     uint64_t write_end_time = 0;
@@ -153,7 +153,7 @@ void hls::Session::demux_process() {
     segment_storage.get_next_segment_reader(std::move(reader_promise), total_time,
         total_freeze_duration_ms, time_since_last_freeze_ms, number_of_freezes);
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
-    std::unique_ptr<SegmentReader> reader;
+    std::shared_ptr<SegmentReader> reader;
     try {
       reader = reader_future.get();
     } catch(std::exception &e) {
@@ -169,7 +169,7 @@ void hls::Session::demux_process() {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Making a new demuxer");
       demuxer = std::make_unique<Demux>();
     }
-    demuxer->set_segment_reader(std::move(reader));
+    demuxer->set_segment_reader(reader);
     DemuxStatus status = DemuxStatus::FILLED_BUFFER;
     std::vector<DemuxContainer> demux_packets;
 

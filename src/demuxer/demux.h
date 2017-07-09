@@ -52,7 +52,7 @@ public:
   void Abort();
   DemuxContainer Read(bool remove_packet = true);
   uint32_t get_current_media_sequence();
-  void set_segment_reader(std::unique_ptr<SegmentReader> segment_reader);
+  void set_segment_reader(std::shared_ptr<SegmentReader> segment_reader);
   DemuxStatus Process(std::vector<DemuxContainer> &demux_packets);
 private:
   const unsigned char* ReadAV(uint64_t pos, size_t n);
@@ -84,7 +84,7 @@ private:
   int64_t m_readTime;           ///< current relative position based on packets read (DVD_TIME_BASE)
   std::set<uint16_t> m_nosetup;
 
-  std::unique_ptr<SegmentReader> segment_reader;
+  std::shared_ptr<SegmentReader> segment_reader;
   bool include_discontinuity;
   SegmentReaderStatus reader_status;
 };

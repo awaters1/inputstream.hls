@@ -50,21 +50,20 @@ bool SegmentStorage::can_download_segment() {
   return segment_data.size() < MAX_SEGMENTS;
 }
 
-SegmentReader * SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream) {
+std::shared_ptr<SegmentReader> SegmentStorage::start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream) {
   std::lock_guard<std::mutex> lock(data_lock);
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Start segment %d at %f", __FUNCTION__,
       segment.media_sequence, time_in_playlist);
-  std::unique_ptr<SegmentReader> segment_reader = std::make_unique<SegmentReader>(segment, time_in_playlist, chosen_variant_stream);
-  SegmentReader *raw_segment_reader = segment_reader.get();
+  std::shared_ptr<SegmentReader> segment_reader = std::make_shared<SegmentReader>(segment, time_in_playlist, chosen_variant_stream);
   if (valid_promise) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Start Segment media sequence: %d",
                     segment_reader->get_segment().media_sequence);
-    segment_reader_promise.set_value(std::move(segment_reader));
+    segment_reader_promise.set_value(segment_reader);
     valid_promise = false;
   } else {
-    segment_data.push_back(std::move(segment_reader));
+    segment_data.push_back(segment_reader);
   }
-  return raw_segment_reader;
+  return segment_reader;
 
 }
 
@@ -85,7 +84,7 @@ bool SegmentStorage::will_have_download_item(uint32_t chosen_variant_stream) {
   return current_segment_itr == segments.end() || !has_segment_after;
 }
 
-void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise,
+void SegmentStorage::get_next_segment_reader(std::promise<std::shared_ptr<SegmentReader>> promise,
     uint64_t time_in_buffer, uint32_t total_freeze_duration_ms,
     uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes) {
   std::lock_guard<std::mutex> lock(data_lock);
@@ -96,7 +95,7 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::unique_ptr<Segmen
   xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL freeze duration: %d time_since_last: %d number: %d",
             total_freeze_duration_ms, time_since_last_freeze_ms, number_of_freezes);
   if (!segment_data.empty()) {
-    std::unique_ptr<SegmentReader> segment_reader = std::move(segment_data.front());
+    std::shared_ptr<SegmentReader> segment_reader = std::move(segment_data.front());
     segment_data.pop_front();
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Get next media sequence: %d",
               segment_reader->get_segment().media_sequence);
@@ -199,7 +198,7 @@ void SegmentStorage::download_next_segment() {
       double time_in_playlist = current_segment_itr->time_in_playlist;
 
       lock.unlock();
-      SegmentReader *segment_reader = start_segment(segment, time_in_playlist, chosen_variant_stream);
+      std::shared_ptr<SegmentReader> segment_reader = start_segment(segment, time_in_playlist, chosen_variant_stream);
       data_helper.segment_reader = segment_reader;
       std::string url = segment.get_url();
       std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();

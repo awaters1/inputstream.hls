@@ -33,7 +33,7 @@ struct DataHelper {
   std::string aes_uri;
   std::string aes_iv;
   bool encrypted;
-  SegmentReader *segment_reader;
+  std::shared_ptr<SegmentReader> segment_reader;
   size_t total_bytes;
 };
 
@@ -77,12 +77,12 @@ class SegmentStorage {
 public:
   SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
   ~SegmentStorage();
-  void get_next_segment_reader(std::promise<std::unique_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
+  void get_next_segment_reader(std::promise<std::shared_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
       uint32_t total_freeze_duration_ms, uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes);
   double seek_time(double desired_time);
   uint64_t get_total_duration();
 public:
-  SegmentReader * start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
+  std::shared_ptr<SegmentReader> start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
 private:
   bool can_download_segment();
   void download_next_segment();
@@ -90,9 +90,9 @@ private:
   bool has_download_item(uint32_t chosen_variant_stream);
   bool will_have_download_item(uint32_t chosen_variant_stream);
 private:
-  std::list<std::unique_ptr<SegmentReader>> segment_data;
+  std::list<std::shared_ptr<SegmentReader>> segment_data;
   bool valid_promise;
-  std::promise<std::unique_ptr<SegmentReader>> segment_reader_promise;
+  std::promise<std::shared_ptr<SegmentReader>> segment_reader_promise;
   bool quit_processing;
   bool no_more_data;
   bool flush;

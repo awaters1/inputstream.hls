@@ -121,7 +121,7 @@ Demux::~Demux()
   }
 }
 
-void Demux::set_segment_reader(std::unique_ptr<SegmentReader> segment_reader) {
+void Demux::set_segment_reader(std::shared_ptr<SegmentReader> segment_reader) {
   m_AVContext->GoPosition(0);
   m_av_pos = 0;
   hls::Segment segment = segment_reader->get_segment();
