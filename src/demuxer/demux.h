@@ -39,7 +39,8 @@ enum DemuxStatus {
   SEGMENT_DONE,
   FILLED_BUFFER,
   ERROR,
-  STREAM_SETUP_COMPLETE
+  STREAM_SETUP_COMPLETE,
+  FLUSH
 };
 
 class Demux : public TSDemux::TSDemuxer
@@ -85,4 +86,5 @@ private:
 
   std::unique_ptr<SegmentReader> segment_reader;
   bool include_discontinuity;
+  SegmentReaderStatus reader_status;
 };

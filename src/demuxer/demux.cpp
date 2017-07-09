@@ -178,7 +178,7 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   size_t len = (size_t)(m_av_buf_size - dataread);
   // xbmc->Log(LOG_DEBUG, LOGTAG "%s Going to read at %d for %d bytes, dataread: %d len %d", __FUNCTION__, pos, n, dataread, len);
 
-  segment_reader->read(m_av_pos + dataread, len, m_av_rbe, n);
+  reader_status = segment_reader->read(m_av_pos + dataread, len, m_av_rbe, n);
   // xbmc->Log(LOG_DEBUG, LOGTAG "%s Read at %d for %d bytes", __FUNCTION__, pos, len);
 
 
@@ -192,7 +192,6 @@ const unsigned char* Demux::ReadAV(uint64_t pos, size_t n)
   return dataread >= n ? m_av_rbs : NULL;
 }
 
-// TODO: This should return the stream info so that we do not have to separately fetch it
 DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
 {
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: Processing demux", __FUNCTION__);
@@ -263,12 +262,19 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       m_AVContext->GoNext();
 
     if (demux_packets.size() >= DEMUX_BUFFER_SIZE) {
-      return DemuxStatus::FILLED_BUFFER;
+      break;
     }
 
   }
   // TODO: Need to be able to detect end of segmend and an actually error
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);
+  if (reader_status == SegmentReaderStatus::FLUSHED) {
+    return DemuxStatus::FLUSH;
+  } else if (demux_packets.size() >= DEMUX_BUFFER_SIZE) {
+    return DemuxStatus::FILLED_BUFFER;
+  } else if (reader_status == SegmentReaderStatus::ENDED) {
+    return DemuxStatus::SEGMENT_DONE;
+  }
   return ret >= 0 ? DemuxStatus::SEGMENT_DONE : DemuxStatus::ERROR;
 }
 

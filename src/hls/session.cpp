@@ -22,6 +22,7 @@ uint64_t hls::Session::get_current_time() {
   uint64_t current_time = current_pkt.current_time;
   return current_time;
 }
+uint32_t count = 0;
 
 DemuxContainer hls::Session::get_current_pkt() {
   if (!current_pkt.demux_packet) {
@@ -60,6 +61,11 @@ DemuxContainer hls::Session::get_current_pkt() {
       stream_ids.push_back(current_pkt.stream_ids);
       streams.push_back(current_pkt.streams);
   }
+  if (count == 0) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "PTS: %f DTS: %f",
+                                pkt->pts, pkt->dts);
+  }
+  count = (count + 1) % 250;
 
   return current_pkt;
 }
@@ -149,12 +155,6 @@ void hls::Session::demux_process() {
     reader_future.wait_for(std::chrono::milliseconds(SEGMENT_TIMEOUT_DELAY));
     std::unique_ptr<SegmentReader> reader;
     try {
-      if (flush_demux) {
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushing demuxer1");
-        flush_demux = false;
-        write_packet_buffer.clear();
-        last_variant_stream = -1;
-      }
       reader = reader_future.get();
     } catch(std::exception &e) {
       quit_processing = true;
@@ -175,19 +175,19 @@ void hls::Session::demux_process() {
 
     while(status != DemuxStatus::SEGMENT_DONE && status != DemuxStatus::ERROR) {
       status = demuxer->Process(demux_packets);
-      if (!flush_demux) {
-         std::unique_lock<std::mutex> lock(demux_mutex);
-         write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
-         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
-             write_packet_buffer.size());
-         demux_packets.clear();
-      } else {
+      if (flush_demux || status == DemuxStatus::FLUSH) {
         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushing demuxer2");
         flush_demux = false;
         write_packet_buffer.clear();
         demux_packets.clear();
         last_variant_stream = -1;
         break;
+      } else {
+         std::unique_lock<std::mutex> lock(demux_mutex);
+         write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
+         xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
+             write_packet_buffer.size());
+         demux_packets.clear();
       }
       if (quit_processing) {
         break;
@@ -252,12 +252,16 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
   if (new_time < 0) {
      return false;
   } else {
-    flush_demux = true;
     if (current_pkt.demux_packet) {
       ipsh->FreeDemuxPacket(current_pkt.demux_packet);
       current_pkt.demux_packet = 0;
     }
     read_packet_buffer.clear();
+    {
+      std::unique_lock<std::mutex> lock(demux_mutex);
+      flush_demux = true;
+      write_packet_buffer.clear();
+    }
 
     m_startdts = m_startpts = DVD_NOPTS_VALUE;
 

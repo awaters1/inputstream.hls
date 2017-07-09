@@ -186,6 +186,7 @@ void SegmentStorage::download_next_segment() {
       stage = next_stage;
       ++counter;
       lock.lock();
+      // TODO: Potential optimization to check for flush right here
       hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
       stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d at %f", segment.media_sequence, current_segment_itr->time_in_playlist);
@@ -221,7 +222,9 @@ void SegmentStorage::download_next_segment() {
         std::string contents = file_downloader.download(url);
         this->process_data(data_helper, contents);
       }
-      segment_reader->end_data();
+      // TODO :This should pass flush off to the demux and then up the chain instead of using
+      // a boolean var in session
+      segment_reader->end_data(flush);
       std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
       stage.download_time_ms = duration;
@@ -324,6 +327,7 @@ double SegmentStorage::seek_time(double desired_time) {
     {
       std::lock_guard<std::mutex> lock(data_lock);
       flush = true;
+      segment_data.clear();
       current_segment_itr = seek_to;
     }
     download_cv.notify_all();

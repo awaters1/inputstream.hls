@@ -14,7 +14,8 @@ segment(segment),
 time_in_playlist(time_in_playlist),
 can_overwrite(false),
 finished(false),
-variant_stream_index(variant_stream_index) {
+variant_stream_index(variant_stream_index),
+status(SegmentReaderStatus::SUCCESS){
 
 }
 
@@ -45,26 +46,27 @@ void SegmentReader::write_data(std::string data) {
   data_cv.notify_all();
 }
 
-void SegmentReader::end_data() {
+void SegmentReader::end_data(bool flush) {
   {
     std::lock_guard<std::mutex> lock(data_mutex);
     finished = true;
+    status = flush ? SegmentReaderStatus::FLUSHED : SegmentReaderStatus::ENDED;
   }
   data_cv.notify_all();
 }
 
-void SegmentReader::read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read) {
+SegmentReaderStatus SegmentReader::read(uint64_t pos, size_t &size, uint8_t * const destination, size_t min_read) {
   std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
   size_t desired_size = size;
   size_t data_read = 0;
   read_impl(pos, size, destination);
   if (size >= min_read) {
-    return;
+    return status;
   }
   {
     std::lock_guard<std::mutex> lock(data_mutex);
     if (size < min_read && finished) {
-      return;
+      return status;
     }
   }
   data_read += size;
@@ -87,6 +89,7 @@ void SegmentReader::read(uint64_t pos, size_t &size, uint8_t * const destination
   if (!segment.valid) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s segment is invalid", __FUNCTION__);
   }
+  return status;
 }
 
 void SegmentReader::read_impl(uint64_t pos, size_t &size, uint8_t * const destination) {
