@@ -39,6 +39,7 @@ total_freeze_duration_ms(0) {
   }
   std::sort(variants.begin(), variants.end(), [](VariantStream l, VariantStream r) { return l.playlist.bandwidth < r.playlist.bandwidth; } );
   current_segment_itr = segments.end();
+  stage.bandwidth_kbps = downloader->get_average_bandwidth() / 1024.0;
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting segment storage", __FUNCTION__);
   download_thread = std::thread(&SegmentStorage::download_next_segment, this);
   reload_thread = std::thread(&SegmentStorage::reload_playlist_thread, this);
@@ -139,6 +140,14 @@ void SegmentStorage::download_next_segment() {
     // TODO: Choose correct variant stream to get the segment from
     // uint32_t chosen_variant_stream = counter > 3 ? 2 : 0; // rand() % variants.size();
     uint32_t chosen_variant_stream = 0;
+    for(chosen_variant_stream = 0; chosen_variant_stream < variants.size() - 1; ++chosen_variant_stream) {
+      if (variants.at(chosen_variant_stream).playlist.bandwidth >= stage.bandwidth_kbps * 1024) {
+        break;
+      }
+    }
+    // chosen_variant_stream = 0;
+
+
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching from variant stream %d because we will never load", chosen_variant_stream);
       ++chosen_variant_stream;
@@ -166,8 +175,8 @@ void SegmentStorage::download_next_segment() {
     // Reward
     double current_bandwidth = quantify_bandwidth(stage.bandwidth_kbps);
     double b_opt_ms = MAX_BUFFER_MS * 2.0 / 3.0;
-    double num = (1.0 + (next_stage.buffer_level_ms / b_opt_ms));
-    double denum = (3.0 - (BANDWIDTH_BIN / lowest_stream_kbps));
+    double num = (1.0 + (next_stage.buffer_level_ms / b_opt_ms) / 1000.0);
+    double denum = (5 - (BANDWIDTH_BIN / lowest_stream_kbps));
     double r_quality = -1.5 * std::fabs(next_stage.bandwidth_kbps * (num / denum) - variant_stream_kbps);
     double r_switches = -std::fabs(next_stage.previous_quality_bps / 1024.0 - variant_stream_kbps);
     double r_freeze = 0;
