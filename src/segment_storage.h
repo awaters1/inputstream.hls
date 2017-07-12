@@ -66,7 +66,22 @@ public:
     previous_quality_bps(0), current_quality_bps(0), download_time_ms(0),
     variant_stream_index(0) {};
   bool operator==(const Stage &other) const {
-
+    return get_buffer_level_s() == other.get_buffer_level_s() &&
+        get_bandwidth_kbps() == other.get_bandwidth_kbps() &&
+        get_previous_quality_bps() == other.get_previous_quality_bps() &&
+        get_current_quality_bps() == other.get_current_quality_bps();
+  }
+  uint32_t get_buffer_level_s() const {
+    return buffer_level_ms / 1000;
+  }
+  uint32_t get_bandwidth_kbps() const {
+    return static_cast<uint32_t>(bandwidth_kbps);
+  }
+  uint32_t get_previous_quality_bps() const {
+    return static_cast<uint32_t>(previous_quality_bps);
+  }
+  uint32_t get_current_quality_bps() const {
+    return static_cast<uint32_t>(current_quality_bps);
   }
   double buffer_level_ms;
   double bandwidth_kbps;
@@ -75,6 +90,18 @@ public:
   double download_time_ms; // filled in after the stage is done
   uint32_t variant_stream_index;
 };
+
+namespace std {
+  template <>
+  struct hash<Stage> {
+    std::size_t operator()(const Stage& stage) const {
+      return (((hash<uint32_t>()(stage.get_buffer_level_s()))
+          ^ (hash<uint32_t>()(stage.get_bandwidth_kbps()) << 1) >> 1)
+          ^ (hash<uint32_t>()(stage.get_previous_quality_bps()) << 1 ) >> 1)
+          ^ (hash<uint32_t>()(stage.get_current_quality_bps()) << 1);
+    }
+  };
+}
 
 class SegmentStorage {
 public:
