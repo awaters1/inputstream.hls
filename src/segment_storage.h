@@ -65,6 +65,9 @@ public:
   Stage() : buffer_level_ms(0), bandwidth_kbps(0),
     previous_quality_bps(0), current_quality_bps(0), download_time_ms(0),
     variant_stream_index(0) {};
+  bool operator==(const Stage &other) const {
+
+  }
   double buffer_level_ms;
   double bandwidth_kbps;
   double previous_quality_bps;
@@ -124,4 +127,5 @@ private:
   uint32_t time_since_last_freeze_ms;
   uint32_t number_of_freezes;
   Stage stage;
+  std::unordered_map<Stage, double> q_map;
 };

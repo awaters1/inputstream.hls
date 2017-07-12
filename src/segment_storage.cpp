@@ -158,6 +158,7 @@ void SegmentStorage::download_next_segment() {
       ++current_segment_itr;
     }
 
+    next_stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
     next_stage.variant_stream_index = chosen_variant_stream;
 
     double variant_stream_kbps = variants.at(chosen_variant_stream).playlist.bandwidth / (double) 1024;
@@ -188,6 +189,10 @@ void SegmentStorage::download_next_segment() {
     }
     double r_tot = r_quality + r_switches + r_freeze;
 
+    // State:
+    // bufk - buffer fill level in seconds (discreet)
+    // bwk - estimated bandwidth (binned & discreet)
+    // qk-1 - quality of previous segment
     // TODO: With reward + Stage we have to run RL
 
     if (has_download_item(chosen_variant_stream)) {
@@ -198,7 +203,6 @@ void SegmentStorage::download_next_segment() {
       lock.lock();
       // TODO: Potential optimization to check for flush right here
       hls::Segment segment = current_segment_itr->details.at(chosen_variant_stream);
-      stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Starting download of %d at %f", segment.media_sequence, current_segment_itr->time_in_playlist);
 
       DataHelper data_helper;
