@@ -67,8 +67,8 @@ KodiSession::~KodiSession() {
     for(auto it : q_map) {
       uint32_t buff_s = it.first.get_buffer_level_s();
       uint32_t bw_kbps = it.first.get_bandwidth_kbps();
-      uint32_t prev_qual = it.first.get_previous_quality_bps();
-      uint32_t curr_qual = it.first.get_current_quality_bps();
+      uint32_t prev_qual = it.first.get_previous_quality_kbps();
+      uint32_t curr_qual = it.first.get_current_quality_kbps();
       fwrite((const char*)&buff_s, sizeof(uint32_t), 1, f);
       fwrite((const char*)&bw_kbps, sizeof(uint32_t), 1, f);
       fwrite((const char*)&prev_qual, sizeof(uint32_t), 1, f);

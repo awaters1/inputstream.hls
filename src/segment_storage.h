@@ -80,8 +80,8 @@ public:
   bool operator==(const Stage &other) const {
     return get_buffer_level_s() == other.get_buffer_level_s() &&
         get_bandwidth_kbps() == other.get_bandwidth_kbps() &&
-        get_previous_quality_bps() == other.get_previous_quality_bps() &&
-        get_current_quality_bps() == other.get_current_quality_bps();
+        get_previous_quality_kbps() == other.get_previous_quality_kbps() &&
+        get_current_quality_kbps() == other.get_current_quality_kbps();
   }
   uint32_t get_buffer_level_s() const {
     return buffer_level_ms / 1000;
@@ -89,11 +89,11 @@ public:
   uint32_t get_bandwidth_kbps() const {
     return static_cast<uint32_t>(quantify_bandwidth(bandwidth_kbps));
   }
-  uint32_t get_previous_quality_bps() const {
-    return static_cast<uint32_t>(previous_quality_bps);
+  uint32_t get_previous_quality_kbps() const {
+    return static_cast<uint32_t>(quantify_bandwidth(previous_quality_bps / 1024.0));
   }
-  uint32_t get_current_quality_bps() const {
-    return static_cast<uint32_t>(current_quality_bps);
+  uint32_t get_current_quality_kbps() const {
+    return static_cast<uint32_t>(quantify_bandwidth(current_quality_bps / 1024.0));
   }
   double buffer_level_ms;
   double bandwidth_kbps;
@@ -109,8 +109,8 @@ namespace std {
     std::size_t operator()(const Stage& stage) const {
       return (((stage.get_buffer_level_s() == 0 ? 0 : hash<uint32_t>()(stage.get_buffer_level_s()))
           ^ (stage.get_bandwidth_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_bandwidth_kbps()) << 1) >> 1)
-          ^ (stage.get_previous_quality_bps() == 0 ? 0 : hash<uint32_t>()(stage.get_previous_quality_bps()) << 1 ) >> 1)
-          ^ (stage.get_current_quality_bps() == 0 ? 0 : hash<uint32_t>()(stage.get_current_quality_bps()) << 1);
+          ^ (stage.get_previous_quality_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_previous_quality_kbps()) << 1 ) >> 1)
+          ^ (stage.get_current_quality_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_current_quality_kbps()) << 1);
     }
   };
 }

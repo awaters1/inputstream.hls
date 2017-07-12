@@ -111,10 +111,12 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::shared_ptr<Segmen
 
 double quantify_bandwidth(double bandwidth_kbps) {
   double quantified_bandwidth;
-  if (bandwidth_kbps < 9000) {
+  if (bandwidth_kbps < 5000) {
     quantified_bandwidth = ((int) bandwidth_kbps / 500) * 500;
-  } else {
+  } else if (bandwidth_kbps < 10000) {
     quantified_bandwidth = ((int) bandwidth_kbps / 1000) * 1000;
+  } else {
+    quantified_bandwidth = ((int) bandwidth_kbps / 2000) * 2000;
   }
   return std::max(500.0, quantified_bandwidth);
 }
@@ -184,7 +186,7 @@ void SegmentStorage::download_next_segment() {
     uint32_t chosen_variant_stream = 0;
     if (qlearn) {
       if (exploring) {
-        chosen_variant_stream = rand() % variants.size();
+        chosen_variant_stream = 3 + rand() % 4;
       } else {
         double max_q = 0;
         for(size_t i = 0; i < variants.size(); ++i) {
@@ -229,10 +231,11 @@ void SegmentStorage::download_next_segment() {
     // qk-1 - quality of previous segment
     // TODO: With reward + Stage we have to run RL
     if (q_map.find(stage) == q_map.end()) {
-      q_map.insert(std::pair<Stage, double>(stage, 0));
+      q_map.insert(std::pair<Stage, double>(stage, reward.quality + reward.switches));
     }
     if (q_map.find(next_stage) == q_map.end()) {
-      q_map.insert(std::pair<Stage, double>(next_stage, 0));
+      Reward next_reward = calculate_reward(next_stage);
+      q_map.insert(std::pair<Stage, double>(next_stage, next_reward.quality + next_reward.switches));
     }
     q_map[stage] = (1 - ALPHA) * q_map[stage] + ALPHA * (reward.total + GAMMA * q_map[next_stage]);
 
@@ -247,11 +250,11 @@ void SegmentStorage::download_next_segment() {
           return true;
         } else if (l.first.get_bandwidth_kbps() > r.first.get_bandwidth_kbps()) {
           return false;
-        } else if (l.first.get_previous_quality_bps() < r.first.get_previous_quality_bps()) {
+        } else if (l.first.get_previous_quality_kbps() < r.first.get_previous_quality_kbps()) {
           return true;
-        } else if (l.first.get_previous_quality_bps() > r.first.get_previous_quality_bps()) {
+        } else if (l.first.get_previous_quality_kbps() > r.first.get_previous_quality_kbps()) {
           return false;
-        } else if (l.first.get_current_quality_bps() > r.first.get_current_quality_bps()) {
+        } else if (l.first.get_current_quality_kbps() > r.first.get_current_quality_kbps()) {
           return true;
         } else {
           return false;
@@ -259,8 +262,8 @@ void SegmentStorage::download_next_segment() {
       });
       for(auto it : q_vec) {
         xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d curr_qual: %d  Q: %f",
-            it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_bps(),
-            it.first.get_current_quality_bps(), it.second);
+            it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_kbps(),
+            it.first.get_current_quality_kbps(), it.second);
       }
 
       xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f Q: %f",

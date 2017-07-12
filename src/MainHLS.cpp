@@ -210,8 +210,8 @@ extern "C" {
         Stage stage;
         stage.buffer_level_ms = buff_s * 1000;
         stage.bandwidth_kbps = bw_kbps;
-        stage.previous_quality_bps = prev_qual;
-        stage.current_quality_bps = curr_qual;
+        stage.previous_quality_bps = prev_qual * 1024;
+        stage.current_quality_bps = curr_qual * 1024;
         q_map[stage] = value;
       }
       fclose(f);
