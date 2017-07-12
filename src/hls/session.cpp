@@ -273,7 +273,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 }
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
-    int min_bandwidth, int max_bandwidth, bool manual_streams) :
+    int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<Stage, double> q_map) :
     quit_processing(false),
     flush_demux(false),
     min_bandwidth(min_bandwidth),
@@ -289,7 +289,7 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_freeze_time(std::chrono::high_resolution_clock::now()),
     total_freeze_duration_ms(0),
     number_of_freezes(0),
-    segment_storage(downloader, master_playlist){
+    segment_storage(downloader, master_playlist, q_map){
   demux_thread = std::thread(&Session::demux_process, this);
 }
 

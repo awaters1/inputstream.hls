@@ -20,7 +20,7 @@ VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
 
 }
 
-SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist) :
+SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<Stage, double> q_map) :
 downloader(downloader),
 quit_processing(false),
 flush(false),
@@ -31,7 +31,8 @@ valid_promise(false),
 number_of_freezes(0),
 time_in_buffer(0),
 time_since_last_freeze_ms(1),
-total_freeze_duration_ms(0) {
+total_freeze_duration_ms(0),
+q_map(q_map) {
   for(auto &media_playlist : master_playlist.get_media_playlists()) {
     VariantStream stream(media_playlist);
     stream.last_segment_itr = segments.begin();
@@ -108,10 +109,50 @@ void SegmentStorage::get_next_segment_reader(std::promise<std::shared_ptr<Segmen
   }
 }
 
-const int BANDWIDTH_BIN = 2000.0;
-
 double quantify_bandwidth(double bandwidth_kbps) {
-  return std::max(500, ((int) bandwidth_kbps / BANDWIDTH_BIN) * BANDWIDTH_BIN);
+  double quantified_bandwidth;
+  if (bandwidth_kbps < 9000) {
+    quantified_bandwidth = ((int) bandwidth_kbps / 500) * 500;
+  } else {
+    quantified_bandwidth = ((int) bandwidth_kbps / 1000) * 1000;
+  }
+  return std::max(500.0, quantified_bandwidth);
+}
+
+Reward SegmentStorage::calculate_reward(Stage stage) {
+  double variant_stream_kbps = stage.current_quality_bps / 1024.0;
+
+  double lowest_stream_bps = variants.at(0).playlist.bandwidth;
+  uint32_t lowest_stream_index = 0;
+  for(uint32_t i = 0; i < variants.size(); ++i) {
+    if (variants.at(i).playlist.bandwidth <= lowest_stream_bps) {
+      lowest_stream_bps = variants.at(i).playlist.bandwidth;
+      lowest_stream_index = i;
+    }
+  }
+  double lowest_stream_kbps = lowest_stream_bps / (double) 1024;
+
+  // Reward
+  double current_bandwidth = quantify_bandwidth(stage.bandwidth_kbps);
+  double b_opt_ms = MAX_BUFFER_MS * 2.0 / 3.0;
+  double num = (1.0 + (stage.buffer_level_ms / b_opt_ms) / 1000.0);
+  double denum = (3 - (LOWEST_BANDWIDTH / lowest_stream_kbps));
+  double r_quality = -1.5 * std::fabs(stage.bandwidth_kbps * (num / denum) - variant_stream_kbps);
+  double r_switches = -std::fabs(stage.previous_quality_bps / 1024.0 - variant_stream_kbps);
+  double r_freeze = 0;
+  double bw = variant_stream_kbps / current_bandwidth;
+  if (stage.variant_stream_index == lowest_stream_index) {
+    r_freeze = -100 * fabs(bw * (std::exp(total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
+  } else {
+    r_freeze = -100 * fabs(bw * (std::exp(number_of_freezes + total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
+  }
+  double r_tot = r_quality + r_switches + r_freeze;
+  Reward reward;
+  reward.total = r_tot;
+  reward.quality = r_quality;
+  reward.switches = r_switches;
+  reward.freeze = r_freeze;
+  return reward;
 }
 
 void SegmentStorage::download_next_segment() {
@@ -137,15 +178,34 @@ void SegmentStorage::download_next_segment() {
 
     lock.unlock();
 
-    // TODO: Choose correct variant stream to get the segment from
-    // uint32_t chosen_variant_stream = counter > 3 ? 2 : 0; // rand() % variants.size();
+    bool qlearn = true;
+    bool exploring = true;
+
     uint32_t chosen_variant_stream = 0;
-    for(chosen_variant_stream = 0; chosen_variant_stream < variants.size() - 1; ++chosen_variant_stream) {
-      if (variants.at(chosen_variant_stream).playlist.bandwidth >= stage.bandwidth_kbps * 1024) {
-        break;
+    if (qlearn) {
+      if (exploring) {
+        chosen_variant_stream = rand() % variants.size();
+      } else {
+        double max_q = 0;
+        for(size_t i = 0; i < variants.size(); ++i) {
+          next_stage.current_quality_bps = variants.at(i).playlist.bandwidth;
+          next_stage.variant_stream_index = i;
+          if (q_map.find(next_stage) == q_map.end()) {
+            q_map[next_stage] = 0;
+          }
+          if (q_map[next_stage] >= max_q) {
+            max_q = q_map[next_stage];
+            chosen_variant_stream = i;
+          }
+        }
+      }
+    } else {
+      for(chosen_variant_stream = 0; chosen_variant_stream < variants.size() - 1; ++chosen_variant_stream) {
+        if (variants.at(chosen_variant_stream).playlist.bandwidth >= stage.bandwidth_kbps * 1024) {
+          break;
+        }
       }
     }
-    // chosen_variant_stream = 0;
 
 
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
@@ -161,43 +221,50 @@ void SegmentStorage::download_next_segment() {
     next_stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;
     next_stage.variant_stream_index = chosen_variant_stream;
 
-    double variant_stream_kbps = variants.at(chosen_variant_stream).playlist.bandwidth / (double) 1024;
-
-    double lowest_stream_bps = variants.at(0).playlist.bandwidth;
-    uint32_t lowest_stream_index = 0;
-    for(uint32_t i = 0; i < variants.size(); ++i) {
-      if (variants.at(i).playlist.bandwidth <= lowest_stream_bps) {
-        lowest_stream_bps = variants.at(i).playlist.bandwidth;
-        lowest_stream_index = i;
-      }
-    }
-    double lowest_stream_kbps = lowest_stream_bps / (double) 1024;
-
-    // Reward
-    double current_bandwidth = quantify_bandwidth(stage.bandwidth_kbps);
-    double b_opt_ms = MAX_BUFFER_MS * 2.0 / 3.0;
-    double num = (1.0 + (next_stage.buffer_level_ms / b_opt_ms) / 1000.0);
-    double denum = (5 - (BANDWIDTH_BIN / lowest_stream_kbps));
-    double r_quality = -1.5 * std::fabs(next_stage.bandwidth_kbps * (num / denum) - variant_stream_kbps);
-    double r_switches = -std::fabs(next_stage.previous_quality_bps / 1024.0 - variant_stream_kbps);
-    double r_freeze = 0;
-    double bw = variant_stream_kbps / current_bandwidth;
-    if (chosen_variant_stream == lowest_stream_index) {
-      r_freeze = -100 * fabs(bw * (std::exp(total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
-    } else {
-      r_freeze = -100 * fabs(bw * (std::exp(number_of_freezes + total_freeze_duration_ms / 10000.0) / std::log(time_since_last_freeze_ms + 1)));
-    }
-    double r_tot = r_quality + r_switches + r_freeze;
+    Reward reward = calculate_reward(stage);
 
     // State:
     // bufk - buffer fill level in seconds (discreet)
     // bwk - estimated bandwidth (binned & discreet)
     // qk-1 - quality of previous segment
     // TODO: With reward + Stage we have to run RL
+    if (q_map.find(stage) == q_map.end()) {
+      q_map.insert(std::pair<Stage, double>(stage, 0));
+    }
+    if (q_map.find(next_stage) == q_map.end()) {
+      q_map.insert(std::pair<Stage, double>(next_stage, 0));
+    }
+    q_map[stage] = (1 - ALPHA) * q_map[stage] + ALPHA * (reward.total + GAMMA * q_map[next_stage]);
 
     if (has_download_item(chosen_variant_stream)) {
-      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f",
-          r_tot, r_quality, r_switches, r_freeze);
+      std::vector<std::pair<Stage, double>> q_vec(q_map.begin(), q_map.end());
+      std::sort(q_vec.begin(), q_vec.end(), [](std::pair<Stage, double> l, std::pair<Stage, double> r) -> bool {
+        if (l.first.get_buffer_level_s() < r.first.get_buffer_level_s()) {
+          return true;
+        } else if (l.first.get_buffer_level_s() > r.first.get_buffer_level_s()) {
+          return false;
+        } else if (l.first.get_bandwidth_kbps() < r.first.get_bandwidth_kbps()) {
+          return true;
+        } else if (l.first.get_bandwidth_kbps() > r.first.get_bandwidth_kbps()) {
+          return false;
+        } else if (l.first.get_previous_quality_bps() < r.first.get_previous_quality_bps()) {
+          return true;
+        } else if (l.first.get_previous_quality_bps() > r.first.get_previous_quality_bps()) {
+          return false;
+        } else if (l.first.get_current_quality_bps() > r.first.get_current_quality_bps()) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+      for(auto it : q_vec) {
+        xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d curr_qual: %d  Q: %f",
+            it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_bps(),
+            it.first.get_current_quality_bps(), it.second);
+      }
+
+      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f Q: %f",
+          reward.total, reward.quality, reward.switches, reward.freeze, q_map[stage]);
       stage = next_stage;
       ++counter;
       lock.lock();

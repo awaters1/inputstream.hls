@@ -28,6 +28,9 @@
 
 const int RELOAD_DELAY_MS = 1000;
 const size_t MAX_SEGMENTS =  6;
+const int LOWEST_BANDWIDTH = 500;
+const double ALPHA = 0.1;
+const double GAMMA = 0.9;
 
 struct DataHelper {
   std::string aes_uri;
@@ -60,6 +63,15 @@ public:
   std::list<DownloadSegment>::iterator last_segment_itr;
 };
 
+struct Reward {
+  double total;
+  double quality;
+  double switches;
+  double freeze;
+};
+
+double quantify_bandwidth(double bandwidth_kbps);
+
 class Stage {
 public:
   Stage() : buffer_level_ms(0), bandwidth_kbps(0),
@@ -75,7 +87,7 @@ public:
     return buffer_level_ms / 1000;
   }
   uint32_t get_bandwidth_kbps() const {
-    return static_cast<uint32_t>(bandwidth_kbps);
+    return static_cast<uint32_t>(quantify_bandwidth(bandwidth_kbps));
   }
   uint32_t get_previous_quality_bps() const {
     return static_cast<uint32_t>(previous_quality_bps);
@@ -95,30 +107,32 @@ namespace std {
   template <>
   struct hash<Stage> {
     std::size_t operator()(const Stage& stage) const {
-      return (((hash<uint32_t>()(stage.get_buffer_level_s()))
-          ^ (hash<uint32_t>()(stage.get_bandwidth_kbps()) << 1) >> 1)
-          ^ (hash<uint32_t>()(stage.get_previous_quality_bps()) << 1 ) >> 1)
-          ^ (hash<uint32_t>()(stage.get_current_quality_bps()) << 1);
+      return (((stage.get_buffer_level_s() == 0 ? 0 : hash<uint32_t>()(stage.get_buffer_level_s()))
+          ^ (stage.get_bandwidth_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_bandwidth_kbps()) << 1) >> 1)
+          ^ (stage.get_previous_quality_bps() == 0 ? 0 : hash<uint32_t>()(stage.get_previous_quality_bps()) << 1 ) >> 1)
+          ^ (stage.get_current_quality_bps() == 0 ? 0 : hash<uint32_t>()(stage.get_current_quality_bps()) << 1);
     }
   };
 }
 
 class SegmentStorage {
 public:
-  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist);
+  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<Stage, double> q_map);
   ~SegmentStorage();
   void get_next_segment_reader(std::promise<std::shared_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
       uint32_t total_freeze_duration_ms, uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes);
   double seek_time(double desired_time);
   uint64_t get_total_duration();
-public:
-  std::shared_ptr<SegmentReader> start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
+  std::unordered_map<Stage, double> get_q_map() { return q_map; };
 private:
+  std::shared_ptr<SegmentReader> start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
   bool can_download_segment();
   void download_next_segment();
   void process_data(DataHelper &data_helper, std::string data);
   bool has_download_item(uint32_t chosen_variant_stream);
   bool will_have_download_item(uint32_t chosen_variant_stream);
+private:
+  Reward calculate_reward(Stage stage);
 private:
   std::list<std::shared_ptr<SegmentReader>> segment_data;
   bool valid_promise;

@@ -189,6 +189,33 @@ extern "C" {
       fclose(f);
     }
     xbmc->Log(ADDON::LOG_DEBUG, "Initial bandwidth: %f ", bandwidth);
+    std::unordered_map<Stage, double> q_map;
+    fn = std::string(props.m_profileFolder) + "q_map.bin";
+    f = fopen(fn.c_str(), "rb");
+    if (f) {
+      while(true) {
+        uint32_t buff_s;
+        uint32_t bw_kbps;
+        uint32_t prev_qual;
+        uint32_t curr_qual;
+        double value;
+        size_t ret = fread(&buff_s, sizeof(uint32_t), 1, f);
+        if (!ret) {
+          break;
+        }
+        fread(&bw_kbps, sizeof(uint32_t), 1, f);
+        fread(&prev_qual, sizeof(uint32_t), 1, f);
+        fread(&curr_qual, sizeof(uint32_t), 1, f);
+        fread(&value, sizeof(double), 1, f);
+        Stage stage;
+        stage.buffer_level_ms = buff_s * 1000;
+        stage.bandwidth_kbps = bw_kbps;
+        stage.previous_quality_bps = prev_qual;
+        stage.current_quality_bps = curr_qual;
+        q_map[stage] = value;
+      }
+      fclose(f);
+    }
 
     int min_bandwidth(0);
     xbmc->GetSetting("MINBANDWIDTH", (char*)&min_bandwidth);
@@ -207,7 +234,7 @@ extern "C" {
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
     hls_session = new KodiSession(master_playlist, bandwidth, props.m_profileFolder,
-        min_bandwidth, max_bandwidth, manual_streams);
+        min_bandwidth, max_bandwidth, manual_streams, q_map);
 
     return true;
   }
