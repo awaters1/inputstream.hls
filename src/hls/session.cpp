@@ -273,7 +273,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
 }
 
 hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
-    int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<Stage, double> q_map) :
+    int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<StateAction, double> q_map) :
     quit_processing(false),
     flush_demux(false),
     min_bandwidth(min_bandwidth),

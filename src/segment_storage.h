@@ -31,6 +31,9 @@ const size_t MAX_SEGMENTS =  6;
 const int LOWEST_BANDWIDTH = 500;
 const double ALPHA = 0.1;
 const double GAMMA = 0.9;
+const double DELTA = 1 / 7.0;// TODO: Should be based on # of variants
+const double INVERSE_SENSITIVITY = 10;
+const double TEMPERATURE = 0.5;
 
 struct DataHelper {
   std::string aes_uri;
@@ -72,6 +75,53 @@ struct Reward {
 
 double quantify_bandwidth(double bandwidth_kbps);
 
+class State {
+public:
+  State(double buffer_level_ms, double bandwidth_kbps, double previous_quality_bps) :
+    buffer_level_ms(buffer_level_ms),
+    bandwidth_kbps(bandwidth_kbps),
+    previous_quality_bps(previous_quality_bps) {};
+  bool operator==(const State &other) const {
+    return get_buffer_level_s() == other.get_buffer_level_s() &&
+        get_bandwidth_kbps() == other.get_bandwidth_kbps() &&
+        get_previous_quality_kbps() == other.get_previous_quality_kbps();
+  }
+  uint32_t get_buffer_level_s() const {
+    return buffer_level_ms / 1000;
+  }
+  uint32_t get_bandwidth_kbps() const {
+    return static_cast<uint32_t>(quantify_bandwidth(bandwidth_kbps));
+  }
+  uint32_t get_previous_quality_kbps() const {
+    return static_cast<uint32_t>(quantify_bandwidth(previous_quality_bps / 1024.0));
+  }
+  double buffer_level_ms;
+  double bandwidth_kbps;
+  double previous_quality_bps;
+};
+
+class Action {
+public:
+  Action(double current_quality_bps) : current_quality_bps(current_quality_bps) {};
+  bool operator==(const Action &other) const {
+    return get_current_quality_kbps() == other.get_current_quality_kbps();
+  }
+  uint32_t get_current_quality_kbps() const {
+    return static_cast<uint32_t>(quantify_bandwidth(current_quality_bps / 1024.0));
+  }
+  double current_quality_bps;
+};
+
+class StateAction {
+public:
+  StateAction(State state, Action action) : state(state), action(action) {};
+  State state;
+  Action action;
+  bool operator==(const StateAction &other) const {
+    return state == other.state && action == other.action;
+  }
+};
+
 class Stage {
 public:
   Stage() : buffer_level_ms(0), bandwidth_kbps(0),
@@ -101,29 +151,46 @@ public:
   double current_quality_bps;
   double download_time_ms; // filled in after the stage is done
   uint32_t variant_stream_index;
+  State get_state() {
+    return State(buffer_level_ms, bandwidth_kbps, previous_quality_bps);
+  };
+  Action get_action() {
+    return Action(current_quality_bps);
+  };
+  StateAction get_state_action() {
+    return StateAction(get_state(), get_action());
+  };
 };
 
 namespace std {
   template <>
-  struct hash<Stage> {
-    std::size_t operator()(const Stage& stage) const {
-      return (((stage.get_buffer_level_s() == 0 ? 0 : hash<uint32_t>()(stage.get_buffer_level_s()))
-          ^ (stage.get_bandwidth_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_bandwidth_kbps()) << 1) >> 1)
-          ^ (stage.get_previous_quality_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_previous_quality_kbps()) << 1 ) >> 1)
-          ^ (stage.get_current_quality_kbps() == 0 ? 0 : hash<uint32_t>()(stage.get_current_quality_kbps()) << 1);
+  struct hash<StateAction> {
+    std::size_t operator()(const StateAction& stage) const {
+      return (((hash<uint32_t>()(stage.state.get_buffer_level_s()))
+          ^ (hash<uint32_t>()(stage.state.get_bandwidth_kbps()) << 1) >> 1)
+          ^ (hash<uint32_t>()(stage.state.get_previous_quality_kbps()) << 1 ) >> 1)
+          ^ (hash<uint32_t>()(stage.action.get_current_quality_kbps()) << 1);
+    }
+  };
+  template <>
+  struct hash<State> {
+    std::size_t operator()(const State& state) const {
+      return ((hash<uint32_t>()(state.get_buffer_level_s()))
+          ^ (hash<uint32_t>()(state.get_bandwidth_kbps()) << 1) >> 1)
+          ^ (hash<uint32_t>()(state.get_previous_quality_kbps()) << 1);
     }
   };
 }
 
 class SegmentStorage {
 public:
-  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<Stage, double> q_map);
+  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<StateAction, double> q_map);
   ~SegmentStorage();
   void get_next_segment_reader(std::promise<std::shared_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
       uint32_t total_freeze_duration_ms, uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes);
   double seek_time(double desired_time);
   uint64_t get_total_duration();
-  std::unordered_map<Stage, double> get_q_map() { return q_map; };
+  std::unordered_map<StateAction, double> get_q_map() { return q_map; };
 private:
   std::shared_ptr<SegmentReader> start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
   bool can_download_segment();
@@ -133,6 +200,8 @@ private:
   bool will_have_download_item(uint32_t chosen_variant_stream);
 private:
   Reward calculate_reward(Stage stage);
+  Reward calculate_reward(State state, Action action, uint32_t variant_stream_index);
+  uint32_t best_action(State state);
 private:
   std::list<std::shared_ptr<SegmentReader>> segment_data;
   bool valid_promise;
@@ -168,5 +237,6 @@ private:
   uint32_t time_since_last_freeze_ms;
   uint32_t number_of_freezes;
   Stage stage;
-  std::unordered_map<Stage, double> q_map;
+  std::unordered_map<StateAction, double> q_map;
+  std::unordered_map<State, double> explore_map;
 };

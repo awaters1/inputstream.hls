@@ -37,7 +37,7 @@ namespace hls {
   class Session {
   public:
     Session(MasterPlaylist master_playlist, Downloader *downloader, int min_bandwidth, int max_bandwidth, bool manual_streams,
-        std::unordered_map<Stage, double> q_map);
+        std::unordered_map<StateAction, double> q_map);
     virtual ~Session();
     Session(const Session& other) = delete;
     Session & operator= (const Session & other) = delete;

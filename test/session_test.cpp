@@ -16,7 +16,7 @@ protected:
   virtual void SetUp() {
     FileMasterPlaylist master_playlist = FileMasterPlaylist();
     master_playlist.open("test/hls/bipbopall_session.m3u8");
-    session = new Session(master_playlist, new FileDownloader(), 0, 0, true, std::unordered_map<Stage, double>());
+    session = new Session(master_playlist, new FileDownloader(), 0, 0, true, std::unordered_map<StateAction, double>());
   }
 
   virtual void TearDown() {
@@ -53,7 +53,7 @@ protected:
   virtual void SetUp() {
     FileMasterPlaylist master_playlist = FileMasterPlaylist();
     master_playlist.open("test/hls/encrypted.m3u8");
-    session = new Session(master_playlist, new FileDownloader(), 0, 0, true, std::unordered_map<Stage, double>());
+    session = new Session(master_playlist, new FileDownloader(), 0, 0, true, std::unordered_map<StateAction, double>());
   }
 
   virtual void TearDown() {

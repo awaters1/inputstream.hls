@@ -189,7 +189,7 @@ extern "C" {
       fclose(f);
     }
     xbmc->Log(ADDON::LOG_DEBUG, "Initial bandwidth: %f ", bandwidth);
-    std::unordered_map<Stage, double> q_map;
+    std::unordered_map<StateAction, double> q_map;
     fn = std::string(props.m_profileFolder) + "q_map.bin";
     f = fopen(fn.c_str(), "rb");
     if (f) {
@@ -207,12 +207,11 @@ extern "C" {
         fread(&prev_qual, sizeof(uint32_t), 1, f);
         fread(&curr_qual, sizeof(uint32_t), 1, f);
         fread(&value, sizeof(double), 1, f);
-        Stage stage;
-        stage.buffer_level_ms = buff_s * 1000;
-        stage.bandwidth_kbps = bw_kbps;
-        stage.previous_quality_bps = prev_qual * 1024;
-        stage.current_quality_bps = curr_qual * 1024;
-        q_map[stage] = value;
+        StateAction state_action(
+            State(buff_s * 1000, bw_kbps, prev_qual * 1024),
+            Action(curr_qual * 1024)
+        );
+        q_map[state_action] = value;
       }
       fclose(f);
     }

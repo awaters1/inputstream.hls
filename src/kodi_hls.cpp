@@ -46,7 +46,7 @@ hls::MediaPlaylist KodiSession::download_playlist(std::string url) {
 }
 
 KodiSession::KodiSession(KodiMasterPlaylist master_playlist, double bandwidth, std::string profile_path,
-      int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<Stage, double> q_map) :
+      int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<StateAction, double> q_map) :
     hls::Session(master_playlist, new KodiDownloader(bandwidth), min_bandwidth, max_bandwidth, manual_streams, q_map),
     profile_path(profile_path) {
 
@@ -63,12 +63,12 @@ KodiSession::~KodiSession() {
   fn = profile_path + "q_map.bin";
   f = fopen(fn.c_str(), "wb");
   if (f) {
-    std::unordered_map<Stage, double> q_map = segment_storage.get_q_map();
+    std::unordered_map<StateAction, double> q_map = segment_storage.get_q_map();
     for(auto it : q_map) {
-      uint32_t buff_s = it.first.get_buffer_level_s();
-      uint32_t bw_kbps = it.first.get_bandwidth_kbps();
-      uint32_t prev_qual = it.first.get_previous_quality_kbps();
-      uint32_t curr_qual = it.first.get_current_quality_kbps();
+      uint32_t buff_s = it.first.state.get_buffer_level_s();
+      uint32_t bw_kbps = it.first.state.get_bandwidth_kbps();
+      uint32_t prev_qual = it.first.state.get_previous_quality_kbps();
+      uint32_t curr_qual = it.first.action.get_current_quality_kbps();
       fwrite((const char*)&buff_s, sizeof(uint32_t), 1, f);
       fwrite((const char*)&bw_kbps, sizeof(uint32_t), 1, f);
       fwrite((const char*)&prev_qual, sizeof(uint32_t), 1, f);
