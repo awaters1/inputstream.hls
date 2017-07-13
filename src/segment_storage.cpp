@@ -185,6 +185,7 @@ void SegmentStorage::download_next_segment() {
 
     uint32_t chosen_variant_stream = 0;
     if (qlearn) {
+      // TODO: Implement VDBE-softmax
       if (exploring) {
         chosen_variant_stream = 3 + rand() % 4;
       } else {
