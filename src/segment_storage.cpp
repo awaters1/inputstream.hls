@@ -6,6 +6,7 @@
 #include <cmath>
 #include <map>
 #include <algorithm>
+#include <limits>
 
 #include "globals.h"
 #include "segment_storage.h"
@@ -142,7 +143,7 @@ Reward SegmentStorage::calculate_reward(State state, Action action, uint32_t var
   double num = (1.0 + (state.get_buffer_level_s() / b_opt_s));
   double denum = (3 - (LOWEST_BANDWIDTH / lowest_stream_kbps));
   double r_quality = -1.5 * std::fabs(state.get_bandwidth_kbps() * (num / denum) - action.get_current_quality_kbps());
-  double r_switches = -std::fabs(state.get_previous_quality_kbps() - action.get_current_quality_kbps());
+  double r_switches = -std::fabs((double) state.get_previous_quality_kbps() - action.get_current_quality_kbps());
   double r_freeze = 0;
   double bw = action.get_current_quality_kbps() / state.get_bandwidth_kbps();
   if (stage.variant_stream_index == lowest_stream_index) {
@@ -159,6 +160,18 @@ Reward SegmentStorage::calculate_reward(State state, Action action, uint32_t var
   return reward;
 }
 
+void SegmentStorage::normalize_q_map() {
+  double min = std::numeric_limits<double>::max();
+  double max = std::numeric_limits<double>::min();
+  for(auto it : q_map) {
+    min = std::min(min, it.second);
+    max = std::max(max, it.second);
+  }
+  for(auto &it : q_map) {
+    normalized_q_map[it.first] = (it.second - min) / (max - min);
+  }
+}
+
 uint32_t SegmentStorage::best_action(State state) {
   uint32_t chosen_variant_stream = 0;
   for(size_t i = 0; i < variants.size(); ++i) {
@@ -168,6 +181,7 @@ uint32_t SegmentStorage::best_action(State state) {
       q_map[StateAction(state, action)] = reward.quality + reward.switches;
     }
   }
+  normalize_q_map();
   size_t max = -1;
   double max_q;
   for(size_t i = 0; i < variants.size(); ++i) {
@@ -201,7 +215,7 @@ void SegmentStorage::download_next_segment() {
 
     lock.unlock();
 
-    bool qlearn = false;
+    bool qlearn = true;
     bool exploring = true;
 
     uint32_t chosen_variant_stream = 0;
@@ -217,19 +231,19 @@ void SegmentStorage::download_next_segment() {
         double reward_sum = 0;
         for(size_t i = 0; i < variants.size(); ++i) {
           Action action(variants.at(i).playlist.bandwidth);
-          reward_sum += exp(q_map[StateAction(state, action)] / TEMPERATURE);
+          reward_sum += exp(normalized_q_map[StateAction(state, action)] / TEMPERATURE);
         }
         double max_probability = 0;
         for(size_t i = 0; i < variants.size(); ++i) {
           Action action(variants.at(i).playlist.bandwidth);
-          double probability = exp(q_map[StateAction(state, action)] / TEMPERATURE) / reward_sum;
+          double probability = exp(normalized_q_map[StateAction(state, action)] / TEMPERATURE) / reward_sum;
           if (probability >= max_probability) {
             max_probability = probability;
             chosen_variant_stream = i;
           }
         }
         xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "Chose stream %d with probability %f",
-                          max_probability, chosen_variant_stream);
+                          chosen_variant_stream, max_probability);
       } else {
         // chosen_variant_stream is already the best action
       }
@@ -325,20 +339,24 @@ void SegmentStorage::download_next_segment() {
       uint32_t next_best_stream = best_action(next_state);
       Action next_best_action(variants.at(next_best_stream).playlist.bandwidth);
 
-      double old_q = q_map[stage.get_state_action()];
+      double old_q = normalized_q_map[stage.get_state_action()];
       q_map[stage.get_state_action()] = (1 - ALPHA) * q_map[stage.get_state_action()] + ALPHA *
           (reward.total + GAMMA * q_map[StateAction(next_state, next_best_action)]);
+      normalize_q_map();
 
-      double change_in_q = q_map[stage.get_state_action()] - old_q;
+      // TODO: This uses q_values that were normalized differently
+      double change_in_q = normalized_q_map[stage.get_state_action()] - old_q;
       explore_map[state] = DELTA * (
             (1 - exp((-fabs(ALPHA * change_in_q) / INVERSE_SENSITIVITY))) /
             (1 + exp((-fabs(ALPHA * change_in_q) / INVERSE_SENSITIVITY)))
           ) + (1 - DELTA) * explore_map[state];
 
-      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f Q: %f",
-          reward.total, reward.quality, reward.switches, reward.freeze, q_map[stage.get_state_action()]);
+      xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "RL R: %f rQ: %f rS: %f rF: %f Q: %f change: %f",
+          reward.total, reward.quality, reward.switches, reward.freeze, q_map[stage.get_state_action()],
+          change_in_q);
       stage = next_stage;
 
+      // Debug
       std::vector<std::pair<StateAction, double>> q_vec(q_map.begin(), q_map.end());
       std::sort(q_vec.begin(), q_vec.end(), [](std::pair<StateAction, double> l, std::pair<StateAction, double> r) -> bool {
         if (l.first.state.get_buffer_level_s() < r.first.state.get_buffer_level_s()) {
@@ -364,7 +382,26 @@ void SegmentStorage::download_next_segment() {
             it.first.state.get_buffer_level_s(), it.first.state.get_bandwidth_kbps(), it.first.state.get_previous_quality_kbps(),
             it.first.action.get_current_quality_kbps(), it.second);
       }
-
+      std::vector<std::pair<State, double>> e_vec(explore_map.begin(), explore_map.end());
+      std::sort(e_vec.begin(), e_vec.end(), [](std::pair<State, double> l, std::pair<State, double> r) -> bool {
+        if (l.first.get_buffer_level_s() < r.first.get_buffer_level_s()) {
+          return true;
+        } else if (l.first.get_buffer_level_s() > r.first.get_buffer_level_s()) {
+          return false;
+        } else if (l.first.get_bandwidth_kbps() < r.first.get_bandwidth_kbps()) {
+          return true;
+        } else if (l.first.get_bandwidth_kbps() > r.first.get_bandwidth_kbps()) {
+          return false;
+        } else if (l.first.get_previous_quality_kbps() < r.first.get_previous_quality_kbps()) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+      for(auto it : e_vec) {
+        xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d E: %f",
+            it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_kbps(), it.second);
+      }
     } else if (!live) {
         no_more_data = true;
         break;

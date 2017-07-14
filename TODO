@@ -1,4 +1,6 @@
-1. Persisting q_map
+When switching streams kodi flashes black
+
+1. Persisting q_map and explore_map
 2. Sort the results according to state
 3. Handle timeout from downloading file instead of crashing
 

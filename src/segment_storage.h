@@ -202,6 +202,7 @@ private:
   Reward calculate_reward(Stage stage);
   Reward calculate_reward(State state, Action action, uint32_t variant_stream_index);
   uint32_t best_action(State state);
+  void normalize_q_map();
 private:
   std::list<std::shared_ptr<SegmentReader>> segment_data;
   bool valid_promise;
@@ -238,5 +239,6 @@ private:
   uint32_t number_of_freezes;
   Stage stage;
   std::unordered_map<StateAction, double> q_map;
+  std::unordered_map<StateAction, double> normalized_q_map;
   std::unordered_map<State, double> explore_map;
 };
