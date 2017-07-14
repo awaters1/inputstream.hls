@@ -289,7 +289,9 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     last_freeze_time(std::chrono::high_resolution_clock::now()),
     total_freeze_duration_ms(0),
     number_of_freezes(0),
-    segment_storage(downloader, master_playlist, q_map){
+    segment_storage(downloader, master_playlist, q_map),
+    streams_read(0),
+    last_stream_count(0){
   demux_thread = std::thread(&Session::demux_process, this);
 }
 

@@ -14,6 +14,7 @@
 
 #define LOGTAG                  "[SegmentStorage] "
 #define STREAM_LOGTAG                  "[StreamSwitch] "
+#define RL_LOGTAG                  "[RL] "
 #define RELOAD_LOGTAG "[ReloadPlaylist] "
 
 VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
@@ -200,7 +201,7 @@ void SegmentStorage::download_next_segment() {
 
     lock.unlock();
 
-    bool qlearn = true;
+    bool qlearn = false;
     bool exploring = true;
 
     uint32_t chosen_variant_stream = 0;
@@ -211,6 +212,8 @@ void SegmentStorage::download_next_segment() {
         explore_map[state] = 1;
       }
       if (epsilon < explore_map[state]) {
+        xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "Doing softmax epsilon: %f, explore: %f",
+                  epsilon, explore_map[state]);
         double reward_sum = 0;
         for(size_t i = 0; i < variants.size(); ++i) {
           Action action(variants.at(i).playlist.bandwidth);
@@ -225,6 +228,8 @@ void SegmentStorage::download_next_segment() {
             chosen_variant_stream = i;
           }
         }
+        xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "Chose stream %d with probability %f",
+                          max_probability, chosen_variant_stream);
       } else {
         // chosen_variant_stream is already the best action
       }
@@ -234,6 +239,7 @@ void SegmentStorage::download_next_segment() {
           break;
         }
       }
+      chosen_variant_stream = 0;
     }
 
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
