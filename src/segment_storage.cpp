@@ -22,7 +22,9 @@ VariantStream::VariantStream(hls::MediaPlaylist playlist) : playlist(playlist) {
 
 }
 
-SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<StateAction, double> q_map) :
+SegmentStorage::SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist,
+    std::unordered_map<StateAction, double> q_map,
+    std::unordered_map<State, double> explore_map) :
 downloader(downloader),
 quit_processing(false),
 flush(false),
@@ -34,7 +36,8 @@ number_of_freezes(0),
 time_in_buffer(0),
 time_since_last_freeze_ms(1),
 total_freeze_duration_ms(0),
-q_map(q_map) {
+q_map(q_map),
+explore_map(explore_map){
   for(auto &media_playlist : master_playlist.get_media_playlists()) {
     VariantStream stream(media_playlist);
     stream.last_segment_itr = segments.begin();
@@ -192,6 +195,8 @@ uint32_t SegmentStorage::best_action(State state) {
       max = i;
     }
   }
+  xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "Best action is %d with Q_value: %f bw: %d, buff: %d, prev_qual: %d",
+                            max, max_q, state.get_bandwidth_kbps(), state.get_buffer_level_s(), state.get_previous_quality_kbps());
   chosen_variant_stream = max;
   return chosen_variant_stream;
 }
@@ -241,6 +246,8 @@ void SegmentStorage::download_next_segment() {
             max_probability = probability;
             chosen_variant_stream = i;
           }
+          xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "stream %d with probability %f, kbps: %d",
+                                    i, probability, action.get_current_quality_kbps());
         }
         xbmc->Log(ADDON::LOG_DEBUG, RL_LOGTAG "Chose stream %d with probability %f",
                           chosen_variant_stream, max_probability);
@@ -311,6 +318,7 @@ void SegmentStorage::download_next_segment() {
       std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
       stage.download_time_ms = duration;
+      // TODO: Shouldn't update stage here
       stage.bandwidth_kbps = (data_helper.total_bytes * 1024 * 8) / (duration * 1000);
       downloader->record_bandwidth(stage.bandwidth_kbps);
       xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "Stage: buf: %f kpbs: %f prev_qual: %f curr_qual: %f dl_ms: %f",

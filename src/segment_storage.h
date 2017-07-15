@@ -184,13 +184,15 @@ namespace std {
 
 class SegmentStorage {
 public:
-  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist, std::unordered_map<StateAction, double> q_map);
+  SegmentStorage(Downloader *downloader, hls::MasterPlaylist master_playlist,
+      std::unordered_map<StateAction, double> q_map, std::unordered_map<State, double> explore_map);
   ~SegmentStorage();
   void get_next_segment_reader(std::promise<std::shared_ptr<SegmentReader>> promise, uint64_t time_in_buffer,
       uint32_t total_freeze_duration_ms, uint32_t time_since_last_freeze_ms, uint32_t number_of_freezes);
   double seek_time(double desired_time);
   uint64_t get_total_duration();
   std::unordered_map<StateAction, double> get_q_map() { return q_map; };
+  std::unordered_map<State, double> get_explore_map() { return explore_map; };
 private:
   std::shared_ptr<SegmentReader> start_segment(hls::Segment segment, double time_in_playlist, uint32_t chosen_variant_stream);
   bool can_download_segment();

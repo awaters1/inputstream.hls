@@ -215,6 +215,27 @@ extern "C" {
       }
       fclose(f);
     }
+    std::unordered_map<State, double> explore_map;
+    fn = std::string(props.m_profileFolder) + "explore_map.bin";
+    f = fopen(fn.c_str(), "rb");
+    if (f) {
+      while(true) {
+        uint32_t buff_s;
+        uint32_t bw_kbps;
+        uint32_t prev_qual;
+        double value;
+        size_t ret = fread(&buff_s, sizeof(uint32_t), 1, f);
+        if (!ret) {
+          break;
+        }
+        fread(&bw_kbps, sizeof(uint32_t), 1, f);
+        fread(&prev_qual, sizeof(uint32_t), 1, f);
+        fread(&value, sizeof(double), 1, f);
+        State state(buff_s * 1000, bw_kbps, prev_qual * 1024);
+        explore_map[state] = value;
+      }
+      fclose(f);
+    }
 
     int min_bandwidth(0);
     xbmc->GetSetting("MINBANDWIDTH", (char*)&min_bandwidth);
@@ -233,7 +254,7 @@ extern "C" {
     master_playlist.open(props.m_strURL);
     master_playlist.select_media_playlist();
     hls_session = new KodiSession(master_playlist, bandwidth, props.m_profileFolder,
-        min_bandwidth, max_bandwidth, manual_streams, q_map);
+        min_bandwidth, max_bandwidth, manual_streams, q_map, explore_map);
 
     return true;
   }

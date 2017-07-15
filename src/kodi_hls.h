@@ -29,7 +29,8 @@ class KodiMasterPlaylist : public hls::MasterPlaylist {
 class KodiSession : public hls::Session {
 public:
   KodiSession(KodiMasterPlaylist master_playlist, double bandwidth, std::string profile_path,
-      int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<StateAction, double> q_map);
+      int min_bandwidth, int max_bandwidth, bool manual_streams, std::unordered_map<StateAction, double> q_map,
+      std::unordered_map<State, double> explore_map);
   ~KodiSession();
 protected:
   hls::MediaPlaylist download_playlist(std::string url);
