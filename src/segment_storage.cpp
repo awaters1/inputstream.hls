@@ -143,6 +143,19 @@ Reward SegmentStorage::calculate_reward(State state, Action action, uint32_t var
 
   // Reward
   double b_opt_s = MAX_BUFFER_MS * 2.0 / 3.0 / 1000.0;
+  /*
+  double bw_mod = 1;
+  if (state.get_buffer_level_s() < b_opt_s) {
+    bw_mod = state.get_buffer_level_s() / b_opt_s;
+  }
+  double r_quality = state.get_bandwidth_kbps() * bw_mod - action.get_current_quality_kbps();
+  double r_switches;
+  if (state.get_previous_quality_kbps() < action.get_current_quality_kbps()) {
+    r_switches = -0.5 *std::fabs((double) state.get_previous_quality_kbps() - action.get_current_quality_kbps());
+  } else {
+    r_switches = -std::fabs((double) state.get_previous_quality_kbps() - action.get_current_quality_kbps());
+  }
+  */
   double num = (1.0 + (state.get_buffer_level_s() / b_opt_s));
   double denum = (3 - (LOWEST_BANDWIDTH / lowest_stream_kbps));
   double r_quality = -1.5 * std::fabs(state.get_bandwidth_kbps() * (num / denum) - action.get_current_quality_kbps());
@@ -262,6 +275,7 @@ void SegmentStorage::download_next_segment() {
       }
       chosen_variant_stream = 0;
     }
+    uint32_t original_chosen_stream = chosen_variant_stream;
 
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Switching from variant stream %d because we will never load", chosen_variant_stream);
@@ -271,6 +285,7 @@ void SegmentStorage::download_next_segment() {
       std::lock_guard<std::mutex> lock(data_lock);
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "We cannot load segment ever %d", current_segment_itr->media_sequence);
       ++current_segment_itr;
+      chosen_variant_stream = original_chosen_stream;
     }
 
     stage.current_quality_bps = variants.at(chosen_variant_stream).playlist.bandwidth;

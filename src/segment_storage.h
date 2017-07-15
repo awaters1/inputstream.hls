@@ -29,8 +29,8 @@
 const int RELOAD_DELAY_MS = 1000;
 const size_t MAX_SEGMENTS =  6;
 const int LOWEST_BANDWIDTH = 500;
-const double ALPHA = 0.1;
-const double GAMMA = 0.9;
+const double ALPHA = 0.5;
+const double GAMMA = 0.5;
 const double DELTA = 1 / 7.0;// TODO: Should be based on # of variants
 const double INVERSE_SENSITIVITY = 10;
 const double TEMPERATURE = 0.5;
