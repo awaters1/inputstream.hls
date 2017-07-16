@@ -276,6 +276,8 @@ void SegmentStorage::download_next_segment() {
       }
       chosen_variant_stream = 0;
     }
+    // TODO: Testisg flashing
+    chosen_variant_stream = rand() % (3);
     uint32_t original_chosen_stream = chosen_variant_stream;
 
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
