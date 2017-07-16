@@ -76,7 +76,8 @@ std::shared_ptr<SegmentReader> SegmentStorage::start_segment(hls::Segment segmen
 
 bool SegmentStorage::has_download_item(uint32_t chosen_variant_stream) {
   std::lock_guard<std::mutex> lock(data_lock);
-  return current_segment_itr != segments.end() && current_segment_itr->details.at(chosen_variant_stream).valid;
+  return current_segment_itr != segments.end() && chosen_variant_stream < variants.size() &&
+      current_segment_itr->details.at(chosen_variant_stream).valid;
 }
 
 bool SegmentStorage::will_have_download_item(uint32_t chosen_variant_stream) {
@@ -310,19 +311,24 @@ void SegmentStorage::download_next_segment() {
       data_helper.segment_reader = segment_reader;
       std::string url = segment.get_url();
       std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+      bool failed = false;
       if (url.find("http") != std::string::npos) {
         downloader->download(url, segment.byte_offset, segment.byte_length,
             [&](std::string data) -> bool {
-              this->process_data(data_helper, data);
-              if (data_lock.try_lock()) {
-                if (quit_processing || flush) {
-                  data_lock.unlock();
-                  return false;
-                } else {
-                  data_lock.unlock();
+              if (!data.empty()) {
+                this->process_data(data_helper, data);
+                if (data_lock.try_lock()) {
+                  if (quit_processing || flush) {
+                    data_lock.unlock();
+                    return false;
+                  } else {
+                    data_lock.unlock();
+                  }
                 }
+                return true;
+              } else {
+                failed = true;
               }
-              return true;
         });
       } else {
         FileDownloader file_downloader;
@@ -340,13 +346,17 @@ void SegmentStorage::download_next_segment() {
           stage.buffer_level_ms, stage.bandwidth_kbps, stage.previous_quality_bps,
           stage.current_quality_bps, stage.download_time_ms);
       lock.lock();
-      if (!flush) {
-        ++current_segment_itr;
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
+      if (!failed) {
+        if (!flush) {
+          ++current_segment_itr;
+          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Finished download of %d", segment.media_sequence);
+        } else {
+          segment_data.clear();
+          flush = false;
+          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushed download of %d", segment.media_sequence);
+        }
       } else {
-        segment_data.clear();
-        flush = false;
-        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Flushed download of %d", segment.media_sequence);
+        xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Failed download of %d, trying again", segment.media_sequence);
       }
 
       // Q Learn

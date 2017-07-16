@@ -1,6 +1,7 @@
 When switching streams kodi flashes black
 
 3. Handle timeout from downloading file instead of crashing
+(also http errors)
 
 1. Have to fix up seeking, something wrong with the timing, maybe due to discontinuity or something
 

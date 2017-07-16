@@ -65,7 +65,7 @@ void KodiDownloader::download(std::string url, uint32_t byte_offset, uint32_t by
 
   if (!nbReadOverall)
   {
-    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid", url.c_str());
+    xbmc->Log(ADDON::LOG_ERROR, "Download %s doesn't provide any data: invalid, nbRead: %d", url.c_str(), nbRead);
     func("");
   }
 
