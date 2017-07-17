@@ -220,7 +220,11 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         if (pkt.streamChange)
         {
-          add_in_stream_change = true;
+          if (m_nosetup.empty()) {
+              xbmc->Log(LOG_DEBUG, LOGTAG "%s: stream change after no setup", __FUNCTION__);
+          } else {
+              add_in_stream_change = true;
+          }
           update_pvr_stream(pkt.pid);
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);

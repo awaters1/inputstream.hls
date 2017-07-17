@@ -88,8 +88,13 @@ void hls::Session::read_next_pkt() {
    }
    if (awaiting_stream_setup) {
      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+     xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Awaiting stream setup", __FUNCTION__);
+     DemuxContainer container;
+     container.demux_packet = ipsh->AllocateDemuxPacket(0);
+     current_pkt = container;
+     return;
    }
-   if (read_packet_buffer.empty() || awaiting_stream_setup) {
+   if (read_packet_buffer.empty()) {
      if (quit_processing) {
        xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
        current_pkt = DemuxContainer();
@@ -99,9 +104,7 @@ void hls::Session::read_next_pkt() {
        container.demux_packet = ipsh->AllocateDemuxPacket(0);
        current_pkt = container;
      }
-     if (!awaiting_stream_setup) {
-       ++packet_stalls;
-     }
+     ++packet_stalls;
      return;
    }
    if (packet_stalls > PACKET_STALLS_PER_FREEZE) {
