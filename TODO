@@ -1,4 +1,6 @@
 When switching streams kodi flashes black
+seems to be from changing the stream resolution
+-> Need to handle the stream switching better, it keeps messing up
 
 3. Handle timeout from downloading file instead of crashing
 (also http errors)

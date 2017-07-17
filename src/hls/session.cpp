@@ -67,6 +67,10 @@ DemuxContainer hls::Session::get_current_pkt() {
   }
   count = (count + 1) % 250;
 
+  if (pkt && pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
+    awaiting_stream_setup = true;
+    xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Waiting for stream change", __FUNCTION__);
+  }
   return current_pkt;
 }
 
@@ -82,7 +86,10 @@ void hls::Session::read_next_pkt() {
        xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, read_packet_buffer.size());
      }
    }
-   if (read_packet_buffer.empty()) {
+   if (awaiting_stream_setup) {
+     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+   }
+   if (read_packet_buffer.empty() || awaiting_stream_setup) {
      if (quit_processing) {
        xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Quit read", __FUNCTION__);
        current_pkt = DemuxContainer();
@@ -92,7 +99,9 @@ void hls::Session::read_next_pkt() {
        container.demux_packet = ipsh->AllocateDemuxPacket(0);
        current_pkt = container;
      }
-     ++packet_stalls;
+     if (!awaiting_stream_setup) {
+       ++packet_stalls;
+     }
      return;
    }
    if (packet_stalls > PACKET_STALLS_PER_FREEZE) {
@@ -165,6 +174,7 @@ void hls::Session::demux_process() {
     // and demux the data coming in from the segment reader
     bool requires_new_demuxer = last_variant_stream != reader->get_variant_stream_index();
     last_variant_stream = reader->get_variant_stream_index();
+    requires_new_demuxer = false;
     if (!demuxer || requires_new_demuxer) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Making a new demuxer");
       demuxer = std::make_unique<Demux>();
@@ -227,17 +237,39 @@ INPUTSTREAM_INFO hls::Session::get_stream(uint32_t stream_id) {
   if (!streams.empty()) {
     INPUTSTREAM_INFO *streams_info = streams.front();
     for(size_t i = 0; i < last_stream_count; ++i) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Stream data %d", __FUNCTION__, streams_info[i].m_pID);
       if (streams_info[i].m_pID == stream_id) {
         info = streams_info[i];
+        ++streams_read;
+        ++enables_required;
+        break;
       }
     }
+    if (streams_read == 0) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Unable to find stream", __FUNCTION__);
+    }
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Streams read %d total %d", __FUNCTION__, streams_read, last_stream_count);
     if (streams_read == last_stream_count) {
       streams.pop_front();
+
     }
   } else {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Trying to get missing stream", __FUNCTION__);
   }
+  if (info.m_pID == 0) {
+    xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Unable to find stream info", __FUNCTION__);
+  }
   return info;
+}
+
+void hls::Session::enable_stream(uint32_t stream_id, bool enable) {
+  // TODO: Testing
+  if (enables_required > 0) {
+    --enables_required;
+    if (enables_required == 0) {
+      awaiting_stream_setup = false;
+    }
+  }
 }
 
 
@@ -259,6 +291,7 @@ bool hls::Session::seek_time(double time, bool backwards, double *startpts) {
     read_packet_buffer.clear();
     read_start_time = 0;
     read_end_time = 0;
+    awaiting_stream_setup = false;
     {
       std::unique_lock<std::mutex> lock(demux_mutex);
       flush_demux = true;
@@ -292,7 +325,9 @@ hls::Session::Session(MasterPlaylist master_playlist, Downloader *downloader,
     number_of_freezes(0),
     segment_storage(downloader, master_playlist, q_map, explore_map),
     streams_read(0),
-    last_stream_count(0){
+    last_stream_count(0),
+    awaiting_stream_setup(false),
+    enables_required(0) {
   demux_thread = std::thread(&Session::demux_process, this);
 }
 

@@ -32,7 +32,7 @@ TEST_F(SessionTest, TotalTime) {
 }
 
 TEST_F(SessionTest, GetStreams) {
-  session->read_next_pkt();
+  // session->read_next_pkt();
   EXPECT_EQ(2, session->get_streams().m_streamCount);
 }
 

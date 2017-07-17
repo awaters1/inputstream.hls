@@ -29,7 +29,7 @@
 #include "../demuxer/demux.h"
 #include "../segment_storage.h"
 
-const int PACKET_TIMEOUT_MS = 10;
+const int PACKET_TIMEOUT_MS = 100;
 const int PACKET_STALLS_PER_FREEZE = 1000 / PACKET_TIMEOUT_MS;
 
 namespace hls {
@@ -46,6 +46,7 @@ namespace hls {
 
     INPUTSTREAM_IDS get_streams();
     INPUTSTREAM_INFO get_stream(uint32_t stream_id);
+    void enable_stream(uint32_t stream_id, bool enable);
 
     DemuxContainer get_current_pkt();
     void read_next_pkt();
@@ -68,8 +69,10 @@ namespace hls {
     bool flush_demux;
     std::list<INPUTSTREAM_IDS> stream_ids;
     std::list<INPUTSTREAM_INFO*> streams;
+    uint32_t enables_required;
     uint32_t last_stream_count;
     uint32_t streams_read;
+    bool awaiting_stream_setup;
   private:
     std::atomic<uint64_t> read_start_time;
     std::atomic<uint64_t> read_end_time;

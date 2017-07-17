@@ -82,6 +82,9 @@ bool SegmentStorage::has_download_item(uint32_t chosen_variant_stream) {
 
 bool SegmentStorage::will_have_download_item(uint32_t chosen_variant_stream) {
   std::lock_guard<std::mutex> lock(data_lock);
+  if (chosen_variant_stream >= variants.size()) {
+    return false;
+  }
   bool has_segment_after = false;
   for(auto itr = current_segment_itr; itr != segments.end(); ++itr) {
     has_segment_after |= itr->details.at(chosen_variant_stream).valid;
@@ -277,7 +280,10 @@ void SegmentStorage::download_next_segment() {
       chosen_variant_stream = 0;
     }
     // TODO: Testisg flashing
-    chosen_variant_stream = rand() % (3);
+    chosen_variant_stream = rand() % 2;
+    if (chosen_variant_stream == 1) {
+      chosen_variant_stream = 2;
+    }
     uint32_t original_chosen_stream = chosen_variant_stream;
 
     while (!has_download_item(chosen_variant_stream) && !will_have_download_item(chosen_variant_stream) && chosen_variant_stream < variants.size()) {
@@ -392,50 +398,52 @@ void SegmentStorage::download_next_segment() {
       stage = next_stage;
 
       // Debug
-      std::vector<std::pair<StateAction, double>> q_vec(q_map.begin(), q_map.end());
-      std::sort(q_vec.begin(), q_vec.end(), [](std::pair<StateAction, double> l, std::pair<StateAction, double> r) -> bool {
-        if (l.first.state.get_buffer_level_s() < r.first.state.get_buffer_level_s()) {
-          return true;
-        } else if (l.first.state.get_buffer_level_s() > r.first.state.get_buffer_level_s()) {
-          return false;
-        } else if (l.first.state.get_bandwidth_kbps() < r.first.state.get_bandwidth_kbps()) {
-          return true;
-        } else if (l.first.state.get_bandwidth_kbps() > r.first.state.get_bandwidth_kbps()) {
-          return false;
-        } else if (l.first.state.get_previous_quality_kbps() < r.first.state.get_previous_quality_kbps()) {
-          return true;
-        } else if (l.first.state.get_previous_quality_kbps() > r.first.state.get_previous_quality_kbps()) {
-          return false;
-        } else if (l.first.action.get_current_quality_kbps() > r.first.action.get_current_quality_kbps()) {
-          return true;
-        } else {
-          return false;
+      if (false) {
+        std::vector<std::pair<StateAction, double>> q_vec(q_map.begin(), q_map.end());
+        std::sort(q_vec.begin(), q_vec.end(), [](std::pair<StateAction, double> l, std::pair<StateAction, double> r) -> bool {
+          if (l.first.state.get_buffer_level_s() < r.first.state.get_buffer_level_s()) {
+            return true;
+          } else if (l.first.state.get_buffer_level_s() > r.first.state.get_buffer_level_s()) {
+            return false;
+          } else if (l.first.state.get_bandwidth_kbps() < r.first.state.get_bandwidth_kbps()) {
+            return true;
+          } else if (l.first.state.get_bandwidth_kbps() > r.first.state.get_bandwidth_kbps()) {
+            return false;
+          } else if (l.first.state.get_previous_quality_kbps() < r.first.state.get_previous_quality_kbps()) {
+            return true;
+          } else if (l.first.state.get_previous_quality_kbps() > r.first.state.get_previous_quality_kbps()) {
+            return false;
+          } else if (l.first.action.get_current_quality_kbps() > r.first.action.get_current_quality_kbps()) {
+            return true;
+          } else {
+            return false;
+          }
+        });
+        for(auto it : q_vec) {
+          xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d curr_qual: %d  Q: %f",
+              it.first.state.get_buffer_level_s(), it.first.state.get_bandwidth_kbps(), it.first.state.get_previous_quality_kbps(),
+              it.first.action.get_current_quality_kbps(), it.second);
         }
-      });
-      for(auto it : q_vec) {
-        xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d curr_qual: %d  Q: %f",
-            it.first.state.get_buffer_level_s(), it.first.state.get_bandwidth_kbps(), it.first.state.get_previous_quality_kbps(),
-            it.first.action.get_current_quality_kbps(), it.second);
-      }
-      std::vector<std::pair<State, double>> e_vec(explore_map.begin(), explore_map.end());
-      std::sort(e_vec.begin(), e_vec.end(), [](std::pair<State, double> l, std::pair<State, double> r) -> bool {
-        if (l.first.get_buffer_level_s() < r.first.get_buffer_level_s()) {
-          return true;
-        } else if (l.first.get_buffer_level_s() > r.first.get_buffer_level_s()) {
-          return false;
-        } else if (l.first.get_bandwidth_kbps() < r.first.get_bandwidth_kbps()) {
-          return true;
-        } else if (l.first.get_bandwidth_kbps() > r.first.get_bandwidth_kbps()) {
-          return false;
-        } else if (l.first.get_previous_quality_kbps() < r.first.get_previous_quality_kbps()) {
-          return true;
-        } else {
-          return false;
+        std::vector<std::pair<State, double>> e_vec(explore_map.begin(), explore_map.end());
+        std::sort(e_vec.begin(), e_vec.end(), [](std::pair<State, double> l, std::pair<State, double> r) -> bool {
+          if (l.first.get_buffer_level_s() < r.first.get_buffer_level_s()) {
+            return true;
+          } else if (l.first.get_buffer_level_s() > r.first.get_buffer_level_s()) {
+            return false;
+          } else if (l.first.get_bandwidth_kbps() < r.first.get_bandwidth_kbps()) {
+            return true;
+          } else if (l.first.get_bandwidth_kbps() > r.first.get_bandwidth_kbps()) {
+            return false;
+          } else if (l.first.get_previous_quality_kbps() < r.first.get_previous_quality_kbps()) {
+            return true;
+          } else {
+            return false;
+          }
+        });
+        for(auto it : e_vec) {
+          xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d E: %f",
+              it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_kbps(), it.second);
         }
-      });
-      for(auto it : e_vec) {
-        xbmc->Log(ADDON::LOG_DEBUG, STREAM_LOGTAG "buffer_s: %d bw_kbps: %d prev_qual: %d E: %f",
-            it.first.get_buffer_level_s(), it.first.get_bandwidth_kbps(), it.first.get_previous_quality_kbps(), it.second);
       }
     } else if (!live) {
         no_more_data = true;

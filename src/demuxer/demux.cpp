@@ -79,6 +79,7 @@ Demux::Demux()
   , m_readTime(0)
   , include_discontinuity(false)
   , segment_reader(nullptr)
+  , reader_status(SegmentReaderStatus::SUCCESS)
 {
   xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s Starting demux", __FUNCTION__);
   memset(&m_streams, 0, sizeof(INPUTSTREAM_IDS));
@@ -201,8 +202,7 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
     return DemuxStatus::ERROR;
   }
 
-  bool return_stream_setup = false;
-  bool added_stream_change = false;
+  bool add_in_stream_change = false;
   int ret = 0;
 
   while (true)
@@ -220,15 +220,7 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         if (pkt.streamChange)
         {
-          // TODO: Tweak stream change messages because at the beginning
-          // of the stream
-          // We cannot wait to push the stream change because our data packets will get in for one stream
-          // and start playing while the other stream is attempting setup, so we updated the streams
-          // and then when they are done updating we return from process to notify the caller
-          if (m_nosetup.empty()) {
-            demux_packets.push_back(get_stream_change());
-            added_stream_change = true;
-          }
+          add_in_stream_change = true;
           update_pvr_stream(pkt.pid);
         }
         DemuxPacket* dxp = stream_pvr_data(&pkt);
@@ -248,8 +240,10 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         xbmc->Log(LOG_DEBUG, LOGTAG "%s: processing stream change", __FUNCTION__);
         populate_pvr_streams();
-        demux_packets.push_back(get_stream_change());
-        added_stream_change = true;
+        if (!demux_packets.empty()) {
+          xbmc->Log(LOG_DEBUG, LOGTAG "%s: exiting demux due to stream change", __FUNCTION__);
+          break;
+        }
       }
     }
 
@@ -265,6 +259,13 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       break;
     }
 
+  }
+
+  if (add_in_stream_change){
+    DemuxContainer stream_change = get_stream_change();
+    stream_change.current_time = demux_packets.front().current_time;
+    stream_change.time_in_playlist = demux_packets.front().time_in_playlist;
+    demux_packets.insert(demux_packets.begin(), stream_change);
   }
   // TODO: Need to be able to detect end of segmend and an actually error
   xbmc->Log(LOG_DEBUG, LOGTAG "%s: stopped with status %d", __FUNCTION__, ret);

@@ -33,7 +33,7 @@
 
 #define AV_BUFFER_SIZE          131072
 
-const int DEMUX_BUFFER_SIZE = 100;
+const int DEMUX_BUFFER_SIZE = 250;
 
 enum DemuxStatus {
   SEGMENT_DONE,

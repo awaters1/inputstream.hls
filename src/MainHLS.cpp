@@ -317,6 +317,9 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
     // TODO: Unsure if I need to support EnableStream
+    if (hls_session) {
+      hls_session->enable_stream(streamid, enable);
+    }
   }
 
   // Doesn't cause any skpping, so it is something related
@@ -372,6 +375,7 @@ extern "C" {
 
     DemuxContainer demux_container = hls_session->get_current_pkt();
     DemuxPacket *packet = demux_container.demux_packet;
+    xbmc->Log(ADDON::LOG_DEBUG, "DemuxRead");
     /*
     if (!packet) {
       return ipsh->AllocateDemuxPacket(0);
