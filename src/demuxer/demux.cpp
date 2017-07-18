@@ -220,8 +220,10 @@ DemuxStatus Demux::Process(std::vector<DemuxContainer> &demux_packets)
       {
         if (pkt.streamChange)
         {
+          xbmc->Log(LOG_DEBUG, LOGTAG "%s: stream change", __FUNCTION__);
           if (m_nosetup.empty()) {
               xbmc->Log(LOG_DEBUG, LOGTAG "%s: stream change after no setup", __FUNCTION__);
+              demux_packets.push_back(get_stream_change());
           } else {
               add_in_stream_change = true;
           }

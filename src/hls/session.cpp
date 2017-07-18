@@ -58,8 +58,12 @@ DemuxContainer hls::Session::get_current_pkt() {
   }
 
   if (pkt && pkt->iStreamId == DMX_SPECIALID_STREAMCHANGE) {
+    // TODO: Leaks
       stream_ids.push_back(current_pkt.stream_ids);
-      streams.push_back(current_pkt.streams);
+      INPUTSTREAM_INFO *info = new INPUTSTREAM_INFO[INPUTSTREAM_IDS::MAX_STREAM_COUNT];
+      memcpy(info, current_pkt.streams,
+               sizeof(INPUTSTREAM_INFO) * INPUTSTREAM_IDS::MAX_STREAM_COUNT);
+      streams.push_back(info);
   }
   if (count == 0) {
     xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "PTS: %f DTS: %f",
@@ -86,7 +90,7 @@ void hls::Session::read_next_pkt() {
        xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Loaded %d packets", __FUNCTION__, read_packet_buffer.size());
      }
    }
-   if (awaiting_stream_setup) {
+   if (awaiting_stream_setup && false) {
      std::this_thread::sleep_for(std::chrono::milliseconds(100));
      xbmc->Log(ADDON::LOG_NOTICE, LOGTAG "%s: Awaiting stream setup", __FUNCTION__);
      DemuxContainer container;
@@ -157,6 +161,7 @@ void hls::Session::demux_process() {
       total_time = write_end_time - read_start_time;
     }
     if (total_time >= MAX_BUFFER_MS) {
+      xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Sleeping demux due to full buffer", __FUNCTION__);
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       continue;
     }
