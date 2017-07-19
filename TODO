@@ -1,6 +1,11 @@
 When switching streams kodi flashes black
 seems to be from changing the stream resolution
 -> Need to handle the stream switching better, it keeps messing up
+-> I think the problem is that the DMX_SPECIALID_STREAMCHANGE
+goes into Kodi's cache, and as soon as kodi sees it it will
+call GetStreams, so the streams are updated while packets from
+the old stream are being rendered, so by the time the last set of packets
+come in the stream information is out of date
 
 3. Handle timeout from downloading file instead of crashing
 (also http errors)

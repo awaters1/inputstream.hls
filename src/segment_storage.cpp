@@ -282,7 +282,7 @@ void SegmentStorage::download_next_segment() {
     // TODO: Testisg flashing
     chosen_variant_stream = rand() % 2;
     if (chosen_variant_stream == 1) {
-      chosen_variant_stream = 2;
+      chosen_variant_stream = 1;
     }
     uint32_t original_chosen_stream = chosen_variant_stream;
 
@@ -596,6 +596,7 @@ void SegmentStorage::reload_playlist_thread() {
       current_variant_stream = it;
     }
   }
+  current_variant_stream = variants.begin();
   xbmc->Log(ADDON::LOG_DEBUG, RELOAD_LOGTAG "Reload starting with %d", current_variant_stream->playlist.bandwidth);
   while(!quit_processing && (!all_loaded_once || live)) {
     std::unique_lock<std::mutex> lock(data_lock);

@@ -25,7 +25,7 @@
 #define DVD_TIME_BASE 1000000
 
 const int SEGMENT_TIMEOUT_DELAY = 60000;
-const int MAX_BUFFER_MS = 8000;
+const int MAX_BUFFER_MS = 12000;
 
 extern ADDON::CHelper_libXBMC_addon *xbmc;
 extern std::uint16_t kodiDisplayWidth, kodiDisplayHeight;

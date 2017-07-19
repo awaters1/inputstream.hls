@@ -182,7 +182,6 @@ void hls::Session::demux_process() {
     // and demux the data coming in from the segment reader
     bool requires_new_demuxer = last_variant_stream != reader->get_variant_stream_index();
     last_variant_stream = reader->get_variant_stream_index();
-    requires_new_demuxer = false;
     if (!demuxer || requires_new_demuxer) {
       xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "Making a new demuxer");
       demuxer = std::make_unique<Demux>();
@@ -202,6 +201,11 @@ void hls::Session::demux_process() {
         break;
       } else {
          std::unique_lock<std::mutex> lock(demux_mutex);
+         // TODO: Testing demuxerId
+         for(auto &it : write_packet_buffer) {
+             it.demux_packet->demuxerId = last_variant_stream;
+         }
+
          write_packet_buffer.insert(write_packet_buffer.end(), demux_packets.begin(), demux_packets.end());
          xbmc->Log(ADDON::LOG_DEBUG, LOGTAG "%s: Copied %d packets, total: %d", __FUNCTION__, demux_packets.size(),
              write_packet_buffer.size());
